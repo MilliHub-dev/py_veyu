@@ -2,7 +2,12 @@
 
 ### Windows Instructions
 
-1. Activate the virtual environment:
+1. Create the virtual environment:
+   ```bash
+   python -m venv venv
+   ```
+
+2. Activate the virtual environment:
    ```bash
    venv\Scripts\activate
    ```
