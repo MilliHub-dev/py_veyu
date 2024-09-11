@@ -1,0 +1,130 @@
+from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Group, PermissionsMixin
+from rest_framework.authtoken.models import Token
+from django.contrib.auth.hashers import make_password
+from utils.models import DbModel
+from django.utils import timezone
+
+
+
+class AccountManager(BaseUserManager):
+
+    def _create_user(self, email, password=None, **extra_fields):
+        """
+        Create and save a user with the given username, email, and password.
+        """
+        if not email:
+            raise ValueError("The given email must be set")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.password = make_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
+        return self._create_user(email, password, **extra_fields)
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        
+        return self._create_user(email, password, **extra_fields)
+
+
+class Account(AbstractBaseUser, PermissionsMixin, DbModel):
+    USER_TYPES = {
+        'customer': 'Customer Account',
+        'mech': 'Mechanic Account',
+        'staff': 'Staff Account',
+    }
+
+    api_token = models.ForeignKey(Token, on_delete=models.SET_NULL, blank=True, null=True)
+    image = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
+    email = models.EmailField(blank=False, unique=True)
+    verified_email = models.BooleanField(default=False)
+    
+    role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
+    
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+
+    date_joined = models.DateTimeField(default=timezone.now)
+    user_type = models.CharField(max_length=20, default='staff', choices=USER_TYPES)
+    
+    objects = AccountManager()
+
+    EMAIL_FIELD = "email"
+    USERNAME_FIELD = 'email'
+
+
+
+class Mechanic(DbModel):
+    available = models.BooleanField(default=True)
+    services = models.ManyToManyField('Service', blank=True)
+    current_job = models.ForeignKey('ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
+    job_history = models.ManyToManyField('ServiceBooking', blank=True, related_name='job_history')
+    ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='reviews')
+
+    @property
+    def avg_rating(self):
+        return self    
+
+# class BillingInformation(DbModel):
+#     pass
+
+
+class Location(DbModel):
+    country = models.CharField(max_length=2, default='NG')
+    state = models.CharField(max_length=200)
+    city = models.CharField(max_length=200)
+    address = models.CharField(max_length=300)
+    zip_code = models.CharField(max_length=6, blank=True, null=True)
+    added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
+    
+
+
+
+class Customer(DbModel):
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    orders = models.ManyToManyField('rentals.Order', blank=True, related_name='orders')
+    service_history = models.ManyToManyField('Service', blank=True)
+
+    # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
+    # billing_info = models.ManyToManyField("BillingInformation", blank=True)
+    location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
+
+
+
+
+class Service(DbModel):
+    RATES = {
+        'flat': 'Flat Rate', 
+        'hourly': 'Hourly Rate', 
+    }
+    title = models.CharField(max_length=400, unique=True)
+    description = models.TextField(max_length=1200, blank=True, null=True)
+    charge = models.DecimalField(blank=True, null=True, max_digits=1000, decimal_places=2)
+    charge_rate = models.CharField(default='flat', max_length=20, choices=RATES)
+
+
+class ServiceBooking(DbModel):
+    SERVICE_DELIVERY = {
+        'emergency': 'Emergency Assistance',
+        'routine': 'Routine Check',
+    }
+    mechanic = models.ForeignKey('Mechanic', on_delete=models.CASCADE)
+    client_feedback = models.ForeignKey('feedback.Rating', blank=True, null=True, on_delete=models.SET_NULL)
+    completed = models.BooleanField(default=False)
+    service_delivery = models.CharField(max_length=20, default='routine', choices=SERVICE_DELIVERY)
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE)
+

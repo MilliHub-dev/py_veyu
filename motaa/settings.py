@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = Env()
 Env.read_env(BASE_DIR / '.env')
 
-SECRET_KEY = 'django-insecure-n4qk84ght_$juoy%l1+hb7e=&_mzaq$2!mw7j^i78zwahy8f^#'
+SECRET_KEY = env.get_value('DJANGO_SECRET_KEY')
 
 DEBUG = env.bool("DEBUG", False)
 
@@ -30,11 +30,24 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Motaa Apps
+    'accounts',
+    'utils',
+    'feedback',
+    'rentals',
+
+
     # Third Party Apps
     'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
 ]
 
+
+AUTH_USER_MODEL = 'accounts.Account'
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -111,8 +124,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'uploads'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# REST FRAMEWORK
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentications',
+        'rest_framework.authentication.SessionAuthentications',
+        'rest_framework.authentication.TokenAuthentications',
+    ] if DEBUG else ['rest_framework.authentication.TokenAuthentications',]
+}
+
+
+CORS_ORIGINS_ALLOW_ALL = True
+
