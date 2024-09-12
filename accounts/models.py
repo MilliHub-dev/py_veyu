@@ -66,9 +66,14 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     EMAIL_FIELD = "email"
     USERNAME_FIELD = 'email'
 
+    @property
+    def name(self):
+        return f'{self.first_name} {self.last_name if self.last_name else ""}'
+
 
 
 class Mechanic(DbModel):
+    account = models.OneToOneField('Account', on_delete=models.CASCADE)
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('Service', blank=True)
     current_job = models.ForeignKey('ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
@@ -77,7 +82,7 @@ class Mechanic(DbModel):
 
     @property
     def avg_rating(self):
-        return self    
+        return self.account.name
 
 # class BillingInformation(DbModel):
 #     pass
@@ -95,13 +100,17 @@ class Location(DbModel):
 
 
 class Customer(DbModel):
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    account = models.OneToOneField('Account', on_delete=models.CASCADE)
+    phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     orders = models.ManyToManyField('rentals.Order', blank=True, related_name='orders')
     service_history = models.ManyToManyField('Service', blank=True)
 
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
     # billing_info = models.ManyToManyField("BillingInformation", blank=True)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
+
+    def __str__(self):
+        return self.account.name
 
 
 

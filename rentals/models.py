@@ -3,22 +3,34 @@ from utils.models import DbModel
 from decimal import Decimal
 
 
+class VehicleImage(DbModel):
+    image = models.ImageField(upload_to='vehicles/images/')
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
+
 # Create your models here.
 class Vehicle(DbModel):
     name = models.CharField(max_length=200)
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200)
-    last_rented = models.DateTimeField(max_length=200)
+    last_rented = models.DateTimeField(max_length=200, blank=True, null=True)
     current_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL)
     available = models.BooleanField(default=False)
     for_sale = models.BooleanField(default=False)
     sold = models.BooleanField(default=False)
     category = models.ForeignKey('VehicleCategory', on_delete=models.SET_NULL, blank=True, null=True)
     tags = models.ManyToManyField('VehicleTag', blank=True)
+    images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
+    video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 
 class VehicleCategory(DbModel):
     name = models.CharField(max_length=200)
+
+    class Meta:
+        verbose_name_plural = 'Vehicle Categories'
 
 
 class VehicleTag(DbModel):

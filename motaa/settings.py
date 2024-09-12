@@ -45,6 +45,7 @@ INSTALLED_APPS = [
 
 
 AUTH_USER_MODEL = 'accounts.Account'
+SMS_API_KEY = env.get_value('AFRICAS_TALKING_API_KEY')
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -137,12 +138,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST FRAMEWORK
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentications',
-        'rest_framework.authentication.SessionAuthentications',
-        'rest_framework.authentication.TokenAuthentications',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ] if DEBUG else ['rest_framework.authentication.TokenAuthentications',]
 }
 
 
 CORS_ORIGINS_ALLOW_ALL = True
+
+
+# EMAIL
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD')
+
 
