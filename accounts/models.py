@@ -68,7 +68,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     def save(self, *args, **kwargs):
         if self.id and not self.api_token:
-            self.api_token = Token.objects.create(user=self)
+            self.api_token = Token.objects.get_or_create(user=self)[0]
         super().save(*args, **kwargs)
 
     @property
