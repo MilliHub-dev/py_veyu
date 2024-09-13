@@ -43,7 +43,6 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         'customer': 'Customer Account',
         'dealer': 'Car Dealer',
         'mech': 'Mechanic',
-        'staff': 'Staff Account',
     }
 
     api_token = models.ForeignKey(Token, on_delete=models.SET_NULL, blank=True, null=True)

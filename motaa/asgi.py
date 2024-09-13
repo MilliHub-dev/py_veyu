@@ -8,9 +8,36 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 """
 
 import os
-
+from channels.auth import AuthMiddlewareStack
 from django.core.asgi import get_asgi_application
+from feedback.chat.routing import websocket_urlpatterns
+from channels.routing import (
+    ProtocolTypeRouter,
+    URLRouter
+)
+from channels.security.websocket import AllowedHostsOriginValidator
+from feedback.chat.middleware import (
+    ApiTokenAuthMiddleware,
+)
+
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'motaa.settings')
 
-application = get_asgi_application()
+# django's default application instance
+django_asgi_app = get_asgi_application()
+
+# django-channels wrapped application instance
+
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": AllowedHostsOriginValidator(
+        AuthMiddlewareStack(
+            ApiTokenAuthMiddleware(
+                URLRouter(websocket_urlpatterns)
+            )
+        )
+    )
+})
+
+
+

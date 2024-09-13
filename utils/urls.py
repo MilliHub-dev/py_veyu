@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
-    email_view
+    index_view,
+    chat_view,
 )
 
 
@@ -9,8 +10,8 @@ app_name = 'utils'
 
 
 urlpatterns = [
-    path('', email_view, name='email'),
-    path('<email>/', email_view, name='email-view'),
+    path('', index_view, name='email'),
+    path('<room_name>/', chat_view, name='email'),
 ]
 
 

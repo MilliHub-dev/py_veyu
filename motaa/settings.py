@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 env = Env()
-Env.read_env(BASE_DIR / '.env')
+Env.read_env(BASE_DIR / '.env.local')
 
 SECRET_KEY = env.get_value('DJANGO_SECRET_KEY')
 
@@ -23,6 +23,8 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
+    # daphne
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -41,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'channels',
 ]
 
 
@@ -77,6 +80,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'motaa.wsgi.application'
+
+ASGI_APPLICATION = "motaa.asgi.application"
 
 
 # Database
@@ -161,4 +166,12 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD')
 
-
+# DJANGO CHANNELS
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
