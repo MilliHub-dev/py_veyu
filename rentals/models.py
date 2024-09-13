@@ -9,9 +9,17 @@ class VehicleImage(DbModel):
 
 # Create your models here.
 class Vehicle(DbModel):
+    CONDITIONS = {
+       'new' :'New',
+       'uk-used' :'Used (UK)',
+       'ng-used' :'Used (Nigerian)',
+    }
+
+    dealer = models.ForeignKey('accounts.Dealer', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
     name = models.CharField(max_length=200)
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200)
+    condition = models.CharField(max_length=20, default='uk-used')
     last_rented = models.DateTimeField(max_length=200, blank=True, null=True)
     current_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL)
     available = models.BooleanField(default=False)

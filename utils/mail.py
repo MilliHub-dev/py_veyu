@@ -17,7 +17,7 @@ def send_email(subject, template, context, recipients):
         recipients
     )
     email.content_subtype = 'html'
-    email.send()
+    email.send(fail_silently=False)
 
 
 

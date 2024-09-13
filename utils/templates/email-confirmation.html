@@ -50,6 +50,12 @@
             text-align: center;
             margin-top: 20px;
         }
+        .code{
+            padding: 10px 20px;
+            background-color: rgb(47, 47, 47);
+            font-weight: 600;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -63,11 +69,12 @@
             </p>
             <p>We need to confirm your email address 
                 so that we can send you Security alerts, Updates, and Promotional offers.
+                <br />
+                <br />
+                Here's your OTP:
             </p>
+            <p class="code"> {{ code }} </p>
         </div>
-
-        <a href="{{ job_link }}" class="button"> Confirm Email </a>
-    
     </div>
 </body>
 </html>

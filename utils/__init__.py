@@ -32,7 +32,7 @@ class FieldMissingException(Exception):
 def make_UUID():
     return uuid.uuid1()
 
-def make_random():
+def make_random_otp():
     rand = f'{random.randrange(100, 999)}-{random.randrange(111, 999)}'
     print(rand)
     return rand
