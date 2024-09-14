@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'utils',
     'feedback',
     'rentals',
+    'wallet',
 
 
     # Third Party Apps
@@ -44,6 +45,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'channels',
+    'unfold',
+    'drf_yasg'
 ]
 
 
