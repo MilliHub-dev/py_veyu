@@ -79,7 +79,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 class UserProfile(DbModel):
     account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
-    wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE)
+    wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE, blank=True, null=True)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
 
