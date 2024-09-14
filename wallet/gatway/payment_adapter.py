@@ -17,7 +17,7 @@ class FlutterwaveAdapter(PaymentGateway):
             'tx_ref': reference,
             'amount': amount,
             'currency': currency,
-            'redirect_url': 'https://www.sabi-ride.com.ng/',
+            'redirect_url': 'https://www./',
             # 'meta': {
             #     'consumer_id': 23,
             #     'consumer_mac': '92a3-912ba-1192a'
@@ -28,8 +28,8 @@ class FlutterwaveAdapter(PaymentGateway):
                 'name': f'{customer_details.first_name} {customer_details.last_name}'
             },
             'customizations': {
-                'title': 'Sabi Ride Wallet Top up',
-                'logo': 'https://www.sabi-ride.com.ng/images/sections/car_tie.png'
+                'title': 'Motaa Wallet Top up',
+                'logo': 'wallet/gatway/assets/Motaa Logo.png'
             }
         }
 
