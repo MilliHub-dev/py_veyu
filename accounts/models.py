@@ -121,7 +121,7 @@ class Dealer(UserProfile):
 
     
 class Wallet(DbModel):
-    owner = models.ForeignKey('Account', on_delete=models.CASCADE)
+    # owner = models.ForeignKey('Account', on_delete=models.CASCADE)
     transactions = models.ManyToManyField("Transaction", blank=True)
     balance = models.DecimalField(max_digits=10000, decimal_places=2, blank=True, null=True)
 
