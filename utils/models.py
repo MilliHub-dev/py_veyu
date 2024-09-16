@@ -6,12 +6,9 @@ from django.utils import timezone
 
 class DbModel(models.Model):
     uuid = models.UUIDField(default=make_UUID, blank=True)
-    date_created = models.DateTimeField(auto_now_add=False, auto_now=True, auto_created=True)
-    last_updated = models.DateTimeField(auto_now_add=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
-
-
-
 

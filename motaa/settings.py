@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'channels',
-    # 'unfold', # comment out this and refresh the admin
+    # 'unfold',
     'drf_yasg'
 ]
 

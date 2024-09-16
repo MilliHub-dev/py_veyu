@@ -10,18 +10,19 @@ class VehicleImage(DbModel):
 
 # Create your models here.
 class Vehicle(DbModel):
-    CONDITIONS = {
-       'new' :'New',
-       'uk-used' :'Used (UK)',
-       'ng-used' :'Used (Nigerian)',
-    }
+    CONDITION_CHOICES = [
+        ('new', 'New'),
+        ('used_uk', 'Used (UK)'),
+        ('used_ng', 'Used (Nigerian)'),
+        ('used_be', 'Used (Belgium)'),
+    ]
 
     dealer = models.ForeignKey('accounts.Dealer', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, blank=True, null=True)
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200)
-    condition = models.CharField(max_length=20, default='uk-used')
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='used_uk')
     last_rented = models.DateTimeField(max_length=200, blank=True, null=True)
     current_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL)
     available = models.BooleanField(default=False)
@@ -33,7 +34,7 @@ class Vehicle(DbModel):
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
 
     def __str__(self):
-        return self.name
+        return self.name or 'Unnamed Vehicle'
     
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -47,36 +48,57 @@ class VehicleCategory(DbModel):
     class Meta:
         verbose_name_plural = 'Vehicle Categories'
 
+    def __str__(self):
+        return self.name
+
 
 class VehicleTag(DbModel):
     name = models.CharField(max_length=200)
 
+    def __str__(self):
+        return self.name or 'Unnamed Vehicle'
 
 class CarRental(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     order = models.ForeignKey('Order', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.customer.account.email}  - Order #{self.order.id}'
+
 
 
 class Order(DbModel):
     ORDER_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
     ORDER_STATUS  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
 
-    order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
+    order_type = models.CharField(max_length=20, choices=[(key, value) for key, value in ORDER_TYPES.items()])
     order_items = models.ManyToManyField('Listing', blank=True)
-    sub_total = models.DecimalField(max_digits=3, decimal_places=2)
-    discount = models.DecimalField(max_digits=3, decimal_places=2, default=10.00, blank=True, null=True)
-    tax = models.DecimalField(max_digits=3, decimal_places=2, default=10.00)
+    sub_total = models.DecimalField(max_digits=10, decimal_places=2)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=10.00, blank=True, null=True)
+    commission = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     paid = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.sub_total and not self.pk:
+            self.commission = 0.02 * self.sub_total
+        super().save(*args, **kwargs)
 
     @property
     def total(self):
         amt = self.sub_total
+
+        # Apply the discount percentage if it exists
         if self.discount:
-            amt -= self.discount
-        amt += (self.tax/100 * amt)
+            discount_amount = (self.discount / 100) * amt 
+            amt -= discount_amount
+
+        amt += self.commission
         return amt
 
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.ORDER_TYPES.get(self.order_type, 'Unknown')}"
 
 class Listing(DbModel):
     LISTING_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
@@ -87,15 +109,15 @@ class Listing(DbModel):
     created_by = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='created_by')
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
     sale_price = models.DecimalField(decimal_places=2, max_digits=10000, blank=True, null=True)
-    rental_price = models.DecimalField(decimal_places=2, max_digits=10000)
+    rental_price = models.DecimalField(decimal_places=2, max_digits=10000, null=False)
     title = models.CharField(max_length=400, blank=True, null=True)
     views = models.PositiveIntegerField(default=0)
     viewers = models.ManyToManyField('accounts.Account', limit_choices_to={'user_type': 'customer'}, blank=True, related_name='viewers')
     offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='offers')
     testdrives = models.ManyToManyField('TestDriveRequest', blank=True, related_name='testdrives')
 
-    def __str__(self) -> str:
-        return self.title
+    def __str__(self):
+        return f'{self.title}'
 
 class PurchaseOffer(DbModel):
     bidder = models.ForeignKey('accounts.Customer', models.CASCADE, related_name='bidder')

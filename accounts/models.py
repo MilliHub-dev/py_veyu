@@ -112,7 +112,7 @@ class Customer(UserProfile):
     # billing_info = models.ManyToManyField("BillingInformation", blank=True)
 
     def __str__(self):
-        return self.account.name
+        return self.account.email
 
 
 
@@ -135,6 +135,9 @@ class Dealer(UserProfile):
     vehicles = models.ManyToManyField('rentals.Vehicle', blank=True, related_name='vehicles')
     # billing_info = models.ManyToManyField('PayoutInformation', blank=True, )
     ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='ratings')
+
+    def __str__(self):
+        return self.account.email
 
     
 class Wallet(DbModel):
@@ -181,6 +184,9 @@ class Location(DbModel):
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
     added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.country}' +', '+ f'{self.state}' 
     
 
 class Service(DbModel):
