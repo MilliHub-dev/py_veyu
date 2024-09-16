@@ -1,11 +1,17 @@
 .vscode/
 venv/
-motaa_venv
+motaa_venv/
 
 media/
+uploads/
+
 */__pycache__/
 */**/__pycache__/
+
 db.sqlite3
+local.db.sqlite3
 db.sqlite3-journal
+
+doc.md
 .env.local
 .env

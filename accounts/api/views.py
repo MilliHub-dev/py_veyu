@@ -1,16 +1,25 @@
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
 from rest_framework.response import Response
+from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
 from utils.sms import send_sms
+from utils.mail import send_email
+from django_filters.rest_framework import DjangoFilterBackend
+from utils import OffsetPaginator
+from rest_framework.permissions import (
+    IsAuthenticatedOrReadOnly
+)
 from rest_framework.generics import (
     CreateAPIView,
+    ListAPIView,
 )
 from .serializers import (
     AccountSerializer,
-    CustomerSerializer
+    LoginSerializer,
+    CustomerSerializer,
+    MechanicSerializer,
 )
-from utils.mail import send_email
 from utils.dispatch import (
     user_just_registered,
     handle_new_signup,
@@ -21,27 +30,39 @@ from rest_framework.authentication import (
 )
 from rest_framework.decorators import (
     api_view,
-    authentication_classes
+    authentication_classes,
+    APIView
 )
 from ..models import (
     Account,
     OTP,
 )
+from ..models import (
+    Mechanic,
+)
+from .filters import (
+    MechanicFilter,
+)
 
 
 
 
-@api_view(['POST'])
-def login_view(request):
-    data = request.data
-    user = authenticate(request=request, email=data['email'], password=data['password'])
-    if user is not None:
-        user.last_login = now()
-        user.save()
-        data = {
+class LoginView(APIView):
+    serializer_class = LoginSerializer
+    allowed_methods = ['POST']
 
-        }
-        return Response()
+    def post(self, request, *args, **kwargs):
+        user = authenticate(request=request, email=request.data['email'], password=request.data['password'])
+        if user is not None:
+            user.last_login = now()
+            user.save()
+            user_data = AccountSerializer(user).data
+            user_data.pop('password',)
+            data = {
+                'user': user_data
+            }
+            return Response(data)
+        return Response({'error': True, 'message': 'invalid credentials'}, 404)
 
 
 class SignUpView(CreateAPIView):
@@ -110,9 +131,41 @@ def verify_user_view(request):
             }, status=404)
 
 
+class MechanicListView(ListAPIView):
+    pagination_class = OffsetPaginator
+    serializer_class = MechanicSerializer
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    
+    # Add both the filter and ordering backends
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = MechanicFilter  # Use the filter class
+    
+    ordering = ['account__first_name']  # Default ordering if none specified by the user
 
+    def get_queryset(self):
+        return Mechanic.objects.all()
 
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        serializer = self.serializer_class(queryset, many=True)
 
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link()
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
 
 
 

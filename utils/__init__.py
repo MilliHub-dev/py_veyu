@@ -21,7 +21,10 @@ class IsAgentOrStaff(BasePermission):
 class OffsetPaginator(LimitOffsetPagination):
     limit_query_param = 'per_page'
     offset_query_param = 'offset'
-    default_limit = 10
+
+    def __init__(self, default_limit=25) -> None:
+        self.default_limit = default_limit
+        super().__init__()
 
 
 class FieldMissingException(Exception):

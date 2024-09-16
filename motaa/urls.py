@@ -5,10 +5,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.api.urls', namespace='accounts_api')),
     path('api/rentals/', include('rentals.api.urls', namespace='rentals_api')),
+    path('api/v1/wallet', include('wallet.urls')),
     path('', include('utils.urls', namespace='utils')),
-    path('api/v1/wallet', include('wallet.urls'))
 ]
-
 
 
 admin.site.index_title = 'MOTAA ADMINISTRATION'

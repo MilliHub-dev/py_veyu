@@ -43,9 +43,10 @@ INSTALLED_APPS = [
     # Third Party Apps
     'rest_framework',
     'rest_framework.authtoken',
+    'django_filters',
     'corsheaders',
     'channels',
-    'unfold',
+    # 'unfold', # comment out this and refresh the admin
     'drf_yasg'
 ]
 
@@ -93,7 +94,7 @@ ASGI_APPLICATION = "motaa.asgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'local.db.sqlite3',
     }
 }
 
@@ -150,12 +151,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST FRAMEWORK
 REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
-    ] if DEBUG else ['rest_framework.authentication.TokenAuthentications',]
+    ]
+
 }
+
+
 
 
 CORS_ORIGINS_ALLOW_ALL = True

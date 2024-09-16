@@ -4,6 +4,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.hashers import make_password
 from utils.models import DbModel
 from django.utils import timezone
+from django.utils.timesince import timeuntil, timesince
 from utils import make_random_otp
 
 
@@ -40,7 +41,9 @@ class AccountManager(BaseUserManager):
 
 class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     USER_TYPES = {
-        'customer': 'Customer Account',
+        'admin': 'Admin',
+        'staff': 'Agent',
+        'customer': 'Customer',
         'dealer': 'Car Dealer',
         'mech': 'Mechanic',
     }
@@ -52,6 +55,9 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     email = models.EmailField(blank=False, unique=True)
     verified_email = models.BooleanField(default=False)
     
+    groups = None
+    user_permissions = None
+
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     
     is_active = models.BooleanField(default=True)
@@ -59,7 +65,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     is_superuser = models.BooleanField(default=False)
 
     date_joined = models.DateTimeField(default=timezone.now)
-    user_type = models.CharField(max_length=20, default='staff', choices=USER_TYPES)
+    user_type = models.CharField(max_length=20, default='customer', choices=USER_TYPES)
     
     objects = AccountManager()
 
@@ -75,14 +81,25 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     def name(self):
         return f'{self.first_name} {self.last_name if self.last_name else ""}'
 
+    @property
+    def last_seen(self):
+        if self.last_login:
+            return timesince(self.last_login)
+        return None
+
+
 
 class UserProfile(DbModel):
     account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
-    wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE)
+    verified_phone_number = models.BooleanField(default=False)
+    wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
 
+    def __str__(self) -> str:
+        return self.account.name
+    
     class Meta:
         abstract = True
 
@@ -176,6 +193,8 @@ class Service(DbModel):
     charge = models.DecimalField(blank=True, null=True, max_digits=1000, decimal_places=2)
     charge_rate = models.CharField(default='flat', max_length=20, choices=RATES)
 
+    def __str__(self):
+        return self.title
 
 class ServiceBooking(DbModel):
     SERVICE_DELIVERY = {
