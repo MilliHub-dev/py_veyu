@@ -30,6 +30,7 @@ from .serializers import (
     CreateListingSerializer,
     OrderSerializer,
     VehicleSerializer,
+    BookCarRentalSerializer,
 )
 from ..models import (
     Vehicle,
@@ -37,7 +38,7 @@ from ..models import (
     Order,
     CarRental,
 )
-
+from rest_framework.viewsets import ModelViewSet
 
 class ListingsView(ListAPIView):
     """Show all listings created
@@ -90,7 +91,7 @@ class CreateListingView(CreateAPIView):
     def post(self, request, **kwargs):
         data = request.data
 
-        vehicle = Vehicle.objects.get(uuid=data['vehicle_uuid'])
+        vehicle = Vehicle.objects.get(uuid=data['uuid'])
         listing = Listing(
             vehicle=vehicle,
             created_by=request.user,
@@ -112,7 +113,95 @@ class CreateListingView(CreateAPIView):
         return Response()
 
 
+class VehicleView(ListAPIView):
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Vehicle.objects.all()
+    serializer_class = VehicleSerializer
+
+
+# NOT DONE
+class CreateVehicleView(CreateAPIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Vehicle.objects.all()
+    serializer_class = VehicleSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = VehicleSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Vehicle created successfully'}, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
+class VehicleDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Vehicle.objects.all()
+    serializer_class = VehicleSerializer
+    lookup_field = 'uuid'
 
+    def get_object(self):
+        try:
+            return Vehicle.objects.get(uuid=self.kwargs['uuid'])
+        except Vehicle.DoesNotExist:
+            raise NotFound('Vehicle not found')
+
+    # for update
+    def put(self, request, *args, **kwargs):
+        vehicle = self.get_object()
+        serializer = self.get_serializer(vehicle, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def delete(self, request, *args, **kwargs):
+        vehicle = self.get_object()
+        self.perform_destroy(vehicle)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class AvailableForRentView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = VehicleSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    
+    queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
+
+class BookCarRentalView(CreateAPIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated, IsAgentOrStaff]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = BookCarRentalSerializer
+    queryset = Order.objects.all()
+
+    def perform_create(self, serializer):
+        order_items = serializer.validated_data.get('order_items', [])
+
+        # Calculate the sub_total by summing the rental_price of all items
+        sub_total = sum(float(item.rental_price) for item in order_items)
+        serializer.save(customer=self.request.user.customer, sub_total=sub_total)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        return Response({
+            'message': 'Car rental successfully booked',
+            'order': response.data
+        })
+
+class AvailableForRentDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
+    serializer_class = VehicleSerializer
+    lookup_field = 'uuid'
+
+# English or spanish 😂🫴

@@ -5,6 +5,7 @@ from .models import (
     Mechanic,
     Location,
     Service,
+    Dealer,
     ServiceBooking,
 )
 from utils.sms import send_sms
@@ -65,4 +66,5 @@ admin.site.register(Customer)
 admin.site.register(Mechanic)
 admin.site.register(Location)
 admin.site.register(Service)
+admin.site.register(Dealer)
 admin.site.register(ServiceBooking)

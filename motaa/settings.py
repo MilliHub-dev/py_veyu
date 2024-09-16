@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'channels',
-    'unfold',
+    # 'unfold',
     'drf_yasg'
 ]
 
@@ -93,6 +93,7 @@ ASGI_APPLICATION = "motaa.asgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'local.db.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }

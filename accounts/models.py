@@ -79,7 +79,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 class UserProfile(DbModel):
     account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
-    wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE)
+    wallet = models.OneToOneField('Wallet', on_delete=models.CASCADE, blank=True, null= True)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
 
@@ -95,7 +95,7 @@ class Customer(UserProfile):
     # billing_info = models.ManyToManyField("BillingInformation", blank=True)
 
     def __str__(self):
-        return self.account.name
+        return self.account.email
 
 
 
@@ -118,6 +118,9 @@ class Dealer(UserProfile):
     vehicles = models.ManyToManyField('rentals.Vehicle', blank=True, related_name='vehicles')
     # billing_info = models.ManyToManyField('PayoutInformation', blank=True, )
     ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='ratings')
+
+    def __str__(self):
+        return self.account.email
 
     
 class Wallet(DbModel):
@@ -164,6 +167,9 @@ class Location(DbModel):
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
     added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.country}' +', '+ f'{self.state}' 
     
 
 class Service(DbModel):
