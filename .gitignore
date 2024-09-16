@@ -9,3 +9,5 @@ db.sqlite3
 db.sqlite3-journal
 .env.local
 .env
+local.db.sqlite3
+uploads/
