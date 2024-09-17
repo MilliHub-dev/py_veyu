@@ -1,3 +1,4 @@
+
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
 from rest_framework.response import Response
@@ -43,51 +44,132 @@ from ..models import (
 from .filters import (
     MechanicFilter,
 )
+from django.contrib.auth import authenticate, login, logout
+from django.db import transaction
+from django.shortcuts import get_object_or_404, render
+from django.utils.timezone import now
+from rest_framework import generics, status, views
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from utils.dispatch import handle_new_signup, user_just_registered
+from utils.mail import send_email
+from utils.sms import send_sms
+from .serializers import CustomerSerializer, GetAccountSerializer, LoginSerializer, UserProfileSerializer, get_user_serializer
+from ..models import Account, Agent, Customer, Dealer, Mechanic, OTP, UserProfile
+from django.shortcuts import get_object_or_404
 
 
 
 
-class LoginView(APIView):
-    serializer_class = LoginSerializer
-    allowed_methods = ['POST']
+class SignUpView(generics.CreateAPIView):
+    permission_classes = [AllowAny]
+   
+    def post(self, request:Request):
+         
+         with transaction.atomic():
+            data = request.data
+            serializer = GetAccountSerializer(data=data)
+            if serializer.is_valid():
 
-    def post(self, request, *args, **kwargs):
-        user = authenticate(request=request, email=request.data['email'], password=request.data['password'])
-        if user is not None:
-            user.last_login = now()
-            user.save()
-            user_data = AccountSerializer(user).data
-            user_data.pop('password',)
-            data = {
-                'user': user_data
-            }
-            return Response(data)
-        return Response({'error': True, 'message': 'invalid credentials'}, 404)
+                validated_data  = serializer.validated_data
+                validated_data.pop('password2', None) 
+                user = Account.objects.create_user(**validated_data)
+                user.save()
 
+                user_type = validated_data['user_type']
 
-class SignUpView(CreateAPIView):
-    allowed_methods = ['POST']
-    serializer_class = AccountSerializer
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        account = Account(
-            email=data['email'],
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            user_type=data['user_type'],
-        )
-        account.set_password(data['password'])
-        account.save()
-        otp = OTP.objects.create(valid_for=account)
+                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+                if profile_model:
+                    profile_model.objects.create(user=user)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                else:
+                    raise ValueError('invalid user type')
+            else:
+                return Response(serializer.errors)
+            
+            
         
-        user_just_registered.connect(handle_new_signup, sender=account)
-        user_just_registered.send(sender=account, otp=otp)
-        return Response({
-            'error': False,
-            'message': "Successfully created your account"
-        }, status=201)
+       
 
+        
+
+
+class Login(views.APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request:Request):
+    
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            email = validated_data['email']
+            password = validated_data['password']
+
+            user = Account.objects.get(email=email)
+            try:
+                if user and user.check_password(raw_password=password):
+                    
+ 
+                    access_token = AccessToken.for_user(user)
+                    refresh_token = RefreshToken.for_user(user)
+
+                    return Response(
+                        {
+                            "access_token": str(access_token),
+                            "refresh_token": str(refresh_token),
+                            "user_id": user.id,
+                            "first_name": user.first_name,
+                            "last_name": user.last_name,
+                            "email": user.email,
+                            "is_active": user.is_active
+                        }
+                    )
+                else:
+                    return Response(
+                        {
+                            "message": "No account found with the given credentials",
+                        },
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+            except Account.DoesNotExist:
+                return Response(
+                    {
+                        "message": "Account does not exist"
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        else:
+            return Response(serializer.errors)
+        
+
+
+
+class UpdateProfileView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_user_profile(self,request):
+        user = request.user
+        user_type = user.user_type
+
+        user_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+        return get_object_or_404(user_model, user=user)
+    
+    def put(self, request:Request):
+        user_type = request.user.user_type
+        profile = self.get_user_profile(request)
+        serializer = get_user_serializer(user_type=user_type)
+        serializer = serializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+    
+    
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication, SessionAuthentication])

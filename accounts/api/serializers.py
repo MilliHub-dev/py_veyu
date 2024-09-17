@@ -3,44 +3,68 @@ from ..models import (
     Customer,
     Dealer,
     Mechanic,
+    Agent,
     PayoutInformation,
-    Service,
-    ServiceBooking,
 )
-from rest_framework.serializers import (
-    ModelSerializer,
-    StringRelatedField,
-    SerializerMethodField,
-    ManyRelatedField,
-)
-from feedback.api.serializers import (
-    RatingSerializer
-)
-
-
-class LoginSerializer(ModelSerializer):
-    class Meta:
-        model = Account
-        fields = ('email', 'password')
-        read_only_fields = None
+from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 
 
 class AccountSerializer(ModelSerializer):
     class Meta:
         model = Account
         fields = '__all__'
-        read_only_fields = ('uuid', 'name', 'email', 'image', 'first_name', 'location', 'api_token', )
 
-
-class ServiceSerializer(ModelSerializer):
-    class Meta:
-        model = Service
-        fields = '__all__'
 
 class CustomerSerializer(ModelSerializer):
     class Meta:
         model = Customer
         fields = '__all__'
+
+
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = None
+        fields = '__all__'
+        read_only_fields = ('user',)
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        return instance
+
+def get_user_serializer(user_type):
+    
+    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+    model = profile_model
+    
+    UserProfileSerializer.Meta.model = model
+   
+    return UserProfileSerializer
+
+
+
+
+class LoginSerializer(serializers.Serializer):
+
+    email = serializers.EmailField()
+    password = serializers.CharField(style={"input_type": "password"})
+
+    def validate_email(self, value):
+        """Validate that user with email exists."""
+        user = Account.objects.filter(email=value).first()
+
+        if not user:
+            raise serializers.ValidationError(
+                detail={'message':': user does not exist'}
+            )
+        if user.is_active is False:
+            raise serializers.ValidationError(
+                detail={'message':': user is not activated'}
+            )
+
+        return user
 
 
 class MechanicSerializer(ModelSerializer):
