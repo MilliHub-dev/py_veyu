@@ -132,6 +132,10 @@ class Dealer(UserProfile):
         return self.account.email
 
     
+class Agent(UserProfile):
+    pass
+
+    
 class Wallet(DbModel):
     # owner = models.ForeignKey('Account', on_delete=models.CASCADE)
     transactions = models.ManyToManyField("Transaction", blank=True)

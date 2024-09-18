@@ -68,28 +68,28 @@ class LoginSerializer(serializers.Serializer):
 
 
 class MechanicSerializer(ModelSerializer):
-    account = SerializerMethodField()
-    ratings = RatingSerializer(many=True)
-    # services = StringRelatedField(many=True)
-    services = ServiceSerializer(many=True)
-    # account.fields = ('uuid', 'email')
-    class Meta:
-        model = Mechanic
-        fields = (
-            "id", "account", "date_created", "uuid", "last_updated", "phone_number",
-            "verified_phone_number","available", "location","current_job", "services","job_history","ratings"
-        )
+    # account = SerializerMethodField()
+    # ratings = RatingSerializer(many=True)
+    # # services = StringRelatedField(many=True)
+    # services = ServiceSerializer(many=True)
+    # # account.fields = ('uuid', 'email')
+    # class Meta:
+    #     model = Mechanic
+    #     fields = (
+    #         "id", "account", "date_created", "uuid", "last_updated", "phone_number",
+    #         "verified_phone_number","available", "location","current_job", "services","job_history","ratings"
+    #     )
     
-    def get_account(self, obj):
-        account = obj.account  # Get the related account instance
+    # def get_account(self, obj):
+    #     account = obj.account  # Get the related account instance
 
-        # Define custom logic to exclude or modify fields
-        return {
-            'uuid': account.uuid,  # Show uuid
-            'email': account.email,  # Show email
-            'name': account.name,
-            'last_seen': account.last_seen
-        }
-
+    #     # Define custom logic to exclude or modify fields
+    #     return {
+    #         'uuid': account.uuid,  # Show uuid
+    #         'email': account.email,  # Show email
+    #         'name': account.name,
+    #         'last_seen': account.last_seen
+    #     }
+        pass
 
 
