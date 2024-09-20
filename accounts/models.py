@@ -86,7 +86,7 @@ class UserProfile(DbModel):
     # account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     verified_phone_number = models.BooleanField(default=False)
-    wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
+    # wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
 
@@ -133,25 +133,25 @@ class Dealer(UserProfile):
 
     
 class Agent(UserProfile):
-    pass
+    user = models.ForeignKey(Account, on_delete=models.CASCADE)
 
     
-class Wallet(DbModel):
-    # owner = models.ForeignKey('Account', on_delete=models.CASCADE)
-    transactions = models.ManyToManyField("Transaction", blank=True)
-    balance = models.DecimalField(max_digits=10000, decimal_places=2, blank=True, null=True)
+# class Wallet(DbModel):
+#     owner = models.ForeignKey('Account', on_delete=models.CASCADE)
+#     transactions = models.ManyToManyField("Transaction", blank=True)
+#     balance = models.DecimalField(max_digits=10000, decimal_places=2, blank=True, null=True)
 
-    def withdraw(self, amt) -> bool:
-        # return true if available balance >= amt
-        return True
+#     def withdraw(self, amt) -> bool:
+#         # return true if available balance >= amt
+#         return True
     
-    @property
-    def available_balance(self):
-        return
+#     @property
+#     def available_balance(self):
+#         return
     
-    @property
-    def pending_funds(self):
-        return
+#     @property
+#     def pending_funds(self):
+#         return
     
 # this is also part of the wallet system
 class Transaction(DbModel):
@@ -182,7 +182,7 @@ class Location(DbModel):
     city = models.CharField(max_length=200)
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
-    added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
+    # added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
 
     def __str__(self):
         return f'{self.country}' +', '+ f'{self.state}' 
@@ -222,6 +222,7 @@ class OTP(DbModel):
 
     def verify(self, code, channel):
         if self.code == code and self.channel == channel:
+            self.used = True
             self.delete()
             return True
         return False

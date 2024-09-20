@@ -58,9 +58,10 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from utils.dispatch import handle_new_signup, user_just_registered
 from utils.mail import send_email
 from utils.sms import send_sms
-from .serializers import CustomerSerializer, GetAccountSerializer, LoginSerializer, UserProfileSerializer, get_user_serializer
+from .serializers import CustomerSerializer, GetAccountSerializer, LoginSerializer, UserProfileSerializer, get_user_serializer, ChangePasswordSerializer
 from ..models import Account, Agent, Customer, Dealer, Mechanic, OTP, UserProfile
 from django.shortcuts import get_object_or_404
+
 
 
 
@@ -98,7 +99,7 @@ class SignUpView(generics.CreateAPIView):
         
 
 
-class Login(views.APIView):
+class LoginView(views.APIView):
     permission_classes = [AllowAny]
 
     def post(self, request:Request):
@@ -131,7 +132,7 @@ class Login(views.APIView):
                 else:
                     return Response(
                         {
-                            "message": "No account found with the given credentials",
+                            "message": "Unable to log in with provided credentials.",
                         },
                         status=status.HTTP_401_UNAUTHORIZED,
                     )
@@ -213,6 +214,8 @@ def verify_user_view(request):
             }, status=404)
 
 
+
+
 class MechanicListView(ListAPIView):
     pagination_class = OffsetPaginator
     serializer_class = MechanicSerializer
@@ -248,6 +251,5 @@ class MechanicListView(ListAPIView):
             }
         }
         return Response(data, 200)
-
 
 

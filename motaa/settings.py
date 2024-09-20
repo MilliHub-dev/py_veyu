@@ -46,13 +46,18 @@ INSTALLED_APPS = [
 
     # Third Party Apps
     'rest_framework',
+    'dj_rest_auth',
     'rest_framework.authtoken',
     'django_filters',
     'corsheaders',
     'channels',
-    'drf_yasg'
+    'drf_yasg',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
 ]
 
+SITE_ID = 1
 
 
 AUTH_USER_MODEL = 'accounts.Account'
@@ -67,6 +72,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # Downloaded Middleware
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'motaa.urls'
@@ -162,12 +170,22 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ] if DEBUG else ['rest_framework.authentication.TokenAuthentications',],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',)
 }
 
+OLD_PASSWORD_FIELD_ENABLED = True
+
+REST_AUTH = {
+
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'my-app-auth',
+    'JWT_AUTH_REFRESH_COOKIE': 'my-refresh-token',
+    
+}
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=5),

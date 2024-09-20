@@ -1,12 +1,14 @@
 from django.urls import path
+from django.contrib.auth import views as auth_views
 
 from .views import (
     SignUpView,
     LoginView,
     verify_user_view,
     MechanicListView,
-    UserProfileView
+     UpdateProfileView
 )
+from django.urls import include
 
 app_name = 'accounts_api'
 
@@ -15,8 +17,8 @@ urlpatterns = [
     path('register/', SignUpView.as_view()),
     path('verify/', verify_user_view),
     path('mechanics/', MechanicListView.as_view()),
-    path('update-profile/', UpdateProfileView.as_view())
+    path('update-profile/',  UpdateProfileView.as_view()),
+    path("accounts/", include("django.contrib.auth.urls")),
+    path('auth/', include('dj_rest_auth.urls'))
 ]
-
-
 
