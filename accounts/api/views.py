@@ -173,57 +173,6 @@ class UpdateProfileView(views.APIView):
             serializer.save()
             return Response(serializer.data)
 
-    
-
-# @api_view(['POST'])
-# # @authentication_classes([TokenAuthentication, SessionAuthentication])
-# @permission_classes([IsAuthenticated])
-# def verify_user_view(request):
-#     data = request.data
-#     serializer = VerifyAccountSerializer(data=data, context={'request': request})
-#     if serializer.is_valid():
-#         validated_data = serializer.validated_data
-#         channel = validated_data['channel']
-
-#         if validated_data['action'] == 'request-code':
-#             code = OTP.objects.create(valid_for=request.user, channel=channel)
-#             if channel == 'email':
-#                 send_email(
-#                     template='utils/templates/email-confirmation.html',
-#                     recipient=data['email'],
-#                     context={'code': code.code, 'user': request.user},
-#                     subject="Motaa Verification",
-#                 )
-#             elif channel == 'sms':
-#                 send_sms(
-#                     message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
-#                     recipient=data['phone_number']
-#                 )
-#             return Response({
-#                 'error': False,
-#                 'message': 'OTP sent to your inbox'
-#             }, status=200)
-    
-#         elif validated_data['action'] == 'confirm-code':
-#             try:
-#                 otp = OTP.objects.get(code=data['code'])
-#                 valid = otp.verify(data['code'], channel)
-#                 if valid:
-#                     return Response({
-#                         'error': False,
-#                         'message': f'Successfully verified your {"email" if channel == "email" else "phone number"}'
-#                     }, status=200)
-#                 raise Exception('Invalid OTP')
-#             except Exception as error:
-#                 return Response({
-#                     'error': True,
-#                     'message': 'Invalid OTP'
-#                 }, status=status.HTTP_400_BAD_REQUEST)
-#     else:
-#         return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
-#     # user_attrs = dir(request.user)
-#     # return Response({'user_attrs': user_attrs}, status=200)
-
 class VerifyEmailView(APIView):
 
     def post(self, request:Request):
