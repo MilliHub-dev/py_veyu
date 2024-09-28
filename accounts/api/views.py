@@ -173,6 +173,7 @@ class UpdateProfileView(views.APIView):
             serializer.save()
             return Response(serializer.data)
 
+
 class VerifyEmailView(APIView):
 
     def post(self, request:Request):
