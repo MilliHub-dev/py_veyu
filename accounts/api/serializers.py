@@ -109,6 +109,7 @@ from django.contrib.auth.password_validation import password_changed, validate_p
 from typing import Any
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 
 
 class GetAccountSerializer(ModelSerializer):
@@ -215,7 +216,127 @@ class ChangePasswordSerializer(serializers.Serializer):
         
 
 
-class ResetPasswordSeriallizer(serializers.Serializer):
-    email =  serializers.CharField()
+class VerifyAccountSerializer(serializers.Serializer):
+    email = serializers.CharField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
+
+
+    CHANNEL_CHOICES = [
+        ('email', 'email'),
+        ('sms', 'sms'),
+    ]
+    
+    ACTION_CHOICES = [
+        ('request-code', 'request-code'),
+        ('confirm-code', 'confirm-code'),
+    ]
+    
+    channel = serializers.ChoiceField(choices=CHANNEL_CHOICES)
+    action = serializers.ChoiceField(choices=ACTION_CHOICES)
+
+
+    def validate(self, data):
+        email = data.get('email')
+        phone_number = data.get('phone_number')
+        channel = data['channel']
+        
+
+                # Determine user model type based on the request.user instance
+        if hasattr(self.context['request'].user, 'customer'):
+            user_profile = self.context['request'].user.customer
+        elif hasattr(self.context['request'].user, 'mechanic'):
+            user_profile = self.context['request'].user.mechanic
+        elif hasattr(self.context['request'].user, 'agent'):
+            user_profile = self.context['request'].user.agent
+        else:
+            raise serializers.ValidationError("User type is not supported for this action.")
+                    
+
+        if channel == 'email' and email:
+            user = Account.objects.filter(email=data['email']).first()
+
+            if not user:
+                raise serializers.ValidationError(
+                    detail={'message':': user does not exist'}
+                )
+            if not email:
+                raise serializers.ValidationError("Email must be provided.")
+
+        elif channel == 'sms' and phone_number:
+            user = user_profile.__class__.objects.filter(phone_number=phone_number).first()
+
+            if not user:
+                raise serializers.ValidationError(
+                    detail={'message':': user does not exist'}
+                )
+            if not phone_number:
+                raise serializers.ValidationError("Phone number must be provided.")
+        return data
+
+class VerifyEmailSerializer(serializers.Serializer):
+    email = serializers.CharField()
+    code = serializers.CharField(required=False)
+    ACTION_CHOICES = [
+        ('request-code', 'request-code'),
+        ('confirm-code', 'confirm-code'),
+    ]
+    action = serializers.ChoiceField(choices=ACTION_CHOICES)
+
+
+    def validate(self, data):
+        email = data.get('email')
+        action = data.get('action')
+        code = data.get('code', None)
+    
+        user = Account.objects.filter(email=data['email']).first()
+
+        if not user:
+            raise serializers.ValidationError(
+                detail={'message':': user does not exist'}
+            )
+        if not email:
+            raise serializers.ValidationError("Email must be provided.")
+        
+        if action == 'confirm-code' and not code:
+            raise serializers.ValidationError("Code must be provided for confirmation.")
+        
+        return data
+    
 
     
+class VerifyPhoneNumberSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    code = serializers.CharField(required=False)
+    ACTION_CHOICES = [
+        ('request-code', 'request-code'),
+        ('confirm-code', 'confirm-code'),
+    ]
+    action = serializers.ChoiceField(choices=ACTION_CHOICES)
+
+
+    def validate(self, data):
+        phone_number = data.get('phone_number')
+        action = data.get('action')
+        code = data.get('code', None)
+    
+        if phone_number:
+            user = (
+                Customer.objects.filter(phone_number=phone_number).first() or
+                Mechanic.objects.filter(phone_number=phone_number).first() or
+                Dealer.objects.filter(phone_number=phone_number).first() or
+                Agent.objects.filter(phone_number=phone_number).first()
+            )
+        else:
+            user = None
+
+        if not user:
+            raise serializers.ValidationError(
+                detail={'message':'user does not exist'}
+            )
+        if not phone_number:
+            raise serializers.ValidationError("Phone number must be provided.")
+        
+        if action == 'confirm-code' and not code:
+            raise serializers.ValidationError("Code must be provided for confirmation.")
+        
+        return data

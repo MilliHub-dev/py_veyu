@@ -1,66 +1,70 @@
 
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
-from rest_framework.response import Response
-from django.db.models import QuerySet
+from django.db import transaction
 from django.contrib.auth import authenticate, login, logout
-from utils.sms import send_sms
-from utils.mail import send_email
-from django_filters.rest_framework import DjangoFilterBackend
-from utils import OffsetPaginator
+from rest_framework.response import Response
+from rest_framework import generics, status, views
+from rest_framework.request import Request
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes
+)
 from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
     IsAuthenticatedOrReadOnly
 )
+from rest_framework.authentication import (
+    TokenAuthentication,
+    SessionAuthentication
+)
+
 from rest_framework.generics import (
     CreateAPIView,
     ListAPIView,
+)
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import QuerySet
+
+# Utility imports
+from utils.sms import send_sms
+from utils.mail import send_email
+from utils import OffsetPaginator
+from utils.dispatch import (
+    user_just_registered,
+    handle_new_signup,
+)
+
+# Local app imports
+from ..models import (
+    Account,
+    OTP,
+    Mechanic,
+    Agent,
+    Customer,
+    Dealer,
+    UserProfile
 )
 from .serializers import (
     AccountSerializer,
     LoginSerializer,
     CustomerSerializer,
     MechanicSerializer,
+    VerifyEmailSerializer,
+    GetAccountSerializer,
+    UserProfileSerializer,
+    get_user_serializer,
+    ChangePasswordSerializer,
+    VerifyAccountSerializer,
+    VerifyPhoneNumberSerializer,
 )
-from utils.dispatch import (
-    user_just_registered,
-    handle_new_signup,
-)
-from rest_framework.authentication import (
-    TokenAuthentication,
-    SessionAuthentication
-)
-from rest_framework.decorators import (
-    api_view,
-    authentication_classes,
-    APIView
-)
-from ..models import (
-    Account,
-    OTP,
-)
-from ..models import (
-    Mechanic,
-)
-from .filters import (
-    MechanicFilter,
-)
-from django.contrib.auth import authenticate, login, logout
-from django.db import transaction
-from django.shortcuts import get_object_or_404, render
-from django.utils.timezone import now
-from rest_framework import generics, status, views
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-from rest_framework.decorators import api_view, authentication_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.request import Request
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-from utils.dispatch import handle_new_signup, user_just_registered
-from utils.mail import send_email
-from utils.sms import send_sms
-from .serializers import CustomerSerializer, GetAccountSerializer, LoginSerializer, UserProfileSerializer, get_user_serializer, ChangePasswordSerializer
-from ..models import Account, Agent, Customer, Dealer, Mechanic, OTP, UserProfile
-from django.shortcuts import get_object_or_404
+from .filters import MechanicFilter
+
+
 
 
 
@@ -170,49 +174,134 @@ class UpdateProfileView(views.APIView):
             return Response(serializer.data)
 
     
+
+# @api_view(['POST'])
+# # @authentication_classes([TokenAuthentication, SessionAuthentication])
+# @permission_classes([IsAuthenticated])
+# def verify_user_view(request):
+#     data = request.data
+#     serializer = VerifyAccountSerializer(data=data, context={'request': request})
+#     if serializer.is_valid():
+#         validated_data = serializer.validated_data
+#         channel = validated_data['channel']
+
+#         if validated_data['action'] == 'request-code':
+#             code = OTP.objects.create(valid_for=request.user, channel=channel)
+#             if channel == 'email':
+#                 send_email(
+#                     template='utils/templates/email-confirmation.html',
+#                     recipient=data['email'],
+#                     context={'code': code.code, 'user': request.user},
+#                     subject="Motaa Verification",
+#                 )
+#             elif channel == 'sms':
+#                 send_sms(
+#                     message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
+#                     recipient=data['phone_number']
+#                 )
+#             return Response({
+#                 'error': False,
+#                 'message': 'OTP sent to your inbox'
+#             }, status=200)
     
+#         elif validated_data['action'] == 'confirm-code':
+#             try:
+#                 otp = OTP.objects.get(code=data['code'])
+#                 valid = otp.verify(data['code'], channel)
+#                 if valid:
+#                     return Response({
+#                         'error': False,
+#                         'message': f'Successfully verified your {"email" if channel == "email" else "phone number"}'
+#                     }, status=200)
+#                 raise Exception('Invalid OTP')
+#             except Exception as error:
+#                 return Response({
+#                     'error': True,
+#                     'message': 'Invalid OTP'
+#                 }, status=status.HTTP_400_BAD_REQUEST)
+#     else:
+#         return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
+#     # user_attrs = dir(request.user)
+#     # return Response({'user_attrs': user_attrs}, status=200)
 
-@api_view(['POST'])
-@authentication_classes([TokenAuthentication, SessionAuthentication])
-def verify_user_view(request):
-    data = request.data
-    channel = data.get('channel','email')
+class VerifyEmailView(APIView):
 
-    if data['action'] == 'request-code':
-        code = OTP.objects.create(valid_for=request.user, channel=channel)
-        if channel == 'email':
-            send_email(
-                template='utils/templates/email-confirmation.html',
-                recipient=data['email'],
-                context={'code': code.code, 'user': request.user},
-                subject="Motaa Verification",
-            )
-        elif channel == 'sms':
-            send_sms(
-                message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
-                recipient=data['phone_number']
-            )
-        return Response({
-            'error': False,
-            'message': 'OTP sent to your inbox'
-        }, status=200)
-   
-    elif data['action'] == 'confirm-code':
-        try:
-            otp = OTP.objects.get(code=data['code'])
-            valid = otp.verify(data['code'], channel)
-            if valid:
+    def post(self, request:Request):
+        data = request.data
+        serializer = VerifyEmailSerializer(data=data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            if validated_data['action'] == 'request-code':
+                code = OTP.objects.create(valid_for=request.user)
+        
+                send_email(
+                    template='utils/templates/email-confirmation.html',
+                    recipient=data['email'],
+                    context={'code': code.code, 'user': request.user},
+                    subject="Motaa Verification",
+                )
                 return Response({
                     'error': False,
-                    'message': f'Successfully verified your {"email" if channel == "email" else "phone number"}'
-                }, status=200)
-            raise Exception('Invalid OTP')
-        except Exception as error:
-            return Response({
-                'error': True,
-                'message': 'Invalid OTP'
-            }, status=404)
+                    'message': 'OTP sent to your inbox'
+                }, status=status.HTTP_200_OK)
+    
+            elif validated_data['action'] == 'confirm-code':
+                try:
+                    otp = OTP.objects.get(code=data['code'])
+                    if otp.valid_for == request.user:
+                        valid = otp.verify(data['code'], 'email')
+                        if valid:
+                            return Response({
+                                'error': False,
+                                'message': f'Successfully verified your email'
+                            }, status=status.HTTP_200_OK)
+                        raise Exception('Invalid OTP')
+                except Exception as error:
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid OTP'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
+        
 
+class VerifyPhoneNumberView(APIView):
+
+    def post(self, request:Request):
+        data = request.data
+        serializer = VerifyPhoneNumberSerializer(data=data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            if validated_data['action'] == 'request-code':
+                code = OTP.objects.create(valid_for=request.user)
+        
+                send_sms(
+                    message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
+                    recipient=data['phone_number']
+                )
+                return Response({
+                    'error': False,
+                    'message': 'OTP sent to your inbox'
+                }, status=status.HTTP_200_OK)
+    
+            elif validated_data['action'] == 'confirm-code':
+                try:
+                    otp = OTP.objects.get(code=data['code'])
+                    valid = otp.verify(data['code'], 'sms')
+                    if valid:
+                        return Response({
+                            'error': False,
+                            'message': f'Successfully verified your phone number'
+                        }, status=status.HTTP_200_OK)
+                    raise Exception('Invalid OTP')
+                except Exception as error:
+                    print(error)
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid OTP'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
 
 
 

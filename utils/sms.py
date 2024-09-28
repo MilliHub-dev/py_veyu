@@ -8,6 +8,7 @@ api_key = settings.SMS_API_KEY
 
 
 def send_sms(message, recipient:str, fail_silently=False):
+    recipient = f'+234{recipient}'
     try:
         sender = SMSService(username, api_key)
         sender.send(
@@ -34,6 +35,7 @@ def send_bulk_sms(message, recipients:list, fail_silently=False):
 
 
 def verify_phone_number(phone, fail_silently=False):
+    
     try:
         sender = africastalking.SMS.validate_phone(phone)
         if sender is not None:

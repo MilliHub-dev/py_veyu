@@ -83,31 +83,38 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
 
 class UserProfile(DbModel):
-    # account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     verified_phone_number = models.BooleanField(default=False)
-    # wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
+    verified_email = models.BooleanField(default=False)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
 
-    def __str__(self) -> str:
-        return self.account.name
+    def verify_phone_number(self):
+        self.verified_phone_number = True
+        self.save() 
+        return True
+    
+    def verify_email(self):
+        self.verified_email = True
+        self.save() 
+        return True
+
     
     class Meta:
         abstract = True
 
 
 class Customer(UserProfile):
-    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='customer')
     
 
     def __str__(self):
-        return self.account.email
+        return self.user.email
 
 
 
 class Mechanic(UserProfile):
-    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='mechanic')
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('Service', blank=True)
     current_job = models.ForeignKey('ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
@@ -119,48 +126,32 @@ class Mechanic(UserProfile):
 
     @property
     def avg_rating(self):
-        return self.account.name
+        return self.user.email
 
 
 class Dealer(UserProfile):
-    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='dealer')
     listings = models.ManyToManyField('rentals.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('rentals.Vehicle', blank=True, related_name='vehicles')
     ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='ratings')
 
     def __str__(self):
-        return self.account.email
+        return self.user.email
 
     
 class Agent(UserProfile):
-    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='agent')
 
+    def __str__(self):
+        return self.user.email
     
-# class Wallet(DbModel):
-#     owner = models.ForeignKey('Account', on_delete=models.CASCADE)
-#     transactions = models.ManyToManyField("Transaction", blank=True)
-#     balance = models.DecimalField(max_digits=10000, decimal_places=2, blank=True, null=True)
 
-#     def withdraw(self, amt) -> bool:
-#         # return true if available balance >= amt
-#         return True
-    
-#     @property
-#     def available_balance(self):
-#         return
-    
-#     @property
-#     def pending_funds(self):
-#         return
-    
-# this is also part of the wallet system
 class Transaction(DbModel):
     related_order = models.ForeignKey('rentals.Order', blank=True, null=True, on_delete=models.CASCADE)
     status = models.CharField(max_length=200, default='pending')
     amount = models.DecimalField(decimal_places=2, max_digits=10000)
 
 
-# Added this to userprofile instead of creating a different table
 class PayoutInformation(DbModel):
     channel = models.CharField(max_length=200, default='bank')
     bank_name = models.CharField(max_length=200)
@@ -216,13 +207,24 @@ class ServiceBooking(DbModel):
 
 class OTP(DbModel):
     valid_for = models.ForeignKey('Account', on_delete=models.CASCADE)
-    channel = models.CharField(max_length=10, default='email', choices={'email': 'Email', 'sms': 'SMS'})
     code = models.CharField(max_length=7, default=make_random_otp)
     used = models.BooleanField(default=False)
 
     def verify(self, code, channel):
-        if self.code == code and self.channel == channel:
+        if self.code == code:
             self.used = True
+
+            user_profile = (
+                Customer.objects.get(user=self.valid_for) or
+                Mechanic.objects.get(user=self.valid_for) or
+                Dealer.objects.get(user=self.valid_for) or
+                Agent.objects.get(user=self.valid_for)
+            )
+            if channel == 'sms':
+                user_profile.verify_phone_number()
+
+            if channel == 'email':
+                user_profile.verify_email()
             self.delete()
             return True
         return False

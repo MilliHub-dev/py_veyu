@@ -9,6 +9,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
+from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
+
 
 
 urlpatterns = [
@@ -23,6 +25,11 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+
+
+    path('api/password-reset/', PasswordResetView.as_view()),
+    path("api/password-reset-confirm/<uidb64>/<token>/",
+         PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
