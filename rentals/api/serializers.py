@@ -6,6 +6,7 @@ from ..models import (
     VehicleTag,
     VehicleCategory,
     VehicleImage,
+    VehicleCategory,
 )
 from rest_framework.serializers import (
     ModelSerializer,
@@ -15,6 +16,9 @@ from rest_framework.serializers import (
     RelatedField,
 )
 from rest_framework import serializers
+from rest_framework.parsers import MultiPartParser, FormParser
+from decimal import Decimal
+from django.db import models
 
 
 
@@ -24,24 +28,22 @@ class VehicleImageSerializer(ModelSerializer):
         fields ='__all__'
         extra_kwargs = {'vehicle': {'required': False}}
 
+
 class VehicleSerializer(serializers.ModelSerializer):
-    images = serializers.ListField(
-        child=serializers.ImageField(),
-        write_only=True
-    )
-    
     class Meta:
         model = Vehicle
-        fields = ['name', 'color', 'brand', 'condition', 'images']
-    
-    def create(self, validated_data):
-        images_data = validated_data.pop('images')
-        vehicle = Vehicle.objects.create(**validated_data)
-        
-        for image_data in images_data:
-            VehicleImage.objects.create(vehicle=vehicle, image=image_data)
-        
-        return vehicle
+        fields = '__all__'
+        extra_kwargs = {'dealer': {'read_only': True},
+                        'slug': {'read_only': True},
+                        'uuid': {'read_only': True},
+                        'last_rented': {'read_only': True},
+                        'current_rental': {'read_only': True},
+                        'sold': {'read_only': True},
+                        'tags': {'read_only': True},
+                        'images': {'read_only': True},
+                        'video': {'read_only': True}
+        }
+
 class ListingSerializer(ModelSerializer):
     vehicle = VehicleSerializer()
     class Meta:
@@ -73,25 +75,79 @@ class VehicleUpdateSerializer(ModelSerializer):
             'uuid': {'read_only': True},
         }
 
-class BookCarRentalSerializer(ModelSerializer):
-    # This is to only show the users' cars that are available for rent, not for sale or currently being rented out.
-    order_items = serializers.PrimaryKeyRelatedField(
-        queryset=Listing.objects.filter(vehicle__available=True, vehicle__for_sale=False, vehicle__current_rental=None),
-        many=True
-    )
-    
+class BookCarRentalSerializer(serializers.ModelSerializer):
+    order_items = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = Order
-        fields = ['order_type', 'order_items', 'customer', 'sub_total', 'discount', 'commission']
+        fields = ['order_type', 'order_items', 'customer', 'sub_total', 'discount']
 
         extra_kwargs = {
-            'discount': {'read_only': True}
+            'discount': {'read_only': True},
+            'commission': {'read_only': True},
         }
 
-    def get_sub_total(self, obj):
-        order_items = obj.order_items.all() if obj.pk else []
-        sub_total = sum(item.rental_price for item in order_items)
-        return sub_total
+    def get_order_items(self, obj):
+        return [listing.id for listing in obj.order_items.all()]
 
+    def create(self, validated_data):
+        order_items_x = self.initial_data.get('order_items', [])
+
+        if not isinstance(order_items_x, list):
+            raise ValidationError({'error': 'Order items should be a list.'})
+
+        order_items_queryset = Listing.objects.filter(
+            id__in=order_items_x,
+            vehicle__available=True,
+            vehicle__for_sale=False,
+            vehicle__current_rental=None
+        )
+
+        if order_items_queryset.count() != len(order_items_x):
+            raise ValidationError({'error': 'Some listings are not available for rent or invalid.'})
+
+        # Calculate the subtotal
+        order_items_prices = [item.rental_price for item in order_items_queryset]
+        sub_total = sum(order_items_prices)
+        validated_data['sub_total'] = sub_total
+
+        # Create the Order instance
+        order = Order.objects.create(**validated_data)
+
+        # Assign the selected order items
+        order.order_items.set(order_items_queryset)
+        
+        print('Order created successfully with ID:', order.id)
+        return order
+
+    def get_sub_total(self, obj):
+        return sum([item.rental_price for item in obj.order_items.all()])
+
+    def update(self, instance, validated_data):
+        order_items_x = self.initial_data.get('order_items', [])
+
+        if not isinstance(order_items_x, list):
+            raise serializers.ValidationError({'error': 'Order items should be a list.'})
+
+        order_items_queryset = Listing.objects.filter(
+            id__in=order_items_x,
+            vehicle__available=True,
+            vehicle__for_sale=False,
+            vehicle__current_rental=None
+        )
+
+        if order_items_queryset.count() != len(order_items_x):
+            raise serializers.ValidationError({'error': 'Some listings are not available for rent or invalid.'})
+
+        # Calculate the subtotal
+        order_items_prices = [item.rental_price for item in order_items_queryset]
+        sub_total = sum(order_items_prices)
+        validated_data['sub_total'] = sub_total
+
+        instance.order_type = validated_data.get('order_type', instance.order_type)
+        instance.order_items.set(order_items_queryset)
+
+        instance.save()
+
+        return instance

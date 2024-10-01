@@ -38,7 +38,13 @@ from ..models import (
     Order,
     CarRental,
 )
+from accounts.models import (
+    Customer,
+)
 from rest_framework.viewsets import ModelViewSet
+from rest_framework import status
+from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.exceptions import ValidationError
 
 class ListingsView(ListAPIView):
     """Show all listings created
@@ -81,6 +87,15 @@ class ListingsView(ListAPIView):
     def handle_exception(self, exc):
         return super().handle_exception(exc)
 
+class ListingsDetailsView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticated, IsAgentOrStaff]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = CreateListingSerializer
+    queryset = Listing.objects.all()
+
+    lookup_field = 'uuid'
+    
 
 class CreateListingView(CreateAPIView):
     allowed_methods = ['POST']
@@ -120,24 +135,34 @@ class VehicleView(ListAPIView):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
 
-
-# NOT DONE
+# NOT DONE FOR NOW IMAGE STUFF STILL HANGING
 class CreateVehicleView(CreateAPIView):
     allowed_methods = ['POST']
-    permission_classes = [IsAuthenticatedOrReadOnly,]
+    permission_classes = [IsAuthenticated, IsAgentOrStaff]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = VehicleSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Vehicle created successfully'}, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        if serializer.is_valid():
+            vehicle = serializer.save()
+
+            # Create a corresponding listing
+            listing_type = 'rental' if vehicle.available and not vehicle.for_sale else 'sale'
+            Listing.objects.create(
+                listing_type=listing_type,
+                created_by=request.user,
+                vehicle=vehicle,
+                sale_price=vehicle.sale_price,
+                rental_price=vehicle.rental_price,
+                title=vehicle.listing_title,
+            )
+
+            return Response({'message': 'Vehicle created and added to listing successfully'}, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VehicleDetailView(RetrieveUpdateDestroyAPIView):
@@ -174,34 +199,80 @@ class AvailableForRentView(ListAPIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     
     queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
-
+# {
+#   "order_items": [1],
+#   "customer":2,
+#   "order_type": "rental"
+# }
 class BookCarRentalView(CreateAPIView):
     allowed_methods = ['POST']
-    permission_classes = [IsAuthenticated, IsAgentOrStaff]
+    permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     serializer_class = BookCarRentalSerializer
     queryset = Order.objects.all()
 
     def perform_create(self, serializer):
-        order_items = serializer.validated_data.get('order_items', [])
+        # order_items = serializer.validated_data.get('order_items', [])
+        # print("Order items:", order_items)  # Debug log
+        # print("serializer: ", serializer)
 
-        # Calculate the sub_total by summing the rental_price of all items
-        sub_total = sum(float(item.rental_price) for item in order_items)
-        serializer.save(customer=self.request.user.customer, sub_total=sub_total)
+        try:
+            print('self.request.user')
+            customer_main = Customer.objects.get(user=self.request.user)
+            print(f"Customer: {customer_main}")
+        except Customer.DoesNotExist:
+            # Return error response if customer profile doesn't exist
+            raise ValidationError({'error': 'Customer profile does not exist for this account.'})
+
+        # Save the order with the associated customer
+        try:
+            serializer.save(customer=customer_main)
+            print('serializer Saved')
+
+            order_instance = serializer.instance
+            print(f"Order Items: {list(order_instance.order_items.all())}")
+        except Exception as e:
+            print(f"Error saving order: {e}") 
+            raise ValidationError({'error': {e}})
 
     def create(self, request, *args, **kwargs):
+        # Call the original create method to handle POST
         response = super().create(request, *args, **kwargs)
+
+        # Customize the response
         return Response({
             'message': 'Car rental successfully booked',
             'order': response.data
-        })
+        }, status=response.status_code)
+
+
+class BookCarRentalViewDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = BookCarRentalSerializer
+    lookup_field = 'uuid'
+
+    def get_queryset(self):
+        user = Customer.objects.get(user = self.request.user)
+        return Order.objects.filter(customer=user)
+
 
 class AvailableForRentDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly,]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
     serializer_class = VehicleSerializer
     lookup_field = 'uuid'
+
+    # Remove the for_sale option when in the rental page
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+        
+        if 'for_sale' in serializer.fields:
+            serializer.fields.pop('for_sale')
+        
+        return serializer
 
 # English or spanish 😂🫴
