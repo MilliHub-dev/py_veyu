@@ -31,6 +31,8 @@ from .serializers import (
     OrderSerializer,
     VehicleSerializer,
     BookCarRentalSerializer,
+    TestDriveRequestSerializer,
+    TradeInRequestSerializer,
 )
 from ..models import (
     Vehicle,
@@ -275,4 +277,36 @@ class AvailableForRentDetailView(RetrieveUpdateDestroyAPIView):
         
         return serializer
 
+class AvailableForBuyingView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = VehicleSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    
+    queryset = Vehicle.objects.filter(available=True, for_sale=True, current_rental=None,  listing__listing_type='sale').distinct()
+
+class TestDriveRequestView(CreateAPIView):
+    allowed_methods = ['POST']
+    serializer_class = TestDriveRequestSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 # English or spanish 😂🫴
+
+class TradeInRequestViewSet(CreateAPIView):
+    allowed_methods = ['POST']
+    serializer_class = TradeInRequestSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        customer_main = Customer.objects.get(user=self.request.user)
+        serializer.save(customer=customer_main)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

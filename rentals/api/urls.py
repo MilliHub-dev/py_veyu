@@ -9,7 +9,10 @@ from .views import (
     BookCarRentalView,
     AvailableForRentDetailView,
     CreateVehicleView,
-    BookCarRentalViewDetailView
+    BookCarRentalViewDetailView,
+    AvailableForBuyingView,
+    TestDriveRequestView,
+    TradeInRequestViewSet
 )
 
 
@@ -39,6 +42,11 @@ urlpatterns = [
     path('rentals/book/', BookCarRentalView.as_view(), name='book-car-rental'),
     path('rentals/<uuid:uuid>/', AvailableForRentDetailView.as_view(), name='rental-detail'),
     path('rentals/<uuid:uuid>/modify/', BookCarRentalViewDetailView.as_view(), name='rental-modify'), #for user
+
+    # Buying task 3
+    path('buy/', AvailableForBuyingView.as_view(), name='rentals'),
+    path('buy/request-test-drive/', TestDriveRequestView.as_view(), name='rentals'),
+    path('buy/trade-in/', TradeInRequestViewSet.as_view(), name='rentals'),
 ]
 
 

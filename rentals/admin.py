@@ -7,6 +7,8 @@ from .models import (
     VehicleCategory,
     VehicleTag,
     VehicleImage,
+    TestDriveRequest,
+    TradeInRequest
 )
 
 
@@ -17,6 +19,8 @@ admin.site.register(Vehicle)
 admin.site.register(VehicleTag)
 admin.site.register(VehicleCategory)
 admin.site.register(VehicleImage)
+admin.site.register(TestDriveRequest)
+admin.site.register(TradeInRequest)
 
 
 

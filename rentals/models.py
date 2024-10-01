@@ -8,8 +8,6 @@ class VehicleImage(DbModel):
     image = models.ImageField(upload_to='vehicles/images/')
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
 
-
-# Create your models here.
 class Vehicle(DbModel):
     CONDITION_CHOICES = [
         ('new', 'New'),
@@ -46,7 +44,6 @@ class Vehicle(DbModel):
             self.slug = self.name.replace(' ', '-').replace('.', '').replace("'", '').lower().strip()
         return super().save(*args, **kwargs)
 
-
 class VehicleCategory(DbModel):
     name = models.CharField(max_length=200)
 
@@ -55,7 +52,6 @@ class VehicleCategory(DbModel):
 
     def __str__(self):
         return self.name
-
 
 class VehicleTag(DbModel):
     name = models.CharField(max_length=200)
@@ -79,8 +75,6 @@ class CarRental(DbModel):
 
     def __str__(self):
         return f'{self.customer.account.email}  - Order #{self.order.id}'
-
-
 
 class Order(DbModel):
     ORDER_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
@@ -150,7 +144,6 @@ class PurchaseOffer(DbModel):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='listing')
     amount = models.DecimalField(decimal_places=2, max_digits=10000)
 
-
 class TestDriveRequest(DbModel):
     requested_by = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     requested_to = models.ForeignKey('accounts.Dealer', on_delete=models.CASCADE)
@@ -158,7 +151,12 @@ class TestDriveRequest(DbModel):
     granted = models.BooleanField(default=False)
     testdrive_complete = models.BooleanField(default=False)
 
+class TradeInRequest(DbModel):
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
+    estimated_value = models.DecimalField(decimal_places=2, max_digits=10000)
+    comments = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f'Trade-in Request from {self.customer.account.email}'
     
-
-
-

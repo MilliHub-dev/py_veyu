@@ -7,6 +7,8 @@ from ..models import (
     VehicleCategory,
     VehicleImage,
     VehicleCategory,
+    TestDriveRequest,
+    TradeInRequest,
 )
 from rest_framework.serializers import (
     ModelSerializer,
@@ -27,7 +29,6 @@ class VehicleImageSerializer(ModelSerializer):
         model = VehicleImage
         fields ='__all__'
         extra_kwargs = {'vehicle': {'required': False}}
-
 
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,13 +51,10 @@ class ListingSerializer(ModelSerializer):
         model = Listing
         fields = '__all__'
 
-
 class CreateListingSerializer(ModelSerializer):
     class Meta:
         model = Listing
         fields = '__all__'
-
-
 
 class OrderSerializer(ModelSerializer):
     order_items = ListingSerializer(many=True)
@@ -64,7 +62,6 @@ class OrderSerializer(ModelSerializer):
     class Meta:
         model = Order
         fields = '__all__'
-
 
 # English or Spanish 😊
 class VehicleUpdateSerializer(ModelSerializer):
@@ -151,3 +148,14 @@ class BookCarRentalSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+# task 3
+class TestDriveRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestDriveRequest
+        fields = ['requested_by', 'requested_to', 'listing']
+
+class TradeInRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TradeInRequest
+        fields = ['vehicle', 'estimated_value', 'comments']
