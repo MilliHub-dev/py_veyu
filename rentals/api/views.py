@@ -33,6 +33,7 @@ from .serializers import (
     BookCarRentalSerializer,
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
+    CompleteOrderSerializer
 )
 from ..models import (
     Vehicle,
@@ -47,6 +48,16 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import ValidationError
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
+from ...wallet.models import Wallet
+from rest_framework.views import APIView
+
+
+
+User = get_user_model()
 
 class ListingsView(ListAPIView):
     """Show all listings created
@@ -310,3 +321,35 @@ class TradeInRequestViewSet(CreateAPIView):
         customer_main = Customer.objects.get(user=self.request.user)
         serializer.save(customer=customer_main)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CompleteOrderView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(operation_summary="Endpoint to complete order")
+    def post(self, request):
+        serializer = CompleteOrderSerializer(data=request.data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            order_id = validated_data['order_id']
+            recipient_email = validated_data['recipient']
+            
+
+            order = get_object_or_404(Order, id=order_id)
+            
+            recipient = get_object_or_404(User, email=recipient_email)
+            sender_wallet = get_object_or_404(Wallet, user=request.user)
+            recipient_wallet = get_object_or_404(Wallet, user=recipient)
+
+            if sender_wallet.balance < order.total:
+                return Response({'error': 'Insufficient funds'}, status=status.HTTP_403_FORBIDDEN)
+
+            if sender_wallet.complete_order(amount=order.total, recipient_wallet=recipient_wallet):
+                order.paid = True
+                order.save()
+                return Response(f'Order completed successfully', status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Unable to perform this operation'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

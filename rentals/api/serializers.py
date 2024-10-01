@@ -21,7 +21,10 @@ from rest_framework import serializers
 from rest_framework.parsers import MultiPartParser, FormParser
 from decimal import Decimal
 from django.db import models
+from decimal import Decimal
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
 
 class VehicleImageSerializer(ModelSerializer):
@@ -159,3 +162,21 @@ class TradeInRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeInRequest
         fields = ['vehicle', 'estimated_value', 'comments']
+
+class CompleteOrderSerializer(serializers.Serializer):
+    recipient = serializers.EmailField(required=True)
+    order_id = serializers.IntegerField(required=True)
+
+    def validate(self, data):
+        """
+        Check that the recipient and order exists.
+        """
+        email = data['recipient']
+        order_id = data['order_id']
+        if not User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("Recipient not found")
+        
+        if not Order.objects.filter(id=order_id).exists():
+            raise serializers.ValidationError("Order not found")
+
+        return data

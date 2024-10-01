@@ -30,6 +30,17 @@ class Wallet(models.Model):
                 Transaction.objects.create(wallet=self, type='transfer', amount=amount, receiver=recipient_wallet.user)
                 return True
         return False
+    
+    def complete_order(self, amount, recipient_wallet):
+        if self.balance >= amount:
+            with transaction.atomic():
+                self.balance = F('balance') - amount
+                recipient_wallet.deposit(amount)
+                self.save()
+                recipient_wallet.save()
+                Transaction.objects.create(wallet=self, type='order', amount=amount, receiver=recipient_wallet.user)
+                return True
+        return False
 
     def withdraw(self, amount, transaction_status, account_details, reference):
         if self.balance >= amount:

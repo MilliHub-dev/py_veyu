@@ -19,7 +19,7 @@ urlpatterns = [
     path('api/', include('rentals.api.urls', namespace='rentals_api')),
     path('api/v1/wallet', include('wallet.urls')),
     path('', include('utils.urls', namespace='utils')),
-    path('api/v1/wallet', include('wallet.urls')),
+    path('api/v1/wallet/', include('wallet.urls')),
 
      #JWT Token Views
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
