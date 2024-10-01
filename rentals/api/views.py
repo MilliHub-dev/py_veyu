@@ -52,7 +52,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from ...wallet.models import Wallet
+from wallet.models import Wallet
 from rest_framework.views import APIView
 
 

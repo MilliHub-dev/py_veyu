@@ -12,7 +12,8 @@ from .views import (
     BookCarRentalViewDetailView,
     AvailableForBuyingView,
     TestDriveRequestView,
-    TradeInRequestViewSet
+    TradeInRequestViewSet,
+    CompleteOrderView
 )
 
 
@@ -47,6 +48,8 @@ urlpatterns = [
     path('buy/', AvailableForBuyingView.as_view(), name='rentals'),
     path('buy/request-test-drive/', TestDriveRequestView.as_view(), name='rentals'),
     path('buy/trade-in/', TradeInRequestViewSet.as_view(), name='rentals'),
+
+    path('complete-order/', CompleteOrderView.as_view())
 ]
 
 
