@@ -12,7 +12,7 @@ User = get_user_model()
 
 class Wallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    balance = models.DecimalField(max_digits=30, decimal_places=2, default=0.00)
 
     def deposit(self, amount, reference=None):
         self.balance = F('balance') + amount
