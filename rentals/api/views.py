@@ -337,7 +337,6 @@ class TestDriveRequestView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-# English or spanish 😂🫴
 
 class TradeInRequestViewSet(CreateAPIView):
     allowed_methods = ['POST']
@@ -354,8 +353,8 @@ class TradeInRequestViewSet(CreateAPIView):
 
 
 class CompleteOrderView(APIView):
-
-    permission_classes = [IsAuthenticated]
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
 
     @swagger_auto_schema(operation_summary="Endpoint to complete order")
     def post(self, request):
@@ -366,7 +365,7 @@ class CompleteOrderView(APIView):
             recipient_email = validated_data['recipient']
             
 
-            order = get_object_or_404(Order, id=order_id)
+            order = get_object_or_404(Order, uuid=order_id)
             
             recipient = get_object_or_404(User, email=recipient_email)
             sender_wallet = get_object_or_404(Wallet, user=request.user)
@@ -392,3 +391,5 @@ class ViewCarOffersView(ListAPIView):
 
     def get_queryset(self):
         return PurchaseOffer.objects.filter(listing__created_by=self.request.user)
+
+# English or spanish 😂🫴

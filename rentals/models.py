@@ -62,16 +62,13 @@ class VehicleTag(DbModel):
 class CarRental(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     order = models.ForeignKey('Order', on_delete=models.CASCADE)
-    # start_date = models.DateTimeField()
-    # end_date = models.DateTimeField()
-    # days = models.PositiveIntegerField()
 
+    def __str__(self):
+        return f'{self.customer.account.email}  - Order #{self.order.id}'
 
-    # # logic to calculate the number of days bases of the start and end date
-    # def save(self, *args, **kwargs):
-    #     if not self.days:
-    #         self.days = (self.end_date - self.start_date).days
-    #     return super().save(*args, **kwargs)
+class CarPurchase(DbModel):
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    order = models.ForeignKey('Order', on_delete=models.CASCADE)
 
     def __str__(self):
         return f'{self.customer.account.email}  - Order #{self.order.id}'
@@ -105,15 +102,17 @@ class Order(DbModel):
     @property
     def total(self):
         # Use Decimal for all calculations
-        amt = self.sub_total if self.sub_total else Decimal('0.00')
-
+        amt_X = self.sub_total if self.sub_total else 0
+        amt = float(amt_X)
         # Apply the discount percentage if it exists
         if self.discount:
-            discount_amount = (self.discount / Decimal('100.00')) * amt
+            print(amt)
+            print(type(float(self.discount)))
+            discount_amount = (float(self.discount) / 100.00) * amt
             amt -= discount_amount
 
         # Add the commission
-        amt += self.commission
+        amt += float(self.commission)
 
         return amt
 

@@ -166,7 +166,7 @@ class TradeInRequestSerializer(serializers.ModelSerializer):
 
 class CompleteOrderSerializer(serializers.Serializer):
     recipient = serializers.EmailField(required=True)
-    order_id = serializers.IntegerField(required=True)
+    order_id = serializers.CharField(required=True)
 
     def validate(self, data):
         """
@@ -177,7 +177,7 @@ class CompleteOrderSerializer(serializers.Serializer):
         if not User.objects.filter(email=email).exists():
             raise serializers.ValidationError("Recipient not found")
         
-        if not Order.objects.filter(id=order_id).exists():
+        if not Order.objects.filter(uuid=order_id).exists():
             raise serializers.ValidationError("Order not found")
 
         return data
