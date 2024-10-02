@@ -9,6 +9,7 @@ from ..models import (
     VehicleCategory,
     TestDriveRequest,
     TradeInRequest,
+    PurchaseOffer,
 )
 from rest_framework.serializers import (
     ModelSerializer,
@@ -180,3 +181,8 @@ class CompleteOrderSerializer(serializers.Serializer):
             raise serializers.ValidationError("Order not found")
 
         return data
+
+class PurchaseOfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PurchaseOffer
+        fields = '__all__'

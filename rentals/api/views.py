@@ -33,13 +33,15 @@ from .serializers import (
     BookCarRentalSerializer,
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
-    CompleteOrderSerializer
+    CompleteOrderSerializer,
+    PurchaseOfferSerializer
 )
 from ..models import (
     Vehicle,
     Listing,
     Order,
     CarRental,
+    PurchaseOffer,
 )
 from accounts.models import (
     Customer,
@@ -198,11 +200,39 @@ class VehicleDetailView(RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(vehicle, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        try:
+            listing = Listing.objects.get(vehicle=vehicle)
+            
+            listing_type = 'rental' if vehicle.available and not vehicle.for_sale else 'sale'
+            
+            listing.listing_type = listing_type
+            listing.sale_price = vehicle.sale_price
+            listing.rental_price = vehicle.rental_price
+            listing.title = vehicle.listing_title
+            
+            # Save the updated listing
+            listing.save()
+
+        except Listing.DoesNotExist:
+            pass 
+
         return Response(serializer.data)
 
+    # for delete
     def delete(self, request, *args, **kwargs):
         vehicle = self.get_object()
+        
+        # Delete the corresponding listing if it exists
+        try:
+            listing = Listing.objects.get(vehicle=vehicle)
+            listing.delete()
+        except Listing.DoesNotExist:
+            pass
+
+        # Delete the vehicle
         self.perform_destroy(vehicle)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class AvailableForRentView(ListAPIView):
@@ -353,3 +383,12 @@ class CompleteOrderView(APIView):
                 return Response({'error': 'Unable to perform this operation'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ViewCarOffersView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = PurchaseOfferSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def get_queryset(self):
+        return PurchaseOffer.objects.filter(listing__created_by=self.request.user)
