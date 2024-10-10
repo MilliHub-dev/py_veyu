@@ -18,6 +18,19 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='ChatAttachments',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(blank=True, default=utils.make_UUID)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+                ('last_updated', models.DateTimeField(auto_now=True)),
+                ('file', models.FileField(blank=True, null=True, upload_to='chat/attachments')),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='Tag',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -38,6 +51,37 @@ class Migration(migrations.Migration):
                 ('date_created', models.DateTimeField(auto_now_add=True)),
                 ('last_updated', models.DateTimeField(auto_now=True)),
                 ('name', models.CharField(max_length=200)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='Notification',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(blank=True, default=utils.make_UUID)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+                ('last_updated', models.DateTimeField(auto_now=True)),
+                ('subject', models.CharField(max_length=350)),
+                ('message', models.TextField()),
+                ('channel', models.CharField(choices=[('email', 'Email Notification'), ('in-app', 'In-App Notification'), ('sms', 'SMS Notification')], default='in-app', max_length=10)),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='ChatRoom',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(blank=True, default=utils.make_UUID)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+                ('last_updated', models.DateTimeField(auto_now=True)),
+                ('room_type', models.CharField(choices=[('sales-chat', 'Chat Room'), ('support-chat', 'Support Room')], default='sales-chat', max_length=200)),
+                ('members', models.ManyToManyField(blank=True, related_name='members', to=settings.AUTH_USER_MODEL)),
+                ('messages', models.ManyToManyField(blank=True, related_name='messages', to='feedback.chatmessage')),
             ],
             options={
                 'abstract': False,

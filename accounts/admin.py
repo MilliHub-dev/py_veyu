@@ -22,7 +22,7 @@ class AccountsAdmin(admin.ModelAdmin):
         'name',
         'email',
         'uuid',
-        'user_type',
+        # 'user_type',
     ]
     list_display_links = [
         'name',

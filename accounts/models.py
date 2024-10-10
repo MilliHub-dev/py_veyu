@@ -48,11 +48,10 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         'mechanic': 'Mechanic',
     }
 
-    api_token = models.ForeignKey(Token, on_delete=models.SET_NULL, blank=True, null=True)
-    image = models.ImageField(upload_to='profiles/', blank=True, null=True)
-    first_name = models.CharField(max_length=150, blank=True)
-    last_name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(blank=False, unique=True)
+    first_name = models.CharField(max_length=150, blank=False)
+    last_name = models.CharField(max_length=150, blank=False)
+    phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     verified_email = models.BooleanField(default=False)
     
     groups = None
@@ -62,20 +61,14 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
 
     date_joined = models.DateTimeField(default=timezone.now)
-    user_type = models.CharField(max_length=20, default='customer', choices=USER_TYPES)
+    user_type = models.CharField(max_length=20, null=False)
     
     objects = AccountManager()
 
     EMAIL_FIELD = "email"
     USERNAME_FIELD = 'email'
-
-    def save(self, *args, **kwargs):
-        if self.id and not self.api_token:
-            self.api_token = Token.objects.get_or_create(user=self)[0]
-        super().save(*args, **kwargs)
 
     @property
     def name(self):
@@ -90,14 +83,14 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
 
 class UserProfile(DbModel):
-    account = models.OneToOneField('Account', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     verified_phone_number = models.BooleanField(default=False)
-    wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
+    verified_email = models.BooleanField(default=False)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
     reviews = models.ManyToManyField('feedback.Rating', blank=True)
 
+<<<<<<< HEAD
     def __str__(self) -> str:
         return self.account.name
 
@@ -117,48 +110,85 @@ class UserProfile(DbModel):
     def rating(self):
         return self.account.name
 
+=======
+    def verify_phone_number(self):
+        self.verified_phone_number = True
+        self.save() 
+        return True
+    
+    def verify_email(self):
+        self.verified_email = True
+        self.save() 
+        return True
+
+    
+>>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
     class Meta:
         abstract = True
 
 
 
 class Customer(UserProfile):
+<<<<<<< HEAD
     orders = models.ManyToManyField('rentals.Order', blank=True, related_name='orders')
     service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
 
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
     # billing_info = models.ManyToManyField("BillingInformation", blank=True)
+=======
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='customer')
+    
+>>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
     def __str__(self):
-        return self.account.email
+        return self.user.email
 
 
 
 class Mechanic(UserProfile):
-    account = models.OneToOneField('Account', on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='mechanic')
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
     current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
 
+<<<<<<< HEAD
     def __str__(self) -> str:
         return self.account.name
+=======
+    def __str__(self):
+        return f'{self.user.email} {self.user.first_name} {self.user.last_name}'
+
+    @property
+    def avg_rating(self):
+        return self.user.email
+>>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
 class Dealer(UserProfile):
-    account = models.OneToOneField('Account', on_delete=models.CASCADE)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='dealer')
     listings = models.ManyToManyField('rentals.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('rentals.Vehicle', blank=True, related_name='vehicles')
-    # billing_info = models.ManyToManyField('PayoutInformation', blank=True, )
     ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='ratings')
 
     def __str__(self):
-        return self.account.email
+        return self.user.email
 
+<<<<<<< HEAD
+=======
+    
+class Agent(UserProfile):
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='agent')
+
+    def __str__(self):
+        return self.user.email
+    
+>>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
 class Transaction(DbModel):
     related_order = models.ForeignKey('rentals.Order', blank=True, null=True, on_delete=models.CASCADE)
     status = models.CharField(max_length=200, default='pending')
     amount = models.DecimalField(decimal_places=2, max_digits=10000)
+
 
 class PayoutInformation(DbModel):
     channel = models.CharField(max_length=200, default='bank')
@@ -175,12 +205,13 @@ class BillingInformation(DbModel):
 
 
 class Location(DbModel):
+    user = models.ForeignKey('Account', on_delete=models.CASCADE)
     country = models.CharField(max_length=2, default='NG')
     state = models.CharField(max_length=200)
     city = models.CharField(max_length=200)
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
-    added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
+    # added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
 
     def __str__(self):
         return f'{self.country}' +', '+ f'{self.state}' 
@@ -189,7 +220,6 @@ class Location(DbModel):
 
 class OTP(DbModel):
     valid_for = models.ForeignKey('Account', on_delete=models.CASCADE)
-    channel = models.CharField(max_length=10, default='email', choices={'email': 'Email', 'sms': 'SMS'})
     code = models.CharField(max_length=7, default=make_random_otp)
     used = models.BooleanField(default=False)
 
@@ -198,7 +228,20 @@ class OTP(DbModel):
         verbose_name_plural = 'One Time Pins (OTPs)'
 
     def verify(self, code, channel):
-        if self.code == code and self.channel == channel:
+        if self.code == code:
+            self.used = True
+
+            user_profile = (
+                Customer.objects.get(user=self.valid_for) or
+                Mechanic.objects.get(user=self.valid_for) or
+                Dealer.objects.get(user=self.valid_for) or
+                Agent.objects.get(user=self.valid_for)
+            )
+            if channel == 'sms':
+                user_profile.verify_phone_number()
+
+            if channel == 'email':
+                user_profile.verify_email()
             self.delete()
             return True
         return False

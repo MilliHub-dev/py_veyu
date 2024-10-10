@@ -3,12 +3,13 @@ from africastalking.SMS import SMSService
 from django.conf import settings
 
 username = 'Motaa'
-# api_key = settings.SMS_API_KEY
+api_key = settings.SMS_API_KEY
 vonage_client = vonage.Client(key="e1c5efae", secret="wUdmQL7BK3K3hukn")
 
 
 # Vonage
 def send_sms(message, recipient:str, fail_silently=False):
+    recipient = f'+234{recipient}'
     try:
         sender = vonage.Sms(vonage_client)
         response = sender.send_message({

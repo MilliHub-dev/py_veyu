@@ -5,19 +5,24 @@ from pathlib import Path
 from django.conf import settings
 
 
-def send_email(subject, template, context, recipients):
+def send_email(subject, template, context, recipient):
     html_message = render_to_string(
         settings.BASE_DIR / template,
         context
     )
+
     email = EmailMessage(
-        subject,
-        html_message,
-        'Motaa <motaa@gmail.com>',
-        recipients
+        subject=subject,
+        html_message=html_message,
+        from_email='Motaa <motaa@gmail.com>',
+        to=[recipient],
     )
     email.content_subtype = 'html'
-    email.send(fail_silently=False)
+    try:
+        email.send(fail_silently=False)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+    
 
 
 
