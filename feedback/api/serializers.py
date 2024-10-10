@@ -1,7 +1,5 @@
 from ..models import (
     Rating,
-    ChatMessage,
-    ChatRoom,
     SupportTicket,
     TicketCategory,
     Tag,

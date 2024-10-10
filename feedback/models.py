@@ -37,7 +37,7 @@ class SupportTicket(DbModel):
     subject = models.CharField(max_length=400) # title/reason of the ticket
     tags = models.ManyToManyField('Tag', blank=True)
     category = models.ForeignKey('TicketCategory', on_delete=models.SET_NULL, blank=True, null=True)
-    chat_room = models.ForeignKey('ChatRoom', blank=True, related_name='chat_room', null=True, on_delete=models.CASCADE)
+    chat_room = models.ForeignKey('chat.ChatRoom', blank=True, related_name='chat_room', null=True, on_delete=models.CASCADE)
     correspondents = models.ManyToManyField('accounts.Account', blank=True, limit_choices_to={'is_staff': True}) # staff that have been added to this chat
     
 
@@ -54,31 +54,6 @@ class TicketCategory(DbModel):
 
     def __str__(self):return self.name
 
-
-class ChatRoom(DbModel):
-    ROOM_TYPES = {
-        'sales-chat': 'Chat Room',
-        'support-chat': 'Support Room',
-    }
-    room_type = models.CharField(max_length=200, default='sales-chat', choices=ROOM_TYPES)
-    members = models.ManyToManyField('accounts.Account', blank=True, related_name='members')
-    messages = models.ManyToManyField('ChatMessage', blank=True, related_name='messages')
-
-    def __str__(self) -> str:
-        return self.uuid
-
-
-class ChatAttachments(DbModel):
-    file = models.FileField(upload_to='chat/attachments', blank=True, null=True)
-
-
-class ChatMessage(DbModel):
-    sender = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
-    message = models.TextField()
-    chat_source = models.CharField(max_length=20, choices={'chat': 'Chat Room', 'email': 'Email'}, default='chat')
-    ticket_id = models.ForeignKey(SupportTicket, on_delete=models.CASCADE)
-    attachments = models.ManyToManyField(ChatAttachments, blank=True, related_name='attachments')
-    
 
 
 class Notification(DbModel):

@@ -4,9 +4,8 @@ from .models import (
     Customer,
     Mechanic,
     Location,
-    Service,
+    OTP,
     Dealer,
-    ServiceBooking,
 )
 from utils.sms import send_sms
 from utils.mail import send_email
@@ -37,6 +36,10 @@ class AccountsAdmin(admin.ModelAdmin):
                 print('User Phone Number:', account.customer.phone_number)
                 send_sms(f"Hi {account.first_name}, welcome to Motaa. \
                           \nYour verification code is 121-678 ", recipient=account.customer.phone_number)
+            elif account.user_type == 'mechanic':
+                print('User Phone Number:', account.mechanic.phone_number)
+                send_sms(f"Hi {account.first_name}, welcome to Motaa. \
+                          \nYour verification code is 121-678 ", recipient=account.mechanic.phone_number)
         self.message_user(request, "Successfully sent sms")
 
     def send_welcome_email(self, request, queryset, *args, **kwargs):
@@ -60,11 +63,20 @@ class AccountsAdmin(admin.ModelAdmin):
         self.message_user(request, "Successfully sent sms")
 
 
+class OTPAdmin(admin.ModelAdmin):
+    list_display_links = [
+        'code'
+    ]
+    list_display = [
+        'code',
+        'channel',
+    ]
+
+
 # Register your models here.
 admin.site.register(Account, AccountsAdmin)
 admin.site.register(Customer)
 admin.site.register(Mechanic)
 admin.site.register(Location)
-admin.site.register(Service)
 admin.site.register(Dealer)
-admin.site.register(ServiceBooking)
+admin.site.register(OTP, OTPAdmin)

@@ -6,10 +6,11 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.api.urls', namespace='accounts_api')),
+    path('api/bookings/', include('bookings.api.urls', namespace='bookings_api')),
+    # path('api/chat/', include('chat.api.urls', namespace='rentals_api')),
     path('api/rentals/', include('rentals.api.urls', namespace='rentals_api')),
     path('api/v1/wallet', include('wallet.urls')),
     path('', include('utils.urls', namespace='utils')),
-    path('api/v1/wallet', include('wallet.urls'))
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

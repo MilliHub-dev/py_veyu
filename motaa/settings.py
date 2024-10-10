@@ -34,6 +34,8 @@ INSTALLED_APPS = [
 
     # Motaa Apps
     'accounts',
+    'bookings',
+    'chat',
     'utils',
     'feedback',
     'rentals',
@@ -63,6 +65,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Motaa Middleware
+    'utils.middleware.UserTypeMiddleware',
 ]
 
 ROOT_URLCONF = 'motaa.urls'
@@ -162,10 +167,10 @@ REST_FRAMEWORK = {
 
 }
 
+# from corsheaders.conf import
 
 
-
-CORS_ORIGINS_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 # EMAIL

@@ -45,7 +45,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         'staff': 'Agent',
         'customer': 'Customer',
         'dealer': 'Car Dealer',
-        'mech': 'Mechanic',
+        'mechanic': 'Mechanic',
     }
 
     api_token = models.ForeignKey(Token, on_delete=models.SET_NULL, blank=True, null=True)
@@ -96,17 +96,35 @@ class UserProfile(DbModel):
     wallet = models.OneToOneField('wallet.Wallet', on_delete=models.CASCADE)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
+    reviews = models.ManyToManyField('feedback.Rating', blank=True)
 
     def __str__(self) -> str:
         return self.account.name
-    
+
+    @classmethod
+    def me(cls, obj_id):
+        obj = None
+        try:
+            obj = cls.objects.get(uuid=obj_id)
+        except:
+            obj = cls.objects.get(id=obj_id)
+        finally:
+            return obj
+        
+
+
+    @property
+    def rating(self):
+        return self.account.name
+
     class Meta:
         abstract = True
 
 
+
 class Customer(UserProfile):
     orders = models.ManyToManyField('rentals.Order', blank=True, related_name='orders')
-    service_history = models.ManyToManyField('Service', blank=True)
+    service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
 
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
     # billing_info = models.ManyToManyField("BillingInformation", blank=True)
@@ -119,15 +137,12 @@ class Customer(UserProfile):
 class Mechanic(UserProfile):
     account = models.OneToOneField('Account', on_delete=models.CASCADE)
     available = models.BooleanField(default=True)
-    services = models.ManyToManyField('Service', blank=True)
-    current_job = models.ForeignKey('ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
-    job_history = models.ManyToManyField('ServiceBooking', blank=True, related_name='job_history')
-    ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='reviews')
+    services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
+    current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
+    job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
 
-    @property
-    def avg_rating(self):
+    def __str__(self) -> str:
         return self.account.name
-
 
 class Dealer(UserProfile):
     account = models.OneToOneField('Account', on_delete=models.CASCADE)
@@ -139,24 +154,6 @@ class Dealer(UserProfile):
     def __str__(self):
         return self.account.email
 
-    
-class Wallet(DbModel):
-    # owner = models.ForeignKey('Account', on_delete=models.CASCADE)
-    transactions = models.ManyToManyField("Transaction", blank=True)
-    balance = models.DecimalField(max_digits=10000, decimal_places=2, blank=True, null=True)
-
-    def withdraw(self, amt) -> bool:
-        # return true if available balance >= amt
-        return True
-    
-    @property
-    def available_balance(self):
-        return
-    
-    @property
-    def pending_funds(self):
-        return
-    
 
 class Transaction(DbModel):
     related_order = models.ForeignKey('rentals.Order', blank=True, null=True, on_delete=models.CASCADE)
@@ -187,31 +184,6 @@ class Location(DbModel):
 
     def __str__(self):
         return f'{self.country}' +', '+ f'{self.state}' 
-    
-
-class Service(DbModel):
-    RATES = {
-        'flat': 'Flat Rate', 
-        'hourly': 'Hourly Rate', 
-    }
-    title = models.CharField(max_length=400, unique=True)
-    description = models.TextField(max_length=1200, blank=True, null=True)
-    charge = models.DecimalField(blank=True, null=True, max_digits=1000, decimal_places=2)
-    charge_rate = models.CharField(default='flat', max_length=20, choices=RATES)
-
-    def __str__(self):
-        return self.title
-
-class ServiceBooking(DbModel):
-    SERVICE_DELIVERY = {
-        'emergency': 'Emergency Assistance',
-        'routine': 'Routine Check',
-    }
-    mechanic = models.ForeignKey('Mechanic', on_delete=models.CASCADE)
-    client_feedback = models.ForeignKey('feedback.Rating', blank=True, null=True, on_delete=models.SET_NULL)
-    completed = models.BooleanField(default=False)
-    service_delivery = models.CharField(max_length=20, default='routine', choices=SERVICE_DELIVERY)
-    customer = models.ForeignKey('Customer', on_delete=models.CASCADE)
 
 
 
@@ -220,6 +192,10 @@ class OTP(DbModel):
     channel = models.CharField(max_length=10, default='email', choices={'email': 'Email', 'sms': 'SMS'})
     code = models.CharField(max_length=7, default=make_random_otp)
     used = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'One Time Pin (OTP)'
+        verbose_name_plural = 'One Time Pins (OTPs)'
 
     def verify(self, code, channel):
         if self.code == code and self.channel == channel:
