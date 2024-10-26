@@ -38,7 +38,7 @@ class ServiceBooking(DbModel):
         'requested': 'Requested',
     }
     mechanic = models.ForeignKey('accounts.Mechanic', on_delete=models.CASCADE)
-    client_feedback = models.ForeignKey('feedback.Rating', blank=True, null=True, on_delete=models.SET_NULL)
+    client_feedback = models.ForeignKey('feedback.Review', blank=True, null=True, on_delete=models.SET_NULL)
     completed = models.BooleanField(default=False)
     type = models.CharField(max_length=20, default='routine', choices=SERVICE_DELIVERY)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)

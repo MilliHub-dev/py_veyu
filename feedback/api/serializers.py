@@ -1,5 +1,5 @@
 from ..models import (
-    Rating,
+    Review,
     SupportTicket,
     TicketCategory,
     Tag,
@@ -15,8 +15,8 @@ from rest_framework.serializers import (
 class RatingSerializer(ModelSerializer):
     reviewer = StringRelatedField()
     class Meta:
-        model = Rating
-        fields = ('id', 'uuid', 'stars', 'review', 'reviewer')
+        model = Review
+        fields = ('id', 'uuid', 'stars', 'comment', 'reviewer')
 
 
 

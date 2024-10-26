@@ -42,7 +42,7 @@ class AccountManager(BaseUserManager):
 class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     USER_TYPES = {
         'admin': 'Admin',
-        'staff': 'Agent',
+        'staff': 'Staff / Agent',
         'customer': 'Customer',
         'dealer': 'Car Dealer',
         'mechanic': 'Mechanic',
@@ -51,24 +51,28 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     email = models.EmailField(blank=False, unique=True)
     first_name = models.CharField(max_length=150, blank=False)
     last_name = models.CharField(max_length=150, blank=False)
-    phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
+    role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
     
     groups = None
     user_permissions = None
 
-    role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
-    
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     date_joined = models.DateTimeField(default=timezone.now)
-    user_type = models.CharField(max_length=20, null=False)
+    user_type = models.CharField(max_length=20, default='customer', choices=USER_TYPES)
     
     objects = AccountManager()
 
     EMAIL_FIELD = "email"
     USERNAME_FIELD = 'email'
+
+    
+    def verify_email(self):
+        self.verified_email = True
+        self.save() 
+        return True
 
     @property
     def name(self):
@@ -83,16 +87,25 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
 
 class UserProfile(DbModel):
+    ID_TYPES = [
+        ('nin', 'National Identification'),
+        ('drivers-license', 'National Identification'),
+        ('voters-card', 'National Identification'),
+        ('passport', 'National Identification'),
+    ]
+    user = models.OneToOneField(Account, on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
+    id_type = models.CharField(max_length=200, default='nin', choices=ID_TYPES, blank=True, null=True)
     verified_phone_number = models.BooleanField(default=False)
-    verified_email = models.BooleanField(default=False)
+    verified_id = models.BooleanField(default=False)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
-    reviews = models.ManyToManyField('feedback.Rating', blank=True)
+    documents = models.ManyToManyField('Document', blank=True)
+    # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
+    billing_info = models.ManyToManyField("BillingInformation", blank=True)
 
-<<<<<<< HEAD
     def __str__(self) -> str:
-        return self.account.name
+        return self.user.name
 
     @classmethod
     def me(cls, obj_id):
@@ -103,94 +116,74 @@ class UserProfile(DbModel):
             obj = cls.objects.get(id=obj_id)
         finally:
             return obj
-        
 
 
-    @property
-    def rating(self):
-        return self.account.name
-
-=======
     def verify_phone_number(self):
         self.verified_phone_number = True
         self.save() 
         return True
     
-    def verify_email(self):
-        self.verified_email = True
-        self.save() 
-        return True
-
+    @property
+    def verifed_email(self) -> bool:
+        return self.user.verified_email()
     
->>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
+    def verify_email(self):
+        self.user.verify_email()
+
     class Meta:
         abstract = True
 
 
 
 class Customer(UserProfile):
-<<<<<<< HEAD
-    orders = models.ManyToManyField('rentals.Order', blank=True, related_name='orders')
+    orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
     service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
-
-    # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
-    # billing_info = models.ManyToManyField("BillingInformation", blank=True)
-=======
-    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='customer')
-    
->>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
     def __str__(self):
         return self.user.email
-
 
 
 class Mechanic(UserProfile):
-    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='mechanic')
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
     current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
+    reviews = models.ManyToManyField('feedback.Review', blank=True,)
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
 
-<<<<<<< HEAD
-    def __str__(self) -> str:
-        return self.account.name
-=======
-    def __str__(self):
-        return f'{self.user.email} {self.user.first_name} {self.user.last_name}'
+    # def __str__(self) -> str:
+    #     return self.account.name
+    
+    def rating(self):
+        return
 
-    @property
-    def avg_rating(self):
-        return self.user.email
->>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
 class Dealer(UserProfile):
-    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='dealer')
-    listings = models.ManyToManyField('rentals.Listing', blank=True, related_name='listings')
-    vehicles = models.ManyToManyField('rentals.Vehicle', blank=True, related_name='vehicles')
-    ratings = models.ManyToManyField('feedback.Rating', blank=True, related_name='ratings')
+    business_name = models.CharField(max_length=300)
+    listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
+    vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
+    reviews = models.ManyToManyField('feedback.Review', blank=True,)
+    rental_services = models.BooleanField(default=False)
+    purchase_services = models.BooleanField(default=False)
+    offers_trade_in = models.BooleanField(default=False)
+    cac_number = models.CharField(max_length=200)
+    tin_number = models.CharField(max_length=200)
 
     def __str__(self):
-        return self.user.email
-
-<<<<<<< HEAD
-=======
+        return self.business_name
     
-class Agent(UserProfile):
-    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='agent')
+    def rating(self):
+        return
 
-    def __str__(self):
-        return self.user.email
-    
->>>>>>> 37fbae9c0eca9fbcb78f038b374d72b0561c286a
 
 class Transaction(DbModel):
-    related_order = models.ForeignKey('rentals.Order', blank=True, null=True, on_delete=models.CASCADE)
+    related_order = models.ForeignKey('listings.Order', blank=True, null=True, on_delete=models.CASCADE)
     status = models.CharField(max_length=200, default='pending')
     amount = models.DecimalField(decimal_places=2, max_digits=10000)
 
 
+
 class PayoutInformation(DbModel):
+    user = models.ForeignKey('Account', on_delete=models.CASCADE)
     channel = models.CharField(max_length=200, default='bank')
     bank_name = models.CharField(max_length=200)
     account_holder_name = models.CharField(max_length=200)
@@ -201,7 +194,17 @@ class PayoutInformation(DbModel):
 
 
 class BillingInformation(DbModel):
-    pass
+    user = models.ForeignKey('Account', on_delete=models.CASCADE)
+    billing_address = models.ForeignKey('Location', on_delete=models.CASCADE)
+    card_holder_name = models.CharField(max_length=200)
+    card_number = models.CharField(max_length=20)
+    card_exp_month = models.CharField(max_length=2)
+    card_exp_year = models.CharField(max_length=4)
+    card_cvv = models.CharField(max_length=3)
+    is_primary = models.BooleanField(default=False)
+
+    def __str__(self) -> str:
+        return f"{self.user.name}'s card <{self.id}>"
 
 
 class Location(DbModel):
@@ -211,7 +214,6 @@ class Location(DbModel):
     city = models.CharField(max_length=200)
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
-    # added_by = models.ForeignKey('Account', on_delete=models.CASCADE)
 
     def __str__(self):
         return f'{self.country}' +', '+ f'{self.state}' 
@@ -222,30 +224,76 @@ class OTP(DbModel):
     valid_for = models.ForeignKey('Account', on_delete=models.CASCADE)
     code = models.CharField(max_length=7, default=make_random_otp)
     used = models.BooleanField(default=False)
+    channel = models.CharField(max_length=20, default='email', choices=(('email', 'Email'), ('sms', 'SMS'))) # email | sms
 
     class Meta:
         verbose_name = 'One Time Pin (OTP)'
         verbose_name_plural = 'One Time Pins (OTPs)'
 
-    def verify(self, code, channel):
+    def verify(self, code, user=None):
         if self.code == code:
-            self.used = True
-
-            user_profile = (
-                Customer.objects.get(user=self.valid_for) or
-                Mechanic.objects.get(user=self.valid_for) or
-                Dealer.objects.get(user=self.valid_for) or
-                Agent.objects.get(user=self.valid_for)
-            )
-            if channel == 'sms':
-                user_profile.verify_phone_number()
-
-            if channel == 'email':
-                user_profile.verify_email()
-            self.delete()
-            return True
+            if user and user == self.valid_for: # for verifying user_profiles
+                user_profile = self.get_user_profile()
+                if user_profile is not None: # if None ie user/valid_for is an agent/staff account
+                    if self.channel == 'email':
+                        user_profile.verify_email()
+                    elif self.channel == 'sms':
+                        user_profile.verify_phone_number()
+                    self.delete()
+                    return True
+                else:
+                    self.valid_for.verify_email()
+                    self.delete()
+                    return True
+            return False
         return False
+
+    def get_user_profile(self):
+        if self.valid_for.user_type == 'customer':
+            return Customer.objects.get(user=self.valid_for)
+        if self.valid_for.user_type == 'dealer':
+            return Dealer.objects.get(user=self.valid_for)
+        if self.valid_for.user_type == 'mechanic':
+            return Mechanic.objects.get(user=self.valid_for)
+        return None
 
     def __str__(self) -> str:
         return self.code
+
+
+
+class File(DbModel):
+    name = models.CharField(max_length=200, blank=True, null=True)
+    file = models.FileField(upload_to='docs/')
+
+    def save(self, *args, **kwargs):
+        if not self.name and self.file:
+            self.name = self.file.name
+        super().save(*args, **kwargs)
+    
+    def file_type(self):
+        ext = self.file.name.split('.')[-1]
+        types = {
+            'pdf': 'PDF Document',
+            'docx': 'MS-Word Document',
+            'jpeg': 'Image Document',
+            'png': 'Image Document',
+        }
+        return types[ext] or f"Unknown Document type => {ext}"
+
+
+class Document(DbModel):
+    DOCTYPES = [
+        # ('nin', "National Identification"),
+        ('drivers-license', "Driver's License"),
+        ('nin', "National Identification"),
+        ('proof-of-address', "Proof of Address"),
+    ]
+
+    owner = models.ForeignKey('Account', on_delete=models.CASCADE)
+    doctype = models.CharField(max_length=200, choices=DOCTYPES)
+    files = models.ManyToManyField('File', blank=True)
+
+
+
 

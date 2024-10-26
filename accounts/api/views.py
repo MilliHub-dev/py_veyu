@@ -44,7 +44,7 @@ from ..models import (
     Account,
     OTP,
     Mechanic,
-    Agent,
+    # Agent,
     Customer,
     Dealer,
     UserProfile
@@ -62,7 +62,10 @@ from .serializers import (
     VerifyAccountSerializer,
     VerifyPhoneNumberSerializer,
 )
-from .filters import MechanicFilter
+from .filters import (
+    MechanicFilter,
+
+) 
 
 
 class SignUpView(generics.CreateAPIView):
@@ -80,7 +83,8 @@ class SignUpView(generics.CreateAPIView):
 
                 user_type = validated_data['user_type']
 
-                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+                # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
+                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
                 if profile_model:
                     profile_model.objects.create(user=user)
                     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -105,8 +109,6 @@ class LoginView(views.APIView):
             user = Account.objects.get(email=email)
             try:
                 if user and user.check_password(raw_password=password):
-                    
- 
                     access_token = AccessToken.for_user(user)
                     refresh_token = RefreshToken.for_user(user)
 
@@ -162,6 +164,8 @@ class UpdateProfileView(views.APIView):
 
 
 class VerifyEmailView(APIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated]
 
     def post(self, request:Request):
         data = request.data
@@ -204,6 +208,8 @@ class VerifyEmailView(APIView):
         
 
 class VerifyPhoneNumberView(APIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated]
 
     def post(self, request:Request):
         data = request.data
@@ -212,7 +218,6 @@ class VerifyPhoneNumberView(APIView):
             validated_data = serializer.validated_data
             if validated_data['action'] == 'request-code':
                 code = OTP.objects.create(valid_for=request.user)
-        
                 send_sms(
                     message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
                     recipient=data['phone_number']
@@ -242,55 +247,46 @@ class VerifyPhoneNumberView(APIView):
             return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
 
 
-
 class MechanicListView(ListAPIView):
     pagination_class = OffsetPaginator
     serializer_class = MechanicSerializer
     allowed_methods = ['GET']
     permission_classes = [IsAuthenticatedOrReadOnly]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        channel = data.get('channel','email')
-
-        print("Confirming OTP:", data)
-
-        if data['action'] == 'request-code':
-            code = OTP.objects.create(valid_for=request.user, channel=channel)
-            if channel == 'email':
-                send_email(
-                    template='utils/templates/email-confirmation.html',
-                    recipient=data['email'],
-                    context={'code': code.code, 'user': request.user},
-                    subject="Motaa Verification",
-                )
-            elif channel == 'sms':
-                send_sms(
-                    message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
-                    recipient=data['phone_number']
-                )
-            return Response({
-                'error': False,
-                'message': 'OTP sent to your inbox'
-            }, status=200)
     
-        elif data['action'] == 'confirm-code':
-            try:
-                otp = OTP.objects.get(code=data['code'])
-                valid = otp.verify(data['code'], channel)
-                request.user.verified_email = True
-                request.user.save()
-                if valid:
-                    return Response({
-                        'error': False,
-                        'message': f'Successfully verified your {"email" if channel == "email" else "phone number"}'
-                    }, status=200)
-                raise Exception('Invalid OTP')
-            except Exception as error:
-                return Response({
-                    'error': True,
-                    'message': 'Invalid OTP'
-                }, status=404)
+    # Add both the filter and ordering backends
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = MechanicFilter  # Use the filter class
+    ordering = ['account__first_name']  # Default ordering if none specified by the user
+    
+
+    def get_queryset(self):
+        return Mechanic.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(
+            self.filter_queryset(
+                self.get_queryset()
+            )
+        )
+        serializer = self.serializer_class(queryset, many=True)
+
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link(),
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+
 
 

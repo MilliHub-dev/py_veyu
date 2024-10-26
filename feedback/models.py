@@ -3,17 +3,19 @@ from utils.models import DbModel
 
 
 # Create your models here.
-class Rating(DbModel):
+class Review(DbModel):
     REVIEW_OBJECTS = {
         'vehicle': 'Vehicle Review',
+        'dealer': 'Delearship Review',
         'mechanic': 'Mechanic',
         'support_ticket': 'Support Ticket',
     }
 
     stars = models.PositiveSmallIntegerField()
-    review = models.TextField(max_length=1200, blank=True, null=True)
+    comment = models.TextField(max_length=1200, blank=True, null=True)
     reviewer = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     object_type = models.CharField(max_length=200, choices=REVIEW_OBJECTS)
+    related_object = models.UUIDField(blank=True, null=True) # e.g related dealership
 
 
 

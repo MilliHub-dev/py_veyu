@@ -4,19 +4,18 @@ from django_filters.rest_framework import (
     CharFilter,
     ChoiceFilter,
     DateFilter,
-    UUIDFilter,
+    RangeFilter,
     NumberFilter,
 )
 from ..models import (
     Mechanic,
     Account,
-    Dealer,
-    Customer,
 )
-from bookings.models import (
-    Service
-)
+# from bookings.models import (
+#     Service
+# )
 from django.db.models import Q
+from listings.models import Listing
 
 
 
@@ -69,5 +68,43 @@ class MechanicFilter(FilterSet):
 
         # Filter mechanics who offer at least one of the specified services
         return queryset.filter(q).distinct()
+
+
+
+class CarSaleFilter(FilterSet):
+    make = CharFilter(method='filter_brand')
+    model = CharFilter(method='filter_model')
+    price = RangeFilter(method='filter_price')
+    usage = RangeFilter(method='filter_usage')
+    mileage = RangeFilter(method='filter_mileage')
+    vehicle_type = RangeFilter(method='filter_vehicle_type')
+    location = CharFilter(method='filter_location')
+
+    class Meta:
+        model = Listing
+        fields = ['mileage', 'location', 'usage', 'price']
+
+    def filter_brand(self, queryset, name, value):
+        return
+    
+    def filter_model(self, queryset, name, value):
+        return
+    
+    def filter_price(self, queryset, name, value):
+        return
+    
+    def filter_usage(self, queryset, name, value):
+        return
+    
+    def filter_ileage(self, queryset, name, value):
+        return
+    
+    def filter_vehicle_type(self, queryset, name, value):
+        return
+    
+    def filter_location(self, queryset, name, value):
+        return
+    
+
 
 

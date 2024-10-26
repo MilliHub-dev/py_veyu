@@ -3,10 +3,22 @@ from ..models import (
     Customer,
     Dealer,
     Mechanic,
-    Agent,
+    # Agent,
     PayoutInformation,
 )
-from rest_framework.serializers import ModelSerializer
+from feedback.api.serializers import (
+    RatingSerializer,
+)
+
+from bookings.api.serializers import (
+    # ViewBookingSerializer,
+    ServiceSerializer,
+    MechanicServiceSerializer
+)
+from rest_framework.serializers import (
+    ModelSerializer,
+    SerializerMethodField,
+)
 from rest_framework import serializers
 from django.contrib.auth.password_validation import password_changed, validate_password
 from typing import Any
@@ -41,7 +53,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 def get_user_serializer(user_type):
-    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer,}.get(user_type)
     model = profile_model
     UserProfileSerializer.Meta.model = model
     return UserProfileSerializer
@@ -49,29 +61,27 @@ def get_user_serializer(user_type):
 
 
 class MechanicSerializer(ModelSerializer):
-    # account = SerializerMethodField()
-    # ratings = RatingSerializer(many=True)
-    # # services = StringRelatedField(many=True)
-    # services = ServiceSerializer(many=True)
-    # # account.fields = ('uuid', 'email')
-    # class Meta:
-    #     model = Mechanic
-    #     fields = (
-    #         "id", "account", "date_created", "uuid", "last_updated", "phone_number",
-    #         "verified_phone_number","available", "location","current_job", "services","job_history","ratings"
-    #     )
+    user = SerializerMethodField()
+    reviews = RatingSerializer(many=True)
+    services = MechanicServiceSerializer(many=True)
+    # account.fields = ('uuid', 'email')
+    class Meta:
+        model = Mechanic
+        fields = (
+            "id", "user", "date_created", "uuid", "last_updated", "phone_number",
+            "verified_phone_number","available", "location","current_job", "services", "job_history","reviews"
+        )
     
-    # def get_account(self, obj):
-    #     account = obj.account  # Get the related account instance
+    def get_user(self, obj):
+        account = obj.user  # Get the related account instance
 
-    #     # Define custom logic to exclude or modify fields
-    #     return {
-    #         'uuid': account.uuid,  # Show uuid
-    #         'email': account.email,  # Show email
-    #         'name': account.name,
-    #         'last_seen': account.last_seen
-    #     }
-        pass
+        # Define custom logic to exclude or modify fields
+        return {
+            'uuid': account.uuid,  # Show uuid
+            'email': account.email,  # Show email
+            'name': account.name,
+            'last_seen': account.last_seen
+        }
 
 
 class GetAccountSerializer(ModelSerializer):

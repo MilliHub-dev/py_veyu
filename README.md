@@ -1,4 +1,4 @@
-# Project Setup
+# Motaa - Redifining Mobility
 
 ### Windows Instructions
 

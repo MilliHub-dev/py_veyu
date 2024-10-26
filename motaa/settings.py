@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'chat',
     'utils',
     'feedback',
-    'rentals',
+    'listings',
     'wallet',
 
 

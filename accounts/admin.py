@@ -69,7 +69,7 @@ class OTPAdmin(admin.ModelAdmin):
     ]
     list_display = [
         'code',
-        'channel',
+        
     ]
 
 

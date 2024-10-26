@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     SupportTicket,
-    Rating,
+    Review,
     Tag,
     TicketCategory,
     Notification,
@@ -9,7 +9,7 @@ from .models import (
 
 # Register your models here.
 admin.site.register(Notification)
-admin.site.register(Rating)
+admin.site.register(Review)
 admin.site.register(SupportTicket)
 admin.site.register(Tag)
 admin.site.register(TicketCategory)
