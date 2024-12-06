@@ -35,8 +35,7 @@ from utils.sms import send_sms
 from utils.mail import send_email
 from utils import OffsetPaginator
 from utils.dispatch import (
-    user_just_registered,
-    handle_new_signup,
+    otp_requested,
 )
 
 # Local app imports
@@ -64,35 +63,75 @@ from .serializers import (
 )
 from .filters import (
     MechanicFilter,
-
 ) 
+# from rest_framework_simplejwt.authentication import JWTAuthentication
+from dj_rest_auth.jwt_auth import JWTAuthentication
+
 
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = [AllowAny]
-   
+
+    def get(self, request:Request):
+        # check if user with email exists only
+        email = request.GET.get('email', None)
+        
+        if email:
+            try:
+                user = Account.objects.get(email=email)
+                return Response({
+                    'error': True,
+                    'message': "User with this email already exists",
+                }, status=400)
+            except Account.DoesNotExist:
+                return Response({
+                    'error': False,
+                    'message': "Email OK",
+                }, status=200)
+        return Response({
+            'error': True,
+            'message': "This route must be called with the 'email' param.",
+        }, status=400)
+
+
     def post(self, request:Request):
         with transaction.atomic():
             data = request.data
             serializer = GetAccountSerializer(data=data)
             if serializer.is_valid():
                 validated_data  = serializer.validated_data
-                validated_data.pop('password2', None) 
                 user = Account.objects.create_user(**validated_data)
                 user.save()
-
                 user_type = validated_data['user_type']
 
                 # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
                 profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
                 if profile_model:
-                    profile_model.objects.create(user=user)
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    profile_model.objects.create(user=user, phone_number=data['phone_number'])
+                    data = {
+                        'access_token': str(AccessToken.for_user(user)),
+                        'refresh_token': str(RefreshToken.for_user(user))
+                    }
+                    data.update(AccountSerializer(user).data)
+                    return Response(data, status=status.HTTP_201_CREATED)
                 else:
                     raise ValueError('invalid user type')
             else:
+                # raise serializer.errors
                 return Response(serializer.errors)
 
+    def new_post(self, request:Request):
+        try:
+            data = request.data
+            new_user = Account.objects.create(
+                email=data['email'],
+                user_type=data['user_type'] or 'customer',
+                first_name=data['first_name'],
+                last_name=data['last_name'] 
+            )
+            return Response()
+        except Exception as error:
+            return Response()
 
 
 class LoginView(views.APIView):
@@ -106,8 +145,8 @@ class LoginView(views.APIView):
             email = validated_data['email']
             password = validated_data['password']
 
-            user = Account.objects.get(email=email)
             try:
+                user = Account.objects.get(email=email)
                 if user and user.check_password(raw_password=password):
                     access_token = AccessToken.for_user(user)
                     refresh_token = RefreshToken.for_user(user)
@@ -116,6 +155,7 @@ class LoginView(views.APIView):
                         {
                             "access_token": str(access_token),
                             "refresh_token": str(refresh_token),
+                            "token": str(user.api_token),
                             "user_id": user.id,
                             "first_name": user.first_name,
                             "last_name": user.last_name,
@@ -140,8 +180,6 @@ class LoginView(views.APIView):
                 )
         else:
             return Response(serializer.errors)
-        
-
 
 
 class UpdateProfileView(views.APIView):
@@ -164,8 +202,11 @@ class UpdateProfileView(views.APIView):
 
 
 class VerifyEmailView(APIView):
+
     allowed_methods = ['POST']
+    serializer_class = VerifyEmailSerializer
     permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
 
     def post(self, request:Request):
         data = request.data
@@ -174,14 +215,8 @@ class VerifyEmailView(APIView):
             validated_data = serializer.validated_data
             if validated_data['action'] == 'request-code':
                 code = OTP.objects.create(valid_for=request.user)
-        
-                send_email(
-                    template='utils/templates/email-confirmation.html',
-                    recipient=data['email'],
-                    context={'code': code.code, 'user': request.user},
-                    subject="Motaa Verification",
-                )
-
+                #  send a signal to the receiver
+                otp_requested.send('email', user=request.user, otp=code)
                 return Response({
                     'error': False,
                     'message': 'OTP sent to your inbox'
@@ -191,7 +226,7 @@ class VerifyEmailView(APIView):
                 try:
                     otp = OTP.objects.get(code=data['code'])
                     if otp.valid_for == request.user:
-                        valid = otp.verify(data['code'], 'email')
+                        valid = otp.verify(data['code'], user=request.user)
                         if valid:
                             return Response({
                                 'error': False,
@@ -217,7 +252,7 @@ class VerifyPhoneNumberView(APIView):
         if serializer.is_valid():
             validated_data = serializer.validated_data
             if validated_data['action'] == 'request-code':
-                code = OTP.objects.create(valid_for=request.user)
+                code = OTP.objects.create(valid_for=request.user, channel='sms')
                 send_sms(
                     message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
                     recipient=data['phone_number']
@@ -259,7 +294,6 @@ class MechanicListView(ListAPIView):
     filterset_class = MechanicFilter  # Use the filter class
     ordering = ['account__first_name']  # Default ordering if none specified by the user
     
-
     def get_queryset(self):
         return Mechanic.objects.all()
 
@@ -274,7 +308,7 @@ class MechanicListView(ListAPIView):
         data = {
             'error': False,
             'message': '',
-            'data': {
+            'results': {
                 'pagination': {
                     'offset': self.paginator.offset,
                     'limit': self.paginator.limit,
@@ -282,7 +316,7 @@ class MechanicListView(ListAPIView):
                     'next': self.paginator.get_next_link(),
                     'previous': self.paginator.get_previous_link(),
                 },
-                'results': serializer.data
+                'data': serializer.data
             }
         }
         return Response(data, 200)

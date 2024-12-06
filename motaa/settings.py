@@ -28,7 +28,7 @@ else:
 INSTALLED_APPS = [
     # daphne
     'daphne',
-    'unfold',
+    # 'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -176,10 +176,9 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
+        'dj_rest_auth.jwt_auth.JWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ] if DEBUG else ['rest_framework.authentication.TokenAuthentications',],
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',)
+    ]
 }
 
 OLD_PASSWORD_FIELD_ENABLED = True
@@ -205,6 +204,18 @@ SIMPLE_JWT = {
     'ISSUER': None,
 
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'Authorization',
+    # 'AUTH_HEADER_NAME': 'Authorization',
+    
+
+    # copied
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
 }

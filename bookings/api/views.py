@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
+from django.db.models import Q
 from rest_framework.response import Response
 from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
@@ -68,6 +69,56 @@ class MechanicListView(ListAPIView):
 
     def get_queryset(self):
         return Mechanic.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        serializer = self.serializer_class(queryset, many=True)
+
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link()
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+
+
+class MechanicSearchView(ListAPIView):
+    pagination_class = OffsetPaginator
+    serializer_class = MechanicSerializer
+    allowed_methods = ['GET']
+    # permission_classes = [IsAuthenticatedOrReadOnly]
+    # authentication_classes = [TokenAuthentication, SessionAuthentication]
+    
+    # Add both the filter and ordering backends
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = MechanicFilter  # Use the filter class
+    
+    ordering = ['?']  # Random ordering
+
+    def get_queryset(self):
+        find = self.request.GET.get('find', None)
+        qs = Mechanic.objects.all()
+        if find:
+            qs = qs.filter(
+                Q(user__first_name__icontains=find) |
+                Q(user__last_name__icontains=find) |
+                Q(services__service__title__icontains=find)
+            ).distinct()
+        
+        print("Matches:", qs)
+        return qs
+
+            
 
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))

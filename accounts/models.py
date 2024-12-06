@@ -53,6 +53,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
+    api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.CASCADE)
     
     groups = None
     user_permissions = None
@@ -68,7 +69,16 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     EMAIL_FIELD = "email"
     USERNAME_FIELD = 'email'
 
-    
+    def save(self, *args, **kwargs):
+        if not self.api_token:
+            super().save(using=None)
+            self.api_token = Token.objects.get_or_create(user=self)[0]
+        super().save(*args, **kwargs)
+
+    @property
+    def token(self):
+        return self.api_token.key
+
     def verify_email(self):
         self.verified_email = True
         self.save() 

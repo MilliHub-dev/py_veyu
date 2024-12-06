@@ -1,8 +1,31 @@
 import typing
-from django.dispatch import Signal
+from django.dispatch import Signal, receiver
 from accounts.models import Account, Customer
 from .sms import send_sms
 from .mail import send_email
+
+
+
+from django.dispatch import Signal, receiver
+import threading
+
+otp_requested = Signal()
+
+@receiver(otp_requested)
+def handle_otp_requested(sender, user, otp, **kwargs):
+    if sender == 'email':
+        threading.Thread(
+            target=send_email,
+            kwargs={
+                'template':'utils/templates/email-confirmation.html',
+                'recipients':[user.email],
+                'context':{'code': otp.code, 'user': user},
+                'subject':"Motaa Verification",
+            }
+        ).start()
+    elif sender == 'sms':
+        pass
+
 
 def handle_new_signup(sender:Account, otp, **kwargs):
     send_email(

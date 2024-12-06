@@ -33,7 +33,6 @@ class AccountsAdmin(admin.ModelAdmin):
     def send_test_sms(self, request, queryset, *args, **kwargs):
         for account in queryset:
             if account.user_type == 'customer':
-                print('User Phone Number:', account.customer.phone_number)
                 send_sms(f"Hi {account.first_name}, welcome to Motaa. \
                           \nYour verification code is 121-678 ", recipient=account.customer.phone_number)
             elif account.user_type == 'mechanic':

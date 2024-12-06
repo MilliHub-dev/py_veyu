@@ -4,16 +4,20 @@ from accounts.models import Mechanic, Dealer, Customer, Account
 
 class UserTypeMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        if request.user.is_authenticated:
-            request.customer = None
-            request.mechanic = None
-            request.dealer = None
+        request.customer = None
+        request.mechanic = None
+        request.dealer = None
 
-            if request.user.user_type == 'customer':
-                request.customer = Customer.objects.get(account=request.user)
-            elif request.user.user_type == 'dealer':
-                request.dealer = Dealer.objects.get(account=request.user)
-            elif request.user.user_type == 'mechanic':
-                request.mechanic = Mechanic.objects.get(account=request.user)
+        if request.user.is_authenticated:
+            try:
+                if request.user.user_type == 'customer':
+                    request.customer = Customer.objects.get(user=request.user)
+                
+                elif request.user.user_type == 'dealer':
+                    request.dealer = Dealer.objects.get(user=request.user)
+                elif request.user.user_type == 'mechanic':
+                    request.mechanic = Mechanic.objects.get(user=request.user)
+            except:
+                pass
 
 

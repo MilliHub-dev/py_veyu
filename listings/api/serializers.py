@@ -21,20 +21,43 @@ from rest_framework.serializers import (
 from rest_framework import serializers
 from rest_framework.parsers import MultiPartParser, FormParser
 from decimal import Decimal
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
 from django.db import models
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
 
 
+class DealerSerializer(ModelSerializer):
+    location = StringRelatedField()
+    class Meta:
+        from accounts.models import Dealer
+        model = Dealer
+        fields = ['location', 'business_name', 'uuid']
+
 class VehicleImageSerializer(ModelSerializer):
+    url = serializers.SerializerMethodField(method_name='get_image_url')
     class Meta:
         model = VehicleImage
-        fields ='__all__'
+        fields = ['id', 'uuid', 'url']
         extra_kwargs = {'vehicle': {'required': False}}
+    
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+        
 
 class VehicleSerializer(serializers.ModelSerializer):
+    images = VehicleImageSerializer(many=True)
+    dealer = DealerSerializer()
+    condition = serializers.SerializerMethodField()
+    transmission = serializers.SerializerMethodField()
+    fuel_system = serializers.SerializerMethodField()
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -48,6 +71,16 @@ class VehicleSerializer(serializers.ModelSerializer):
                         'images': {'read_only': True},
                         'video': {'read_only': True}
         }
+
+    def get_condition(self, obj):
+        return obj.get_condition_display()
+    
+    def get_transmission(self, obj):
+        return obj.get_transmission_display()    
+
+    def get_fuel_system(self, obj):
+        return obj.get_fuel_system_display()
+    
 
 class ListingSerializer(ModelSerializer):
     vehicle = VehicleSerializer()

@@ -1,9 +1,14 @@
 from django.shortcuts import redirect, resolve_url
+from rest_framework.response import Response
+from django.db.models import Q
 from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
 )
-from rest_framework.response import Response
+from rest_framework.parsers import (
+    MultiPartParser,
+    JSONParser,
+)
 from rest_framework.decorators import (
     authentication_classes,
     parser_classes,
@@ -23,6 +28,7 @@ from rest_framework.permissions import (
 from rest_framework.generics import (
     ListAPIView,
     CreateAPIView,
+    RetrieveAPIView,
     RetrieveUpdateDestroyAPIView,
 )
 from .serializers import (
@@ -46,6 +52,10 @@ from ..models import (
 from accounts.models import (
     Customer,
 )
+from .filters import (
+    CarSaleFilter,
+    CarRentalFilter,
+)
 from rest_framework.viewsets import ModelViewSet
 from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
@@ -56,62 +66,298 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from wallet.models import Wallet
 from rest_framework.views import APIView
-
-
-
+from django_filters.rest_framework import DjangoFilterBackend
+from utils import OffsetPaginator
 User = get_user_model()
 
-class ListingsView(ListAPIView):
-    """Show all listings created
 
-    Args:
-        filters (key:values): Key-Value pair of filters and their match cases
-        per_page (int): Number of results for pagination
-        offset (int): Pagination Offset
-    """
+
+
+
+# Customer Views
+class ListingSearchView(ListAPIView):
     allowed_methods = ['GET']
+    serializer_class = ListingSerializer
     permission_classes = [IsAuthenticatedOrReadOnly,]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = ListingSerializer
+    queryset = Listing.objects.filter(approved=True, verified=True,).distinct() # serach all listings sale & rent
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = CarRentalFilter # Use the filter class
     pagination_class = OffsetPaginator
-    queryset = Listing.objects.all()
     
-    def get(self, request, **kwargs):
-        qs = self.get_queryset()
-        filters = request.GET.get('filter', None)
-        if filters:
-            # filter qs based on match cases
-            pass
-        listings = self.serializer_class(self.paginate_queryset(qs), many=True).data
+    def get_queryset(self):
+        find = self.request.GET.get('find', None)
+        qs = self.queryset
+        if find:
+            qs = qs.filter(
+                Q(vehicle__name__icontains=find) |
+                Q(vehicle__brand__icontains=find) |
+                Q(vehicle__brand__icontains=find) 
+            )
+
+        return qs
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(
+            self.filter_queryset(
+                self.get_queryset()
+            )
+        )
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+
         data = {
             'error': False,
             'message': '',
-            'data':{
+            'data': {
                 'pagination': {
                     'offset': self.paginator.offset,
                     'limit': self.paginator.limit,
                     'count': self.paginator.count,
                     'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link()
+                    'previous': self.paginator.get_previous_link(),
                 },
-                'results': listings         
+                'results': serializer.data
             }
         }
         return Response(data, 200)
 
-    def handle_exception(self, exc):
-        return super().handle_exception(exc)
-
-class ListingsDetailsView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticated, IsAgentOrStaff]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = CreateListingSerializer
-    queryset = Listing.objects.all()
-
-    lookup_field = 'uuid'
     
 
+
+# Rentals
+class RentListingView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(approved=True, verified=True, listing_type='rental').distinct()
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = CarRentalFilter # Use the filter class
+    pagination_class = OffsetPaginator
+    
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(
+            self.filter_queryset(
+                self.get_queryset()
+            )
+        )
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link(),
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+
+class RentListingDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(verified=True, approved=False, listing_type='rental').distinct()
+    serializer_class = ListingSerializer
+    lookup_field = 'uuid'
+    
+    def get(self, request, *args, **kwargs):
+        obj = Listing.objects.get(uuid=self.kwargs['uuid'])
+
+        serializer = self.serializer_class(obj, context={'request': request})
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'listing': serializer.data,
+                'recommended': []
+            }
+        }
+        return Response(data, 200)
+
+
+class BookCarRentalView(CreateAPIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = BookCarRentalSerializer
+    queryset = Order.objects.all()
+
+    def perform_create(self, serializer):
+        # order_items = serializer.validated_data.get('order_items', [])
+        # print("Order items:", order_items)  # Debug log
+        # print("serializer: ", serializer)
+
+        try:
+            print('self.request.user')
+            customer_main = Customer.objects.get(user=self.request.user)
+            print(f"Customer: {customer_main}")
+        except Customer.DoesNotExist:
+            # Return error response if customer profile doesn't exist
+            raise ValidationError({'error': 'Customer profile does not exist for this account.'})
+
+        # Save the order with the associated customer
+        try:
+            serializer.save(customer=customer_main)
+            print('serializer Saved')
+
+            order_instance = serializer.instance
+            print(f"Order Items: {list(order_instance.order_items.all())}")
+        except Exception as e:
+            print(f"Error saving order: {e}") 
+            raise ValidationError({'error': {e}})
+
+    def create(self, request, *args, **kwargs):
+        # Call the original create method to handle POST
+        response = super().create(request, *args, **kwargs)
+
+        # Customize the response
+        return Response({
+            'message': 'Car rental successfully booked',
+            'order': response.data
+        }, status=response.status_code)
+
+
+class BookCarRentalViewDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = BookCarRentalSerializer
+    lookup_field = 'uuid'
+
+    def get_queryset(self):
+        user = Customer.objects.get(user = self.request.user)
+        return Order.objects.filter(customer=user)
+
+
+# Buying
+class BuyListingView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = CarSaleFilter  # Use the filter class
+    # ordering = ['']  # Default ordering if none specified by the user
+    pagination_class = OffsetPaginator
+    
+    
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(
+            self.filter_queryset(
+                self.get_queryset()
+            )
+        )
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link(),
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+
+class BuyListingDetailView(RetrieveAPIView):
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticated,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    allowed_methods = ['GET', 'POST']
+    lookup_field = 'uuid'
+    queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
+
+    def get(self, request, *args, **kwargs):
+        uuid = self.kwargs['uuid']
+        listing = self.get_object()
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'recommended': None,
+                'listing': self.serializer_class(listing, context={'request': request}).data
+            }
+        }
+        return Response(data=data, status=200, content_type="text/json")
+
+
+class TestDriveRequestView(CreateAPIView):
+    allowed_methods = ['POST']
+    serializer_class = TestDriveRequestSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TradeInRequestViewSet(CreateAPIView):
+    allowed_methods = ['POST']
+    serializer_class = TradeInRequestSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        customer_main = Customer.objects.get(user=self.request.user)
+        serializer.save(customer=customer_main)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CompleteOrderView(APIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+
+    @swagger_auto_schema(operation_summary="Endpoint to complete order")
+    def post(self, request):
+        serializer = CompleteOrderSerializer(data=request.data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            order_id = validated_data['order_id']
+            recipient_email = validated_data['recipient']
+            
+
+            order = get_object_or_404(Order, uuid=order_id)
+            
+            recipient = get_object_or_404(User, email=recipient_email)
+            sender_wallet = get_object_or_404(Wallet, user=request.user)
+            recipient_wallet = get_object_or_404(Wallet, user=recipient)
+
+            if sender_wallet.balance < order.total:
+                return Response({'error': 'Insufficient funds'}, status=status.HTTP_403_FORBIDDEN)
+
+            if sender_wallet.complete_order(amount=order.total, recipient_wallet=recipient_wallet):
+                order.paid = True
+                order.save()
+                return Response(f'Order completed successfully', status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Unable to perform this operation'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+# Dealership Views
 class CreateListingView(CreateAPIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticated, IsAgentOrStaff]
@@ -142,7 +388,6 @@ class CreateListingView(CreateAPIView):
         }
         return Response()
 
-
 class VehicleView(ListAPIView):
     allowed_methods = ['GET']
     permission_classes = [IsAuthenticatedOrReadOnly,]
@@ -154,6 +399,7 @@ class VehicleView(ListAPIView):
 class CreateVehicleView(CreateAPIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticated, IsAgentOrStaff]
+    parser_classes = [JSONParser, MultiPartParser]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
@@ -178,7 +424,6 @@ class CreateVehicleView(CreateAPIView):
             return Response({'message': 'Vehicle created and added to listing successfully'}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class VehicleDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']
@@ -234,154 +479,6 @@ class VehicleDetailView(RetrieveUpdateDestroyAPIView):
         self.perform_destroy(vehicle)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-class AvailableForRentView(ListAPIView):
-    allowed_methods = ['GET']
-    serializer_class = VehicleSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    
-    queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
-# {
-#   "order_items": [1],
-#   "customer":2,
-#   "order_type": "rental"
-# }
-class BookCarRentalView(CreateAPIView):
-    allowed_methods = ['POST']
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = BookCarRentalSerializer
-    queryset = Order.objects.all()
-
-    def perform_create(self, serializer):
-        # order_items = serializer.validated_data.get('order_items', [])
-        # print("Order items:", order_items)  # Debug log
-        # print("serializer: ", serializer)
-
-        try:
-            print('self.request.user')
-            customer_main = Customer.objects.get(user=self.request.user)
-            print(f"Customer: {customer_main}")
-        except Customer.DoesNotExist:
-            # Return error response if customer profile doesn't exist
-            raise ValidationError({'error': 'Customer profile does not exist for this account.'})
-
-        # Save the order with the associated customer
-        try:
-            serializer.save(customer=customer_main)
-            print('serializer Saved')
-
-            order_instance = serializer.instance
-            print(f"Order Items: {list(order_instance.order_items.all())}")
-        except Exception as e:
-            print(f"Error saving order: {e}") 
-            raise ValidationError({'error': {e}})
-
-    def create(self, request, *args, **kwargs):
-        # Call the original create method to handle POST
-        response = super().create(request, *args, **kwargs)
-
-        # Customize the response
-        return Response({
-            'message': 'Car rental successfully booked',
-            'order': response.data
-        }, status=response.status_code)
-
-
-class BookCarRentalViewDetailView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = BookCarRentalSerializer
-    lookup_field = 'uuid'
-
-    def get_queryset(self):
-        user = Customer.objects.get(user = self.request.user)
-        return Order.objects.filter(customer=user)
-
-
-class AvailableForRentDetailView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Vehicle.objects.filter(available=True, for_sale=False, current_rental=None)
-    serializer_class = VehicleSerializer
-    lookup_field = 'uuid'
-
-    # Remove the for_sale option when in the rental page
-    def get_serializer(self, *args, **kwargs):
-        serializer = super().get_serializer(*args, **kwargs)
-        
-        if 'for_sale' in serializer.fields:
-            serializer.fields.pop('for_sale')
-        
-        return serializer
-
-class AvailableForBuyingView(ListAPIView):
-    allowed_methods = ['GET']
-    serializer_class = VehicleSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    
-    queryset = Vehicle.objects.filter(available=True, for_sale=True, current_rental=None,  listing__listing_type='sale').distinct()
-
-class TestDriveRequestView(CreateAPIView):
-    allowed_methods = ['POST']
-    serializer_class = TestDriveRequestSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-class TradeInRequestViewSet(CreateAPIView):
-    allowed_methods = ['POST']
-    serializer_class = TradeInRequestSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        customer_main = Customer.objects.get(user=self.request.user)
-        serializer.save(customer=customer_main)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class CompleteOrderView(APIView):
-    allowed_methods = ['POST']
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-
-    @swagger_auto_schema(operation_summary="Endpoint to complete order")
-    def post(self, request):
-        serializer = CompleteOrderSerializer(data=request.data)
-        if serializer.is_valid():
-            validated_data = serializer.validated_data
-            order_id = validated_data['order_id']
-            recipient_email = validated_data['recipient']
-            
-
-            order = get_object_or_404(Order, uuid=order_id)
-            
-            recipient = get_object_or_404(User, email=recipient_email)
-            sender_wallet = get_object_or_404(Wallet, user=request.user)
-            recipient_wallet = get_object_or_404(Wallet, user=recipient)
-
-            if sender_wallet.balance < order.total:
-                return Response({'error': 'Insufficient funds'}, status=status.HTTP_403_FORBIDDEN)
-
-            if sender_wallet.complete_order(amount=order.total, recipient_wallet=recipient_wallet):
-                order.paid = True
-                order.save()
-                return Response(f'Order completed successfully', status=status.HTTP_200_OK)
-            else:
-                return Response({'error': 'Unable to perform this operation'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ViewCarOffersView(ListAPIView):
     allowed_methods = ['GET']

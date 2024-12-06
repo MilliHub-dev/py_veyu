@@ -1,19 +1,19 @@
 .vscode/
 venv/
 motaa_venv/
-
 media/
-uploads/
-
+*/migrations/
+*/**/migrations/
 */__pycache__/
 */**/__pycache__/
 
+server.sh
+
 db.sqlite3
-local.db.sqlite3
+*.db.sqlite3
 db.sqlite3-journal
 
 doc.md
 .env.local
 .env
-local.db.sqlite3
 uploads/

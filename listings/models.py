@@ -183,6 +183,11 @@ class Listing(DbModel):
 
     def __str__(self):
         return f'{self.title}'
+    
+    def save(self, *args, **kwargs):
+        if not self.title and self.vehicle:
+            self.title = self.vehicle.name
+        super().save(*args, **kwargs)
 
 
 

@@ -19,7 +19,6 @@ urlpatterns = [
     path('register/', SignUpView.as_view()),
     path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
     path('verify-email/', VerifyEmailView.as_view()),
-    path('mechanics/', MechanicListView.as_view()),
     path('update-profile/',  UpdateProfileView.as_view()),
     path("accounts/", include("django.contrib.auth.urls")),
     path('auth/', include('dj_rest_auth.urls')),

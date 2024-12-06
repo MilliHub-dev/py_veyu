@@ -21,9 +21,12 @@ class IsAgentOrStaff(BasePermission):
 
 class IsMechanicOnly(BasePermission):
     def has_permission(self, request, view):
-        if request.user.user_type == 'mechanic':
-            return True
-        return False
+        try:
+            if request.user.user_type == 'mechanic':
+                return True
+            return False
+        except:
+            pass
         
     def has_object_permission(self, request, view):
         if request.user.user_type == 'mechanic':

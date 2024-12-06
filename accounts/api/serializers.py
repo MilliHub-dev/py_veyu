@@ -17,6 +17,7 @@ from bookings.api.serializers import (
 )
 from rest_framework.serializers import (
     ModelSerializer,
+    StringRelatedField,
     SerializerMethodField,
 )
 from rest_framework import serializers
@@ -30,7 +31,7 @@ from django.db.models import Q
 class AccountSerializer(ModelSerializer):
     class Meta:
         model = Account
-        fields = '__all__'
+        fields = ['email', 'first_name', 'last_name', 'token', 'user_type', 'verified_email',]
 
 
 class CustomerSerializer(ModelSerializer):
@@ -64,6 +65,7 @@ class MechanicSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = RatingSerializer(many=True)
     services = MechanicServiceSerializer(many=True)
+    location = StringRelatedField()
     # account.fields = ('uuid', 'email')
     class Meta:
         model = Mechanic
@@ -85,7 +87,8 @@ class MechanicSerializer(ModelSerializer):
 
 
 class GetAccountSerializer(ModelSerializer):
-    password2 = serializers.CharField(write_only=True)
+    # password2 = serializers.CharField(write_only=True)
+    # phone_number = serializers.CharField()
     id = serializers.IntegerField(read_only=True)
     user_type = serializers.ChoiceField(choices=['customer', 'mechanic', 'dealer', 'agent'])
     class Meta:
@@ -96,8 +99,8 @@ class GetAccountSerializer(ModelSerializer):
             "first_name",
             "last_name",
             "password",
-            "phone_number",
-            'password2',
+            # "phone_number",
+            'api_token',
             'user_type'
         ]
 
@@ -113,16 +116,16 @@ class GetAccountSerializer(ModelSerializer):
         return value
 
 
-    def validate(self, data):
-        """
-        Check that the two password entries match.
-        """
-        if data['password'] != data['password2']:
-            raise serializers.ValidationError({"Error": "Password fields didn't match."})
+    # def validate(self, data):
+    #     """
+    #     Check that the two password entries match.
+    #     """
+    #     if data['password'] != data['password2']:
+    #         raise serializers.ValidationError({"Error": "Password fields didn't match."})
         
-        # Validate the password and raise the exception if the validation fails
-        validate_password(data['password'])
-        return data
+    #     # Validate the password and raise the exception if the validation fails
+    #     validate_password(data['password'])
+    #     return data
 
 
 class LoginSerializer(serializers.Serializer):
@@ -214,7 +217,7 @@ class VerifyAccountSerializer(serializers.Serializer):
 
 
 class VerifyEmailSerializer(serializers.Serializer):
-    email = serializers.CharField()
+    email = serializers.CharField(required=False)
     code = serializers.CharField(required=False)
     ACTION_CHOICES = [
         ('request-code', 'request-code'),

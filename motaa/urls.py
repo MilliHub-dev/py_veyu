@@ -16,7 +16,8 @@ from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.api.urls', namespace='accounts_api')),
-    path('api/', include('listings.api.urls', namespace='listings_api')),
+    path('api/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
+    path('api/listings/', include('listings.api.urls', namespace='listings_api')),
     path('api/v1/wallet', include('wallet.urls')),
     path('', include('utils.urls', namespace='utils')),
     path('api/v1/wallet/', include('wallet.urls')),
