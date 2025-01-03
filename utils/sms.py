@@ -1,13 +1,14 @@
-import africastalking, vonage
+import africastalking
 from africastalking.SMS import SMSService
 from motaa import settings
+# import vonage
 
 username = 'Motaa'
 # api_key = settings.SMS_API_KEY
 api_key = "atsk_d2af663dc03bb39cd63254c48e72d07aa52853344fe212ac72ea1f24f9568f395d991e78"
-vonage_client = vonage.Client(key="e1c5efae", secret="wUdmQL7BK3K3hukn")
 
 
+# vonage_client = vonage.Client(key="e1c5efae", secret="wUdmQL7BK3K3hukn");
 # # Vonage
 # def send_sms(message, recipient:str, fail_silently=False):
 #     recipient = f'+234{recipient}'
