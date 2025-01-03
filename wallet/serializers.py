@@ -19,10 +19,19 @@ class TransferSerializer(serializers.Serializer):
         return value
 
 
+class TransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transaction
+        fields = '__all__'
+
+
+
 class WalletSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    transactions = TransactionSerializer(many=True)
     class Meta:
         model = Wallet
-        fields = ['user', 'balance']
+        fields = ['user', 'balance', 'transactions', 'uuid']
 
 
 

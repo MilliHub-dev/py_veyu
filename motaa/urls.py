@@ -15,21 +15,21 @@ from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/accounts/', include('accounts.api.urls', namespace='accounts_api')),
-    path('api/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
-    path('api/listings/', include('listings.api.urls', namespace='listings_api')),
+    path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
+    path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
+    path('api/v1/listings/', include('listings.api.urls', namespace='listings_api')),
     path('api/v1/wallet', include('wallet.urls')),
     path('', include('utils.urls', namespace='utils')),
     path('api/v1/wallet/', include('wallet.urls')),
 
     #JWT Token Views
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/v1/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
-    path('api/password-reset/', PasswordResetView.as_view()),
+    path('api/v1/password-reset/', PasswordResetView.as_view()),
     path(
-        "api/password-reset-confirm/<uidb64>/<token>/",
+        "api/v1/password-reset-confirm/<uidb64>/<token>/",
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm'
     ),

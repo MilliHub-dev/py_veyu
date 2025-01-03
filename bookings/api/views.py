@@ -91,7 +91,6 @@ class MechanicListView(ListAPIView):
         return Response(data, 200)
 
 
-
 class MechanicSearchView(ListAPIView):
     pagination_class = OffsetPaginator
     serializer_class = MechanicSerializer
@@ -141,9 +140,9 @@ class MechanicSearchView(ListAPIView):
         return Response(data, 200)
 
 
-class MechanicBookingView(APIView):
+class MechanicProfileView(APIView):
     allowed_methods = ['GET', 'POST']
-    serializer_class = CreateBookingSerializer
+    # serializer_class = CreateBookingSerializer
     kwargs = ['mech_id']
 
     def get_view_name(self):
@@ -154,15 +153,23 @@ class MechanicBookingView(APIView):
         mech_id = kwargs.get('mech_id', None)
         if not mech_id:
             return Response({'error': True, 'message': "Required mech_id param missing."}, 400)
+
+        try:
+            mech = MechanicSerializer(Mechanic.me(mech_id)).data
+            data = {
+                'error': False,
+                'message': 'Found mechanic',
+                'data': mech,
+            }
+            return Response(data, 200)
+        except Exception as error:
+            data = {
+                'error': True,
+                'message': str(error),
+            }
+            return Response(data, 404)
+
         
-        mech = MechanicSerializer(Mechanic.me(mech_id)).data
-        # mech = self.serializer_class(Mechanic.me(mech_id)).data
-        data = {
-            'error': False,
-            'message': 'Found mechanic',
-            'data': mech,
-        }
-        return Response(data, 200)
     
         
     def post(self, request, *args, **kwargs):

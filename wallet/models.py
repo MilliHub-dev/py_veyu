@@ -5,15 +5,21 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction
 from django.db.models import F
+from utils.models import DbModel
 from django.core.exceptions import ValidationError
 from djmoney.models.fields import MoneyField
 
 
 User = get_user_model()
 
-class Wallet(models.Model):
+class Wallet(DbModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
-    balance = MoneyField(max_digits=30, decimal_places=2, default=0.00, default_currency='NGN')
+    # switching to normal decimal field, money field raises serialization errors
+    # it's a debugging stress that is completely unnecessary
+    # balance = MoneyField(max_digits=30, decimal_places=2, default=0.00, default_currency='NGN')
+    balance = models.DecimalField(max_digits=100, decimal_places=2, default=0.00)
+    currency = models.CharField(max_length=4, default="NGN")
+    transactions = models.ManyToManyField("Transaction", blank=True, related_name="transactions")
     
     def deposit(self, amount, type='deposit', reference=None):
         self.balance = F('balance') + amount
@@ -40,7 +46,6 @@ class Wallet(models.Model):
                     raise ValidationError(f"Failed to complete transaction: {str(e)}")
         else:
             raise ValidationError("Insufficient funds to complete this transaction.")
-        
         return False
     
     def complete_order(self, amount, recipient_wallet):
@@ -79,41 +84,39 @@ class Wallet(models.Model):
         if created:
             Wallet.objects.create(user=instance)
 
-class MotaaWalletEmail(models.Model):
-    wallet_email = models.EmailField(unique=True)
 
-    def clean(self):
-        if not self.pk and MotaaWalletEmail.objects.exists():
-            raise ValidationError('There can be only one MotaaWalletEmail instance')
-        
-                # Check if the email exists in the User table
-        try:
-            user = User.objects.get(email=self.wallet_email)
-        except User.DoesNotExist:
-            raise ValidationError('The email does not exist in the User table')
+# Why do we need this again?
+# Seems redundant and has no actual implementation
+# Will remove before production
+# Ask Spider first
+class MotaaWalletEmail(models.Model):pass
 
-        # Check if the user is an admin
-        if not user.is_staff:
-            raise ValidationError('The email does not belong to an admin user')
 
-    def save(self, *args, **kwargs):
-        self.clean()
-        return super(MotaaWalletEmail, self).save(*args, **kwargs)
-    
-    def __str__(self):
-        return self.wallet_email 
-
-class Transaction(models.Model):
+class Transaction(DbModel):
+    TRANSACTION_TYPES = {
+        'deposit': 'Deposit',
+        'transfer_in': 'Transfer In',
+        'transfer_out': 'Transfer Out',
+        'car_payment': 'Car Payment',
+        'rental_payment': 'Rental Payment',
+        'mechanic_payment': 'Mechanic Payment',
+        'payment': 'Payment', # for system charges/services e.g premium sub
+    }
+    TRANSACTION_STATUS = {
+        'pending': 'Pending',
+        'reversed': 'Reversed',
+        'completed': 'Completed',
+        'failed': 'Failed',
+    }
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='Transactions')
-    type = models.CharField(max_length=30)
-    recipient = models.CharField(max_length=100, null=True)
-    amount = MoneyField(max_digits=30, decimal_places=2, default=0.00, default_currency='NGN')
-    reference = models.CharField(max_length=40, null=True)
-    timestamp = models.DateTimeField(default=timezone.now)
-    status = models.CharField(max_length=20, default='pending')
+    type = models.CharField(max_length=30, choices=TRANSACTION_TYPES, default='deposit')
+    recipient = models.CharField(max_length=100, null=True, blank=True)
+    amount = models.DecimalField(max_digits=100, decimal_places=2, default=0.00) # currency is set in stone at wallet
+    reference = models.CharField(max_length=40, null=True, blank=True)
+    status = models.CharField(max_length=20, default='pending', choices=TRANSACTION_STATUS)
 
     def __str__(self):
-        return f"{self.type} of {self.amount} on {self.timestamp.strftime('%H:%M:%S, %D-%M-%Y')}"
+        return f"{self.type} of {self.amount} on {self.date_created.strftime('%H:%M:%S, %D-%M-%Y')}"
     
 
 

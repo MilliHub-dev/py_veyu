@@ -46,6 +46,7 @@ from ..models import (
     Vehicle,
     Listing,
     Order,
+    OrderItem,
     CarRental,
     PurchaseOffer,
 )
@@ -286,6 +287,7 @@ class BuyListingDetailView(RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         uuid = self.kwargs['uuid']
         listing = self.get_object()
+        # self.count_view(request.user, listing)
         data = {
             'error': False,
             'message': '',
@@ -295,6 +297,52 @@ class BuyListingDetailView(RetrieveAPIView):
             }
         }
         return Response(data=data, status=200, content_type="text/json")
+
+    def count_view(self, user, listing):
+        if user and user.is_authenticated:
+            if not user in listing.viewers.all():
+                listing.viewers.add(user,)
+        listing.views += 1
+        listing.save()
+
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        action = data['action']
+
+        cart = request.customer.cart
+        order_item = OrderItem(
+            cart=cart,
+            listing=listing,
+            item_type=data['item_type']
+        )
+        order.save()
+
+        if action == 'add-to-cart':
+            print("Cart:", cart)
+            cart.items.add(order,)
+            cart.save()
+        elif action == 'buy-now':
+            order = Order(
+              customer=request.customer,
+            )
+            order.order_items.add(order_item,)
+            order.save()
+        return Response()
+
+
+
+
+class CheckoutView(APIView):
+    def get(self, request, *args, **kwargs):
+        data = {
+            
+        }
+        return Response({ 'error': False, 'data': data})
+
+    def post(self, request, *args, **kwargs):
+        return Response()
+
 
 
 class TestDriveRequestView(CreateAPIView):

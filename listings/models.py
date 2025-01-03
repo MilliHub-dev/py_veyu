@@ -116,14 +116,26 @@ def float_decimal(dig, dec_places=2):
     """
     dec = round(float(dig), dec_places)
     return dec
+
+
 class Order(DbModel):
     ORDER_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
-    ORDER_STATUS  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
+    ORDER_STATUS  = {
+        'awaiting-inspection': 'Awaiting Inspection',
+        'inspecting': 'Inspecting',
+        'pending': 'Pending',
+        'successful': 'Successful',
+    }
+    PAYMENT_OPTION  = {
+        'pay-after-inspection': 'Inspecting',
+        'card': 'Credit Card',
+        'financial-aid': 'Financing Aid',
+    }
 
-    order_type = models.CharField(max_length=20, choices=[(key, value) for key, value in ORDER_TYPES.items()])
-    order_items = models.ManyToManyField('Listing', blank=True)
+    order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
+    order_items = models.ManyToManyField('OrderItem', blank=True)
+    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES)
     sub_total = models.DecimalField(decimal_places=2, max_digits=100, blank=True, null=True)
-    sub_total = models.CharField(max_length=13, blank=True, null=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=10.00, blank=True, null=True)
     commission = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
@@ -154,6 +166,8 @@ class Order(DbModel):
 
     def __str__(self):
         return f"Order #{self.id} - {self.ORDER_TYPES.get(self.order_type, 'Unknown')}"
+
+
 
 class Listing(DbModel):
     LISTING_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
@@ -190,11 +204,11 @@ class Listing(DbModel):
         super().save(*args, **kwargs)
 
 
-
 class PurchaseOffer(DbModel):
     bidder = models.ForeignKey('accounts.Customer', models.CASCADE, related_name='bidder')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='listing')
     amount = models.DecimalField(decimal_places=2, max_digits=10000)
+
 
 class TestDriveRequest(DbModel):
     requested_by = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
@@ -212,4 +226,12 @@ class TradeInRequest(DbModel):
 
     def __str__(self):
         return f'Trade-in Request from {self.customer.account.email}'
+
+
+
+class OrderItem(DbModel):
+    cart = models.ForeignKey('accounts.CustomerCart', on_delete=models.CASCADE)
+    listing = models.ForeignKey("Listing", on_delete=models.CASCADE)
+    item_type = models.CharField(max_length=50, default='car')
+
 

@@ -11,11 +11,23 @@ class Review(DbModel):
         'support_ticket': 'Support Ticket',
     }
 
-    stars = models.PositiveSmallIntegerField()
+    stars = models.ManyToManyField("ReviewArea", blank=True)
     comment = models.TextField(max_length=1200, blank=True, null=True)
     reviewer = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     object_type = models.CharField(max_length=200, choices=REVIEW_OBJECTS)
     related_object = models.UUIDField(blank=True, null=True) # e.g related dealership
+
+
+class ReviewArea(DbModel):
+    REVIEW_ARES = {
+        'communication': 'Communication',
+        'service': 'Service Delivery', # for mechs
+        'quality': 'Car Quality', # for dealers
+
+    }
+    reviewId = models.ForeignKey(Review, on_delete=models.CASCADE)
+    area = models.CharField(max_length=200)
+    stars = models.PositiveSmallIntegerField()
 
 
 

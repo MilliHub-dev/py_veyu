@@ -95,7 +95,6 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         return None
 
 
-
 class UserProfile(DbModel):
     ID_TYPES = [
         ('nin', 'National Identification'),
@@ -144,21 +143,29 @@ class UserProfile(DbModel):
         abstract = True
 
 
-
 class Customer(UserProfile):
     orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
     service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
+    cart = models.ForeignKey("CustomerCart", on_delete=models.CASCADE, blank=True, null=True, related_name="cart")
 
     def __str__(self):
         return self.user.email
 
 
 class Mechanic(UserProfile):
+    MECHANIC_TYPE = {
+        'business': 'Registered Business',
+        'individual': 'Individual Mechanic',
+    }
+    about = models.TextField(blank=True, null=True)
+    business_name = models.CharField(max_length=300, blank=True, null=True)
+    headline = models.CharField(max_length=200, blank=True, null=True)
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
     current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
+    mechanic_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
 
     # def __str__(self) -> str:
     #     return self.account.name
@@ -168,7 +175,9 @@ class Mechanic(UserProfile):
 
 
 class Dealer(UserProfile):
-    business_name = models.CharField(max_length=300)
+    about = models.TextField(blank=True, null=True)
+    business_name = models.CharField(max_length=300, blank=True, null=True)
+    headline = models.CharField(max_length=200, blank=True, null=True)
     listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
@@ -270,6 +279,10 @@ class OTP(DbModel):
     def __str__(self) -> str:
         return self.code
 
+
+class CustomerCart(DbModel):
+    customer = models.OneToOneField("Customer", on_delete=models.CASCADE)
+    cart_items = models.ManyToManyField("listings.OrderItem", blank=True)
 
 
 class File(DbModel):

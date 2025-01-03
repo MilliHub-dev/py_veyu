@@ -20,7 +20,9 @@ from .views import (
     TestDriveRequestView,
     TradeInRequestViewSet,
     CompleteOrderView,
-    ViewCarOffersView
+    ViewCarOffersView,
+
+    CheckoutView,
 )
 
 
@@ -49,7 +51,10 @@ urlpatterns = [
     path('buy/<uuid>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
     path('buy/request-test-drive/', TestDriveRequestView.as_view(), name='buy-test-drive'),
     path('buy/trade-in/', TradeInRequestViewSet.as_view(), name='buy-trade-in'),
-    path('complete-order/', CompleteOrderView.as_view()),
+
+    path('checkout/<uuid:listingId>/', CheckoutView.as_view(), name='checkout'),
+    # path('checkout/pay/', CompleteOrderView.as_view()),
+    path('checkout/complete-order/', CompleteOrderView.as_view()),
 
     # Selling task 4
     path('sell/', CreateVehicleView.as_view(), name='submit-car-for-sale'),

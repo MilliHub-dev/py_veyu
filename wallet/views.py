@@ -11,6 +11,7 @@ from decouple import config
 from .serializers import *
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import TokenAuthentication
 from decimal import Decimal
 
 from .gatway.payment_factory import get_payment_gateway
@@ -52,12 +53,19 @@ class Transfer(APIView):
 
 class Balance(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication]
+    allowed_methods = ["GET"]
     
     @swagger_auto_schema(operation_summary="Endpoint to get user balance")
     def get(self, request:Request):
         user = request.user
+        print("Got User:", user)
         user_wallet = get_object_or_404(Wallet, user= user)
-        return Response(user_wallet.balance)
+        data = {
+            'error': False,
+            'data': WalletSerializer(user_wallet).data
+        }
+        return Response(data)
 
 
 class InitiateDeposit(APIView):

@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import Wallet, Transaction, MotaaWalletEmail
+from .models import Wallet, Transaction
 
-models = [MotaaWalletEmail, Wallet]
+models = [Wallet]
 
 for model in models:
     admin.site.register(model)
@@ -17,13 +17,11 @@ class TransactionManager(admin.ModelAdmin):
         "amount",
         'status',
         "reference",
-        "timestamp"
     ]
 
     list_filter = (
         "type",
         "amount",
-        "timestamp",
         'status'
  
     )
@@ -36,6 +34,5 @@ class TransactionManager(admin.ModelAdmin):
         "recipient",
         "amount",
         "reference",
-        "timestamp",
         'status'
     )
