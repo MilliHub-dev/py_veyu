@@ -26,7 +26,6 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-    # daphne
     'daphne',
     # 'unfold',
     'django.contrib.admin',
