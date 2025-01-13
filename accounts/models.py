@@ -48,13 +48,22 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         'mechanic': 'Mechanic',
     }
 
+    # for OAuth
+    ACCOUNT_PROVIDERS = {
+        'motaa': 'Motaa',
+        'google': 'Google',
+        'facebook': 'Facebook',
+        'apple': 'Apple',
+    }
+
     email = models.EmailField(blank=False, unique=True)
     first_name = models.CharField(max_length=150, blank=False)
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
     api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.CASCADE)
-    
+    provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='motaa')
+
     groups = None
     user_permissions = None
 
@@ -307,7 +316,6 @@ class File(DbModel):
 
 class Document(DbModel):
     DOCTYPES = [
-        # ('nin', "National Identification"),
         ('drivers-license', "Driver's License"),
         ('nin', "National Identification"),
         ('proof-of-address', "Proof of Address"),

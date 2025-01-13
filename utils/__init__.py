@@ -38,7 +38,7 @@ class OffsetPaginator(LimitOffsetPagination):
     limit_query_param = 'per_page'
     offset_query_param = 'offset'
 
-    def __init__(self, default_limit=25) -> None:
+    def __init__(self, default_limit=1) -> None:
         self.default_limit = default_limit
         super().__init__()
 

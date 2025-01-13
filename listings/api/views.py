@@ -266,7 +266,9 @@ class BuyListingView(ListAPIView):
                 'pagination': {
                     'offset': self.paginator.offset,
                     'limit': self.paginator.limit,
-                    'count': self.paginator.count,
+                    'results_count': self.paginator.count,
+                    # 'page_range': self.paginator.get_page_range(),
+                    # 'num_pages': self.paginator.num_pages,
                     'next': self.paginator.get_next_link(),
                     'previous': self.paginator.get_previous_link(),
                 },

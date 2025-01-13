@@ -19,7 +19,7 @@ class Wallet(DbModel):
     # balance = MoneyField(max_digits=30, decimal_places=2, default=0.00, default_currency='NGN')
     balance = models.DecimalField(max_digits=100, decimal_places=2, default=0.00)
     currency = models.CharField(max_length=4, default="NGN")
-    transactions = models.ManyToManyField("Transaction", blank=True, related_name="transactions")
+    transactions = models.ManyToManyField("wallet.Transaction", blank=True, related_name="transactions")
     
     def deposit(self, amount, type='deposit', reference=None):
         self.balance = F('balance') + amount
