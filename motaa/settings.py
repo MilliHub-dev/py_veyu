@@ -20,7 +20,12 @@ DEBUG = env.bool("DEBUG", False)
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS = [
+    'motaadev.pythonanywhere.com',
+    'motaa.vercel.app',
+    'motaa.com.ng',
+    '*', # remove after dev testing of frontend
+]
 
 
 # Application definition
@@ -73,7 +78,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
+
     # Motaa Middleware
     'utils.middleware.UserTypeMiddleware',
 
@@ -187,7 +192,7 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': 'my-app-auth',
     'JWT_AUTH_REFRESH_COOKIE': 'my-refresh-token',
-    
+
 }
 
 SIMPLE_JWT = {
@@ -205,7 +210,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'Authorization',
     # 'AUTH_HEADER_NAME': 'Authorization',
-    
+
 
     # copied
     'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
