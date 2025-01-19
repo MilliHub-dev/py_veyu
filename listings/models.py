@@ -145,7 +145,7 @@ class Order(DbModel):
 
     order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
     order_items = models.ManyToManyField('OrderItem', blank=True)
-    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES)
+    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES, default="Not Available")
     sub_total = models.DecimalField(decimal_places=2, max_digits=100, blank=True, null=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=10.00, blank=True, null=True)
     commission = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
