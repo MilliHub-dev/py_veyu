@@ -4,6 +4,7 @@ from django.db.models import Q
 from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
+    IsDealerOrStaff,
 )
 from rest_framework.parsers import (
     MultiPartParser,
@@ -73,8 +74,6 @@ User = get_user_model()
 
 
 
-
-
 # Customer Views
 class ListingSearchView(ListAPIView):
     allowed_methods = ['GET']
@@ -121,8 +120,6 @@ class ListingSearchView(ListAPIView):
             }
         }
         return Response(data, 200)
-
-    
 
 
 # Rentals
@@ -311,29 +308,35 @@ class BuyListingDetailView(RetrieveAPIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         action = data['action']
+        listing = self.get_object()
 
-        cart = request.customer.cart
-        order_item = OrderItem(
-            cart=cart,
-            listing=listing,
-            item_type=data['item_type']
-        )
-        order.save()
-
-        if action == 'add-to-cart':
+        try:
+            response = {
+                'error': False,
+            }
+            customer = Customer.objects.get(user=request.user)
+            cart = customer.cart
             print("Cart:", cart)
-            cart.items.add(order,)
-            cart.save()
-        elif action == 'buy-now':
-            order = Order(
-              customer=request.customer,
+
+            order_item = OrderItem(
+                cart=cart,
+                listing=listing,
+                item_type=data['item_type']
             )
-            order.order_items.add(order_item,)
-            order.save()
-        return Response()
+            order_item.save()
 
-
-
+            if action == 'add-to-cart':
+                cart.cart_items.add(order_item,)
+                cart.save()
+                response['message'] = 'Successfully added to your cart'
+            elif action == 'buy-now':
+                order = Order(customer=customer,)
+                order.order_items.add(order_item,)
+                order.save()
+                response['message'] = 'Successfully added to your cart'
+            return Response(response, status=200)
+        except Exception as error:
+            return Response({'error': True, 'message': str(error)}, status=500)
 
 class CheckoutView(APIView):
     def get(self, request, *args, **kwargs):
@@ -344,7 +347,6 @@ class CheckoutView(APIView):
 
     def post(self, request, *args, **kwargs):
         return Response()
-
 
 
 class TestDriveRequestView(CreateAPIView):
@@ -410,14 +412,21 @@ class CompleteOrderView(APIView):
 # Dealership Views
 class CreateListingView(CreateAPIView):
     allowed_methods = ['POST']
-    permission_classes = [IsAuthenticated, IsAgentOrStaff]
+    parser_classes = [MultiPartParser, JSONParser]
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     serializer_class = CreateListingSerializer
 
     def post(self, request, **kwargs):
         data = request.data
 
-        vehicle = Vehicle.objects.get(uuid=data['uuid'])
+        vehicle = Vehicle.objects.create(**request.data)
+
+        if request.files:
+            print("Files:", request.files)
+
+        raise Exception
+
         listing = Listing(
             vehicle=vehicle,
             created_by=request.user,
@@ -433,10 +442,21 @@ class CreateListingView(CreateAPIView):
         data = {
             'error': False,
             'message': 'Successfully created new listing',
-            'data': self.serializer_class(listing).data
+            'data': self.serializer_class(listing, context={'request': request}).data
 
         }
         return Response()
+
+
+class ListingAdminView(ListAPIView):
+    allowed_methods = ['GET', 'POST']
+
+    def get(self, request, *args, **kwargs):
+        dealer = Dealer.objects.get(uuid=kwargs['dealershipId'])
+
+        listings = Listing.objects.filter(dealer=dealer)
+
+
 
 class VehicleView(ListAPIView):
     allowed_methods = ['GET']
@@ -444,6 +464,7 @@ class VehicleView(ListAPIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
+
 
 # NOT DONE FOR NOW IMAGE STUFF STILL HANGING
 class CreateVehicleView(CreateAPIView):

@@ -6,7 +6,8 @@ from utils.models import DbModel
 from django.utils import timezone
 from django.utils.timesince import timeuntil, timesince
 from utils import make_random_otp
-
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class AccountManager(BaseUserManager):
 
@@ -122,6 +123,7 @@ class UserProfile(DbModel):
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
     billing_info = models.ManyToManyField("BillingInformation", blank=True)
 
+
     def __str__(self) -> str:
         return self.user.name
 
@@ -156,9 +158,16 @@ class Customer(UserProfile):
     orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
     service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
     cart = models.ForeignKey("CustomerCart", on_delete=models.CASCADE, blank=True, null=True, related_name="cart")
+    image = models.ImageField(upload_to='profiles/', blank=True, null=True)
+
 
     def __str__(self):
         return self.user.email
+
+
+def slugify(text:str) -> str:
+    return text.lower().replace(' ', '-').replace("'", '').replace('.', '')
+
 
 
 class Mechanic(UserProfile):
@@ -175,16 +184,25 @@ class Mechanic(UserProfile):
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
     mechanic_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
+    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    slug = models.SlugField(blank=True, null=True)
 
-    # def __str__(self) -> str:
-    #     return self.account.name
+
+    def __str__(self) -> str:
+        return self.business_name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.business_name)
+        super().save(*args, **kwargs)
     
     def rating(self):
-        return
+        return '0.0'
 
 
 class Dealer(UserProfile):
     about = models.TextField(blank=True, null=True)
+    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     headline = models.CharField(max_length=200, blank=True, null=True)
     listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
@@ -193,14 +211,20 @@ class Dealer(UserProfile):
     rental_services = models.BooleanField(default=False)
     purchase_services = models.BooleanField(default=False)
     offers_trade_in = models.BooleanField(default=False)
+    slug = models.SlugField(blank=True, null=True)
     cac_number = models.CharField(max_length=200)
     tin_number = models.CharField(max_length=200)
 
     def __str__(self):
-        return self.business_name
+        return self.business_name or self.user.name
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.business_name)
+        super().save(*args, **kwargs)
     
     def rating(self):
-        return
+        return '0.0'
 
 
 class Transaction(DbModel):
@@ -293,6 +317,15 @@ class CustomerCart(DbModel):
     customer = models.OneToOneField("Customer", on_delete=models.CASCADE)
     cart_items = models.ManyToManyField("listings.OrderItem", blank=True)
 
+    def __str__(self):
+        return f"{self.customer.user.name}'s Cart"
+
+    @receiver(post_save, sender=Customer)
+    def create_user_wallet(sender, instance, created, **kwargs):
+        if created:
+            cart = Customer.objects.create(customer=instance)
+            instance.cart = cart
+            cart.save()
 
 class File(DbModel):
     name = models.CharField(max_length=200, blank=True, null=True)

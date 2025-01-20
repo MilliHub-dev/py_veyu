@@ -43,10 +43,10 @@ from ..models import (
     Account,
     OTP,
     Mechanic,
-    # Agent,
+    CustomerCart,
     Customer,
     Dealer,
-    UserProfile
+    UserProfile,
 )
 from .serializers import (
     AccountSerializer,
@@ -60,6 +60,7 @@ from .serializers import (
     ChangePasswordSerializer,
     VerifyAccountSerializer,
     VerifyPhoneNumberSerializer,
+    CustomerCartSerializer,
 )
 from .filters import (
     MechanicFilter,
@@ -120,25 +121,11 @@ class SignUpView(generics.CreateAPIView):
                 # raise serializer.errors
                 return Response(serializer.errors)
 
-    def new_post(self, request:Request):
-        try:
-            data = request.data
-            new_user = Account.objects.create(
-                email=data['email'],
-                user_type=data['user_type'] or 'customer',
-                first_name=data['first_name'],
-                last_name=data['last_name'] 
-            )
-            return Response()
-        except Exception as error:
-            return Response()
-
 
 class LoginView(views.APIView):
     permission_classes = [AllowAny]
 
     def post(self, request:Request):
-    
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             validated_data = serializer.validated_data
@@ -160,7 +147,9 @@ class LoginView(views.APIView):
                             "first_name": user.first_name,
                             "last_name": user.last_name,
                             "email": user.email,
-                            "is_active": user.is_active
+                            "user_type": user.user_type,
+                            "is_active": user.is_active,
+                            'provider': user.provider,
                         }
                     )
                 else:
@@ -180,6 +169,34 @@ class LoginView(views.APIView):
                 )
         else:
             return Response(serializer.errors)
+
+
+class CartView(views.APIView):
+    serializer_class = CustomerCartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        customer = Customer.objects.get(user=request.user)
+        cart = customer.cart
+
+        data = {
+            'error': False,
+            'message': '',
+            'data': CustomerCartSerializer(customer.cart, context={'request': request}).data
+        }
+        return Response(data, 200)
+
+    def post(self, request, *args, **kwargs):
+        action = request.data['action']
+        customer = Customer.objects.get(user=request.user)
+        cart = customer.cart
+
+        if action == "remove-from-cart":
+            item = cart.cart_items.filter(item_type=request.data['item_type']).get(id=request.data['id'])
+            item.delete()
+            return Response({'error': False, 'message': 'Successfully removed from your cart'})
+
+        return Response()
 
 
 class UpdateProfileView(views.APIView):

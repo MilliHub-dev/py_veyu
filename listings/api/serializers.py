@@ -8,6 +8,7 @@ from ..models import (
     VehicleImage,
     VehicleCategory,
     TestDriveRequest,
+    OrderItem,
     TradeInRequest,
     PurchaseOffer,
 )
@@ -15,6 +16,7 @@ from rest_framework.serializers import (
     ModelSerializer,
     ModelField,
     StringRelatedField,
+    SerializerMethodField,
     HyperlinkedRelatedField,
     RelatedField,
 )
@@ -33,10 +35,19 @@ User = get_user_model()
 
 class DealerSerializer(ModelSerializer):
     location = StringRelatedField()
+    logo = SerializerMethodField()
+
     class Meta:
         from accounts.models import Dealer
         model = Dealer
-        fields = ['location', 'business_name', 'uuid']
+        fields = ['location', 'business_name', 'uuid', 'logo']
+
+    def get_logo(self, obj, *args, **kwargs):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.logo.url)
+        return obj.logo.url
+
 
 class VehicleImageSerializer(ModelSerializer):
     url = serializers.SerializerMethodField(method_name='get_image_url')
@@ -76,25 +87,50 @@ class VehicleSerializer(serializers.ModelSerializer):
         return obj.get_condition_display()
     
     def get_transmission(self, obj):
-        return obj.get_transmission_display()    
+        return obj.get_transmission_display()
 
     def get_fuel_system(self, obj):
         return obj.get_fuel_system_display()
+
     
+
+class CreateVehicleSerializer(serializers.ModelSerializer):
+    images = VehicleImageSerializer(many=True)
+    dealer = DealerSerializer()
+    class Meta:
+        model = Vehicle
+        fields = '__all__'
+
 
 class ListingSerializer(ModelSerializer):
     vehicle = VehicleSerializer()
+    cycle = serializers.SerializerMethodField()
+
     class Meta:
         model = Listing
         fields = '__all__'
+
+    def get_cycle(self, obj):
+        return obj.get_payment_cycle_display()
+
 
 class CreateListingSerializer(ModelSerializer):
+    vehicle = CreateVehicleSerializer()
     class Meta:
         model = Listing
         fields = '__all__'
 
+
+class OrderItemSerializer(ModelSerializer):
+    listing = ListingSerializer()
+    class Meta:
+        model = OrderItem
+        fields = '__all__'
+
+
+
 class OrderSerializer(ModelSerializer):
-    order_items = ListingSerializer(many=True)
+    order_items = OrderItemSerializer(many=True)
 
     class Meta:
         model = Order

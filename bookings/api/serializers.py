@@ -25,7 +25,7 @@ class MechanicServiceSerializer(ModelSerializer):
     
     class Meta:
         model = ServiceOffering
-        fields = ('service', 'charge_rate', 'charge', 'uuid')
+        fields = ('service', 'charge_rate', 'charge', 'uuid',)
 
 
 

@@ -8,6 +8,17 @@ class VehicleImage(DbModel):
     image = models.ImageField(upload_to='vehicles/images/')
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            ext = self.image.name.split('.')[-1]
+            count = self.vehicle.images.count()
+            self.image.name = f'{self.vehicle.slug}_image-{count}.{ext}'
+        super().save(*args, **kwargs)
+    
+
+    def __str__(self):
+        return self.image.name
+
 class Vehicle(DbModel):
     CONDITION_CHOICES = [
         ('new', 'New'),
@@ -230,8 +241,14 @@ class TradeInRequest(DbModel):
 
 
 class OrderItem(DbModel):
+    ORDER_ITEM_TYPES = {
+        'car': 'Car',
+        'service': 'Service',
+        'rental': 'Rental',
+    }
     cart = models.ForeignKey('accounts.CustomerCart', on_delete=models.CASCADE)
-    listing = models.ForeignKey("Listing", on_delete=models.CASCADE)
-    item_type = models.CharField(max_length=50, default='car')
+    listing = models.ForeignKey("Listing", on_delete=models.CASCADE, blank=True, null=True)
+    service = models.ForeignKey("bookings.ServiceOffering", on_delete=models.CASCADE, blank=True, null=True)
+    item_type = models.CharField(max_length=50, default='car', choices=ORDER_ITEM_TYPES)
 
 

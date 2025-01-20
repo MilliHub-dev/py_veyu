@@ -3,11 +3,15 @@ from ..models import (
     Customer,
     Dealer,
     Mechanic,
-    # Agent,
+    CustomerCart,
     PayoutInformation,
 )
 from feedback.api.serializers import (
     RatingSerializer,
+)
+
+from listings.api.serializers import (
+    OrderItemSerializer,
 )
 
 from bookings.api.serializers import (
@@ -52,7 +56,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 def get_user_serializer(user_type):
     profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer,}.get(user_type)
     model = profile_model
@@ -61,18 +64,37 @@ def get_user_serializer(user_type):
 
 
 
+class CustomerCartSerializer(ModelSerializer):
+    cart_items = OrderItemSerializer(many=True)
+
+    class Meta:
+        model = CustomerCart
+        fields = '__all__'
+
+
+
 class MechanicSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = RatingSerializer(many=True)
     services = MechanicServiceSerializer(many=True)
     location = StringRelatedField()
-    # account.fields = ('uuid', 'email')
+    logo = SerializerMethodField()
     class Meta:
         model = Mechanic
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
-            "verified_phone_number","available", "location","current_job", "services", "job_history","reviews"
+            "verified_phone_number","available", "location","current_job", "services",
+            "job_history","reviews", 'logo', 'business_name', 'slug', 'mechanic_type',
+            'headline', 'about', 'rating'
         )
+
+    def get_logo(self, obj):
+        request = self.context.get('request', None)
+        if obj.logo:
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return ''
     
     def get_user(self, obj):
         account = obj.user  # Get the related account instance
@@ -84,6 +106,42 @@ class MechanicSerializer(ModelSerializer):
             'name': account.name,
             'last_seen': account.last_seen
         }
+
+
+
+class DealershipSerializer(ModelSerializer):
+    user = SerializerMethodField()
+    reviews = RatingSerializer(many=True)
+    services = MechanicServiceSerializer(many=True)
+    location = StringRelatedField()
+
+    class Meta:
+        model = Dealer
+        fields = (
+            "id", "user", "date_created", "uuid", "last_updated", "phone_number",
+            "verified_phone_number", 'listings', "location","reviews", 'logo',
+            'business_name', 'slug', 'headline', 'about', 'rating',
+        )
+    
+    def get_user(self, obj):
+        account = obj.user  # Get the related account instance
+
+        # Define custom logic to exclude or modify fields
+        return {
+            'uuid': account.uuid,  # Show uuid
+            'email': account.email,  # Show email
+            'name': account.name,
+            'provider': account.provider,
+            'last_seen': account.last_seen
+        }
+
+    def get_logo(self, obj):
+        request = self.context.get('request', None)
+        if obj.logo:
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return ''
 
 
 class GetAccountSerializer(ModelSerializer):

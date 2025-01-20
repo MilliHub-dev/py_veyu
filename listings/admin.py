@@ -10,23 +10,11 @@ from .models import (
     TestDriveRequest,
     TradeInRequest,
     PurchaseOffer,
-    CarPurchase
+    CarPurchase,
+    OrderItem,
 )
 
 
-models = [
-    CarRental,
-    Listing,
-    Order,
-    Vehicle,
-    VehicleCategory,
-    VehicleTag,
-    VehicleImage,
-    TestDriveRequest,
-    TradeInRequest,
-    PurchaseOffer,
-    CarPurchase
-]
 
 
 @admin.register(Listing)
@@ -79,7 +67,8 @@ class TestDriveRequestAdmin(admin.ModelAdmin):
 
 @admin.register(VehicleImage)
 class VehicleImageAdmin(admin.ModelAdmin):
-    list_display = ['image', 'vehicle']
+    list_display = ['__str__', 'image', 'vehicle']
+    list_display_links = ['__str__', 'vehicle']
     list_filter = ['vehicle']
     search_fields = ['vehicle__name']
 
@@ -96,9 +85,17 @@ class VehicleCategoryAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
+@admin.register(OrderItem)
+class VehicleCategoryAdmin(admin.ModelAdmin):
+    list_display = ['listing', 'item_type',]
+    # search_fields = ['name']
+
+
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
     list_display = ['name', 'brand', 'condition', 'available', 'for_sale', 'sold']
     list_filter = ['brand', 'condition', 'available', 'for_sale', 'sold', 'dealer']
     search_fields = ['name', 'brand', 'dealer__user__email']
     list_editable = ['available', 'for_sale', 'sold']
+
+

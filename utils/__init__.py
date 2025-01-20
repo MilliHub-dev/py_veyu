@@ -2,6 +2,7 @@ import uuid, random
 from rest_framework.permissions import BasePermission
 from rest_framework.pagination import LimitOffsetPagination
 import requests, typing, json
+# from accounts.models import Dealer
 from typing import Any, List
 
 
@@ -11,6 +12,23 @@ class IsAgentOrStaff(BasePermission):
             return True
         else:
             return False
+        
+    def has_object_permission(self, request, view):
+        if request.user.user_type in ['agent', 'staff', 'admin']:
+            return True
+        else:
+            return False
+
+
+class IsDealerOrStaff(BasePermission):
+    def has_permission(self, request, view):
+        if request.user.user_type in ['dealer', 'staff',] or request.user.is_admin:
+            print("Kwargs:", request.kwargs)
+            return True
+            # dealer = Dealer.objects.get(request.kwargs)
+            # if request.user.user_profile:
+            #     return True
+        return False
         
     def has_object_permission(self, request, view):
         if request.user.user_type in ['agent', 'staff', 'admin']:
