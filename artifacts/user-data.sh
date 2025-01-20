@@ -5,13 +5,13 @@ sudo apt upgrade -y;
 # python
 sudo apt install python3 python3-dev -y;
 sudo apt install lib2to3;
-# postgresql
-# sudo apt install postgresql postgresql-contrib libpq-dev -y
-# sudo apt install postgis postgresql-16-postgis-3
+postgresql
+sudo apt install postgresql postgresql-contrib libpq-dev -y
+sudo apt install postgis postgresql-16-postgis-3
 
 # libgdal
-# sudo apt-get install libgdal-dev -y;
-# sudo apt-get install libq-dev -y;
+sudo apt-get install libgdal-dev -y;
+sudo apt-get install libq-dev -y;
 
 # redis
 sudo apt-get install lsb-release curl gpg;
@@ -23,7 +23,7 @@ sudo apt-get install redis -y;
 sudo systemctl enable redis-server;
 sudo systemctl start redis-server;
 
-# other dependencies
+# # other dependencies
 sudo apt install git -y;
 
 
@@ -39,8 +39,7 @@ sudo systemctl restart nginx
 sudo cp gunicorn.service /etc/systemd/system/
 sudo cp gunicorn.socket /etc/systemd/system/
 sudo systemctl daemon-reload
-systemctl enable nginx.service
-systemctl enable --now gunicorn.socket
+sudo systemctl enable --now gunicorn.socket
 
 # app setup
 DIR="motaa_backend"
@@ -51,12 +50,13 @@ if [ -d "$DIR" ]; then
 else
   echo "Directory $DIR does not exist."
 fi
-git clone --single-branch --branch staged git@github.com:MilliHub-dev/motaa_backend.git;
-cd motaa_backend;
+git clone --single-branch --branch staging git@github.com:MilliHub-dev/motaa_backend.git;
+cd motaa_backend/;
+pwd
 python3 -m venv venv;
 source venv/bin/activate;
-# cp ../.env .env;
-pip install -r requirements;
+cp ../.env .env;
+pip install -r requirements.txt;
 python manage.py collectstatic; # remove when using cloud storage
-python manage.py runserver;
+# python manage.py runserver;
 
