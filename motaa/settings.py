@@ -4,7 +4,10 @@ from environ import Env
 from decouple import config
 from datetime import timedelta
 from dotenv import load_dotenv
+import environ
 
+env = environ.Env()
+environ.Env.read_env()
 
 load_dotenv(override=True)
 # Devs can use the production settings for staging by setting the PRODUCTION environment variable to True
