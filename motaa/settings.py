@@ -51,6 +51,8 @@ else:
             'django.contrib.sessions',
             'django.contrib.messages',
             'django.contrib.staticfiles',
+            # 'jet',
+            'jazzmin',
 
             # Motaa Apps
             'accounts',
@@ -111,6 +113,7 @@ else:
                         'django.template.context_processors.request',
                         'django.contrib.auth.context_processors.auth',
                         'django.contrib.messages.context_processors.messages',
+                        # 'django.template.context_processors.request',
                         ],
                     },
                 },
@@ -259,3 +262,13 @@ else:
                     },
                 },
             }
+JAZZMIN_SETTINGS = {
+    'show_ui_builder':True,
+    "custom_links" : {
+        "books":[{
+            "name": "Dashboard",
+            "custom_links": 'analytics-dashboard',
+            "icon": "fas fa-chart-line"
+        }]
+    }
+}
