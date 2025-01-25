@@ -1,6 +1,10 @@
 .vscode/
+<<<<<<< HEAD
 venv/
 penv/
+=======
+*env/
+>>>>>>> 6e051ca (add chats)
 venv_win/
 motaa_venv/
 media/
@@ -19,5 +23,3 @@ doc.md
 .env.local
 .env
 uploads/
-
-chat/
