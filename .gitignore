@@ -1,6 +1,7 @@
 .vscode/
 venv/
 penv/
+venv_win/
 motaa_venv/
 media/
 */migrations/
