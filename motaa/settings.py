@@ -123,8 +123,6 @@ else:
 
     WSGI_APPLICATION = 'motaa.wsgi.application'
 
-    ASGI_APPLICATION = "motaa.asgi.application"
-
 
     # Database
     # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

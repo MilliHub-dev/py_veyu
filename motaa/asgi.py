@@ -20,7 +20,6 @@ from chat.middleware import (
     ApiTokenAuthMiddleware,
 )
 
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'motaa.settings')
 
 # django's default application instance
