@@ -23,6 +23,7 @@ from .views import (
     ViewCarOffersView,
 
     CheckoutView,
+    MyListingsView,
 )
 
 
@@ -31,6 +32,9 @@ app_name = 'rentals_api'
 # English or spanish 😂🫴
 
 urlpatterns = [
+
+    # retrieve recently viewed listings and favorites
+    path('my-listings/', MyListingsView.as_view()),
 
     # listing task 1
     path('cars/', VehicleView.as_view(), name='vehicle-view'),

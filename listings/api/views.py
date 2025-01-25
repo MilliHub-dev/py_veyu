@@ -122,6 +122,39 @@ class ListingSearchView(ListAPIView):
         return Response(data, 200)
 
 
+
+class MyListingsView(ListAPIView):
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Listing.objects.all()
+
+
+    def get(self, request, *args, **kwargs):
+        scope = request.GET.get('scope', 'recents') # defaults to recently viewed
+        qs = self.get_queryset()
+        listing = None
+        print("Getting your listings", request.user)
+
+
+        if scope == 'recents':
+            listing = self.serializer_class(
+                qs.filter(viewers=self.request.user),
+                many=True, context={'request': request}
+            ).data
+        elif scope == 'favorites':
+            # listing = self.serializer_class(
+            #     qs.filter(viewers__account_id__icontains=self.request.user),
+            #     many=True, context={'request': request}
+            # ).data
+            pass
+        data = {
+            'error': False,
+            'data': listings
+        }
+        return Response(data)
+
+
+
 # Rentals
 class RentListingView(ListAPIView):
     allowed_methods = ['GET']
@@ -168,6 +201,10 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
     
     def get(self, request, *args, **kwargs):
         obj = Listing.objects.get(uuid=self.kwargs['uuid'])
+
+        if not request.user in obj.viewers.all():
+            obj.viewers.add(request.user,)
+            obj.save()
 
         serializer = self.serializer_class(obj, context={'request': request})
         data = {
@@ -286,7 +323,11 @@ class BuyListingDetailView(RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         uuid = self.kwargs['uuid']
         listing = self.get_object()
-        # self.count_view(request.user, listing)
+        
+        if not request.user in listing.viewers.all():
+            listing.viewers.add(request.user,)
+            listing.save()
+
         data = {
             'error': False,
             'message': '',

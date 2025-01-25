@@ -44,10 +44,11 @@ class DealerSerializer(ModelSerializer):
 
     def get_logo(self, obj, *args, **kwargs):
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.logo.url)
-        return obj.logo.url
-
+        if obj.logo:
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
 
 class VehicleImageSerializer(ModelSerializer):
     url = serializers.SerializerMethodField(method_name='get_image_url')

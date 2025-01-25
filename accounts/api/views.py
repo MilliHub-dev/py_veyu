@@ -135,6 +135,7 @@ class LoginView(views.APIView):
             try:
                 user = Account.objects.get(email=email)
                 if user and user.check_password(raw_password=password):
+                    login(request, user)
                     access_token = AccessToken.for_user(user)
                     refresh_token = RefreshToken.for_user(user)
 

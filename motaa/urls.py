@@ -18,7 +18,7 @@ urlpatterns = [
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
     path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
     path('api/v1/listings/', include('listings.api.urls', namespace='listings_api')),
-    path('api/v1/wallet', include('wallet.urls')),
+    path('api/v1/chat/', include('chat.api.urls', namespace="chat_api")),
     path('', include('utils.urls', namespace='utils')),
     path('api/v1/wallet/', include('wallet.urls')),
 

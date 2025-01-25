@@ -4,46 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Motaa Chat</title>
+    <style type="text/css">        
+        .chat-box{
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 20px;
+            display: block;
+        }
+
+        #chat-log{
+            width: 100%;
+            border-width: 1px;
+            display: block;
+            border-radius: 5px;
+            margin: 10px 0px;
+            padding: 10px;
+            resize: none;
+            overflow-y: auto;
+            height: 400px;
+            border: 1px solid black;
+        }
+
+        #chat-message-submit{
+            padding: 10px;
+            color: #fff;
+            background: blueviolet;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+            border: none;
+            border-radius: 10px;
+            width: 150px;
+            cursor: pointer;
+        }
+
+        #chat-message-input{
+            width: 100%;
+            border-width: 1px;
+            display: block;
+            border-radius: 5px;
+            margin: 10px 0px;
+            padding: 10px;
+        }
+
+        .msg{
+            display: block;
+            width: 100%;
+            max-width: max-content;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .msg.sent{
+            margin-left: auto;
+            background: cornflowerblue;
+        }
+
+        .msg.received{
+            background: sandybrown;
+            margin-right: auto;
+        }
+
+    </style>
 </head>
 <body>
-    <textarea id="chat-log" cols="100" rows="20"></textarea><br>
-    <input id="chat-message-input" type="text" size="100"><br>
-    <input id="chat-message-submit" type="button" value="Send">
+
+    <div class="chat-box">
+        <div id="chat-log"></div>
+        
+        <input id="chat-message-input" placeholder="Type message here..." type="text" size="100" />
+
+        <button id="chat-message-submit" type="button">Send</button>
+    </div>
+
     {{ room_name|json_script:"room-name" }}
+    {{ user.email|json_script:"user" }}
     <script>
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
+        const user = JSON.parse(document.getElementById('user').textContent);
+        const {host, protocol} = window.location;
+        const chatLog = document.querySelector('#chat-log');
+        const input = document.querySelector('#chat-message-input');
+        const sendBtn = document.querySelector('#chat-message-submit');
+        input.focus();
 
-        const chatSocket = new WebSocket(
-            'ws://'
-            + window.location.host
-            + '/sales/livechat/'
-            + roomName
-            + '/'
-        );
+        const chatSocket = new WebSocket(`${protocol}//${host}${'/chat/'}${roomName}/`);
 
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            document.querySelector('#chat-log').value += (data.message + '\n');
+        chatSocket.onmessage = function(ev) {
+            const data = JSON.parse(ev.data);
+            let chat = `<span class="msg ${data.message_type}-msg ${user === data.sender ? 'sent' : 'received'}"> ${data.text} </span>`;
+            chatLog.insertAdjacentHTML('beforeend', chat);
         };
 
         chatSocket.onclose = function(e) {
             console.error('Chat socket closed unexpectedly');
         };
 
-        document.querySelector('#chat-message-input').focus();
-        document.querySelector('#chat-message-input').onkeyup = function(e) {
-            if (e.key === 'Enter') {  // enter, return
-                document.querySelector('#chat-message-submit').click();
-            }
-        };
-
-        document.querySelector('#chat-message-submit').onclick = function(e) {
-            const messageInputDom = document.querySelector('#chat-message-input');
-            const message = messageInputDom.value;
+        sendBtn.onclick = function(e) {
+            const message = input.value;
             chatSocket.send(JSON.stringify({
-                'message': message
+                'message_type': 'text', // text | image | document
+                'message': message,
+                'attachments': []
             }));
-            messageInputDom.value = '';
+            input.value = '';
         };
     </script>
 </body>
