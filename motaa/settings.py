@@ -45,6 +45,8 @@ else:
     INSTALLED_APPS = [
             'daphne',
             # 'unfold',
+            # 'admin_soft.apps.AdminSoftDashboardConfig',
+            'jazzmin',
             'django.contrib.admin',
             'django.contrib.auth',
             'django.contrib.contenttypes',
@@ -52,7 +54,7 @@ else:
             'django.contrib.messages',
             'django.contrib.staticfiles',
             # 'jet',
-            'jazzmin',
+            
 
             # Motaa Apps
             'accounts',
@@ -263,12 +265,28 @@ else:
                 },
             }
 JAZZMIN_SETTINGS = {
-    'show_ui_builder':True,
-    "custom_links" : {
-        "books":[{
-            "name": "Dashboard",
-            "custom_links": 'analytics-dashboard',
-            "icon": "fas fa-chart-line"
-        }]
-    }
+    "site_title": "My Admin",
+    "site_header": "My Admin Portal",
+    "welcome_sign": "Welcome to My Custom Admin!",
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"app": "my_app"},  # Direct link to an app
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+    },
+    "order_with_respect_to": ["auth", "my_app"],
+    "custom_links": {
+        "my_app": [
+            {
+                "name": "Custom View",
+                "url": "custom-view",
+                "icon": "fas fa-cogs",
+            },
+        ]
+    },
 }
