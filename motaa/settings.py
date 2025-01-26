@@ -10,6 +10,14 @@ env = environ.Env()
 environ.Env.read_env()
 
 load_dotenv(override=True)
+
+
+# from django.core.asgi import get_asgi_application
+
+# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'motaa.settings')
+
+# application = get_asgi_application()
+
 # Devs can use the production settings for staging by setting the PRODUCTION environment variable to True
 if os.getenv('PRODUCTION') == 'True':
     from production.settings import *
@@ -45,7 +53,6 @@ else:
     INSTALLED_APPS = [
             'daphne',
             # 'unfold',
-            # 'admin_soft.apps.AdminSoftDashboardConfig',
             'jazzmin',
             'django.contrib.admin',
             'django.contrib.auth',
@@ -122,6 +129,7 @@ else:
             ]
 
     WSGI_APPLICATION = 'motaa.wsgi.application'
+    ASGI_APPLICATION = 'motaa.asgi.application'
 
 
     # Database

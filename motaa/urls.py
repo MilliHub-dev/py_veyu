@@ -10,13 +10,30 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView
 )
 from dj_rest_auth.views import PasswordResetView, PasswordResetConfirmView
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
+from rest_framework import permissions
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Project API Documentation",
+        default_version='v1',
+        description="API documentation for your project",
+    ),
+    public=True,
+    authentication_classes=[BasicAuthentication, SessionAuthentication],
+    permission_classes=(permissions.IsAuthenticated,),
+)
 
 
 
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
-    
+    # Api Documetation
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # Redoc UI
     # API Endpoints
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
     path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),

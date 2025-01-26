@@ -1,9 +1,13 @@
 import json
+<<<<<<< HEAD
 from urllib.parse import parse_qs
 from channels.generic.websocket import (
     WebsocketConsumer,
     JsonWebsocketConsumer,
 )
+=======
+from channels.generic.websocket import WebsocketConsumer, AsyncWebsocketConsumer
+>>>>>>> f16084d (update: Implemented API documentation with Swagger and Redoc, fix: Chat app included and resolved dependency with other Installed apps)
 from asgiref.sync import async_to_sync
 from .models import (
     ChatMessage,
@@ -11,6 +15,7 @@ from .models import (
     ChatRoom,
 )
 
+<<<<<<< HEAD
 from .api.serializers import (
     ChatMessageSerializer,
 )
@@ -27,6 +32,11 @@ class LiveEventRelayConsumer(WebsocketConsumer):
         # if user.is_offline, user.online=True
 
         pass
+=======
+
+class LiveEventRelayConsumer(WebsocketConsumer):
+    def connect(self):pass
+>>>>>>> f16084d (update: Implemented API documentation with Swagger and Redoc, fix: Chat app included and resolved dependency with other Installed apps)
 
 
 
@@ -65,6 +75,7 @@ class SupportLiveChatConsumer(WebsocketConsumer):
         self.send(text_data=json.dumps({"message": message}))
 
 
+<<<<<<< HEAD
 
 class LiveChatConsumer(JsonWebsocketConsumer):
     def connect(self):
@@ -104,6 +115,18 @@ class LiveChatConsumer(JsonWebsocketConsumer):
             pass
 
 
+=======
+class SalesLiveChatConsumer(WebsocketConsumer):
+    def connect(self):
+        self.room_name = self.scope["url_route"]["kwargs"]["room_id"]
+        self.room_group_name = f"chat_{self.room_name}"
+
+        # Join room group
+        async_to_sync(self.channel_layer.group_add)(
+            self.room_group_name, self.channel_name
+        )
+        self.accept()
+>>>>>>> f16084d (update: Implemented API documentation with Swagger and Redoc, fix: Chat app included and resolved dependency with other Installed apps)
 
     def disconnect(self, close_code):
         # Leave room group
@@ -112,6 +135,7 @@ class LiveChatConsumer(JsonWebsocketConsumer):
         )
 
     # Receive message from WebSocket
+<<<<<<< HEAD
     def receive_json(self, content):
         message = ChatMessage(
             message_type='user',
@@ -127,14 +151,44 @@ class LiveChatConsumer(JsonWebsocketConsumer):
 
         async_to_sync(self.channel_layer.group_send)(
             self.room_group_name, {"type": "chat.message", "data": data}
+=======
+    def receive(self, text_data):
+        data = json.loads(text_data)
+        message = data["message"]
+
+        # Send message to room group
+        async_to_sync(self.channel_layer.group_send)(
+            self.room_group_name, {"type": "chat.message", "message": message}
+>>>>>>> f16084d (update: Implemented API documentation with Swagger and Redoc, fix: Chat app included and resolved dependency with other Installed apps)
         )
 
     # Receive message from room group
     def chat_message(self, event):
+<<<<<<< HEAD
         data = event["data"]
         self.send_json(data)
     
 
 
+=======
+        message = event["message"]
+        # Send message to WebSocket
+        self.send(text_data=json.dumps({"message": message}))
+    
+
+
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        pass
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        message = data.get("message", "")
+        await self.send(text_data=json.dumps({"message": f"You said: {message}"}))
+
+>>>>>>> f16084d (update: Implemented API documentation with Swagger and Redoc, fix: Chat app included and resolved dependency with other Installed apps)
 
 
