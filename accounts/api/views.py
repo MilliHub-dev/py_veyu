@@ -60,7 +60,11 @@ from .serializers import (
     ChangePasswordSerializer,
     VerifyAccountSerializer,
     VerifyPhoneNumberSerializer,
+<<<<<<< HEAD
     CustomerCartSerializer,
+=======
+    SignupSerializer
+>>>>>>> a7abe9b (fix: syntax errors from last commit)
 )
 from .filters import (
     MechanicFilter,

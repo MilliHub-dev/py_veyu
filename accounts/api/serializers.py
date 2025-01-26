@@ -43,11 +43,11 @@ class SignupSerializer(Serializer):
 
     def create(self, validated_data):
         try:
-            user = authenticate(email=validated_data['email'] password=validated_data['password'])
+            user = authenticate(email=validated_data['email'], password=validated_data['password'])
             if user:
                 return user
             return None
-        except Excation as error
+        except Excation as error:
             return None
 
 class AccountSerializer(ModelSerializer):

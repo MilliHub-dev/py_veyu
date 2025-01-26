@@ -19,11 +19,11 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Project API Documentation",
         default_version='v1',
-        description="API documentation for your project",
+        description="API documentation for Motaa",
     ),
     public=True,
     authentication_classes=[BasicAuthentication, SessionAuthentication],
-    permission_classes=(permissions.IsAuthenticated,),
+    # permission_classes=(permissions.IsAuthenticated),
 )
 
 
