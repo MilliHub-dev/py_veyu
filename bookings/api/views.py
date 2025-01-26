@@ -21,6 +21,7 @@ from .serializers import(
     CreateBookingSerializer,
     ViewBookingSerializer,
     UpdateBookingSerializer,
+    MechanicServiceHistorySerializer
 )
 from accounts.api.serializers import (
     MechanicSerializer,
@@ -213,6 +214,7 @@ class MechanicServiceHistory(ListAPIView):
     allowed_methods = ['GET']
     permission_classes = [IsAuthenticated]
     kwargs = ['mech_id']
+    serializer_class = MechanicServiceHistorySerializer
 
     def get(self, request, *args, **kwargs):
         mech = Mechanic.me(kwargs['mech_id'])

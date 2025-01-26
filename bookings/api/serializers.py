@@ -28,6 +28,12 @@ class MechanicServiceSerializer(ModelSerializer):
         fields = ('service', 'charge_rate', 'charge', 'uuid',)
 
 
+class MechanicServiceHistorySerializer(ModelSerializer)
+
+    class Meta:
+        model = ServiceBooking
+        fields = __all__
+
 
 class CreateBookingSerializer(ModelSerializer):
     class Meta:

@@ -23,14 +23,32 @@ from rest_framework.serializers import (
     ModelSerializer,
     StringRelatedField,
     SerializerMethodField,
+    Serializer,
+    EmailField,
+    CharField
 )
 from rest_framework import serializers
 from django.contrib.auth.password_validation import password_changed, validate_password
 from typing import Any
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 
+
+class SignupSerializer(Serializer):
+    email = EmailField(required=True)
+    email = CharField(required=True, max_length=30,)
+    api_token = StringRelatedField()
+
+    def create(self, validated_data):
+        try:
+            user = authenticate(email=validated_data['email'] password=validated_data['password'])
+            if user:
+                return user
+            return None
+        except Excation as error
+            return None
 
 class AccountSerializer(ModelSerializer):
     class Meta:

@@ -72,6 +72,7 @@ from dj_rest_auth.jwt_auth import JWTAuthentication
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = [AllowAny]
+    serializer_class = SignupSerializer
 
     def get(self, request:Request):
         # check if user with email exists only
@@ -93,7 +94,6 @@ class SignUpView(generics.CreateAPIView):
             'error': True,
             'message': "This route must be called with the 'email' param.",
         }, status=400)
-
 
     def post(self, request:Request):
         with transaction.atomic():
