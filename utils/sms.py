@@ -3,9 +3,10 @@ from africastalking.SMS import SMSService
 from motaa import settings
 # import vonage
 
-username = 'Motaa'
+username = 'Motaa' # 'sandbox'
 # api_key = settings.SMS_API_KEY
-api_key = "atsk_d2af663dc03bb39cd63254c48e72d07aa52853344fe212ac72ea1f24f9568f395d991e78"
+# api_key = "atsk_42d1a7b512f793e7eb3382340f4c3565cdca0c0430a325d9599816dacc0c5fd76f0d7cdb" # sandbox
+api_key="atsk_42e7f18bae53ab9f80e226feabe3a79351a6c1c8cf3af4fd0a823a93fb6643c02bf9e1a1"
 
 
 # vonage_client = vonage.Client(key="e1c5efae", secret="wUdmQL7BK3K3hukn");
@@ -38,7 +39,7 @@ def send_sms(message, recipient:str, fail_silently=False):
         progress = sender.send(
             recipients=[recipient],
             message=message,
-            sender_id=None,
+            # senderi='Motaa'
         )
         print("SENT", progress)
         return progress

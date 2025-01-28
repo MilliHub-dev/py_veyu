@@ -14,17 +14,33 @@ otp_requested = Signal()
 @receiver(otp_requested)
 def handle_otp_requested(sender, user, otp, **kwargs):
     if sender == 'email':
-        threading.Thread(
-            target=send_email,
-            kwargs={
-                'template':'utils/templates/email-confirmation.html',
-                'recipients':[user.email],
-                'context':{'code': otp.code, 'user': user},
-                'subject':"Motaa Verification",
-            }
-        ).start()
+        # threading.Thread(
+        #     target=send_email,
+        #     kwargs={
+        #         'template':'utils/templates/email-confirmation.html',
+        #         'recipients':[user.email],
+        #         'context':{'code': otp.code, 'user': user},
+        #         'subject':"Motaa Verification",
+        #     }
+        # ).start()
+        send_email(
+            template='utils/templates/email-confirmation.html',
+            recipients=[user.email],
+            context={'code': otp.code, 'user': user},
+            subject="Motaa Verification",
+        )
     elif sender == 'sms':
-        pass
+        profile = None
+        if user.user_type == 'customer':
+            profile = user.customer
+        if user.user_type == 'dealer':
+            profile = user.dealer
+        if user.user_type == 'mechanic':
+            profile = user.mechanic
+        send_sms(
+            message=f"Hi {user.name}, your Motaa authentication code is {otp.code}. \n Do not share this code with anyone!",
+            recipient=profile.phone_number
+        )
 
 
 def handle_new_signup(sender:Account, otp, **kwargs):
@@ -44,7 +60,7 @@ def handle_phone_number_changed(sender:Account, otp):
 
 
 
-    
+
 
 
 user_just_registered = Signal(['otp'])

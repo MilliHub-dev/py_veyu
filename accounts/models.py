@@ -19,7 +19,10 @@ class AccountManager(BaseUserManager):
             raise ValueError("The given email must be set")
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.password = make_password(password)
+        if extra_fields.get('provider', 'motaa') == 'motaa':
+            user.password = make_password(password)
+        else:
+            user.set_unusable_password()
         user.save(using=self._db)
         return user
 
