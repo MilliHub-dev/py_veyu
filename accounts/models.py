@@ -36,7 +36,7 @@ class AccountManager(BaseUserManager):
             raise ValueError("Superuser must have is_staff=True.")
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
-        
+
         return self._create_user(email, password, **extra_fields)
 
 
@@ -73,7 +73,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     date_joined = models.DateTimeField(default=timezone.now)
     user_type = models.CharField(max_length=20, default='customer', choices=USER_TYPES)
-    
+
     objects = AccountManager()
 
     EMAIL_FIELD = "email"
@@ -91,7 +91,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     def verify_email(self):
         self.verified_email = True
-        self.save() 
+        self.save()
         return True
 
     @property
@@ -140,13 +140,13 @@ class UserProfile(DbModel):
 
     def verify_phone_number(self):
         self.verified_phone_number = True
-        self.save() 
+        self.save()
         return True
-    
+
     @property
     def verifed_email(self) -> bool:
         return self.user.verified_email()
-    
+
     def verify_email(self):
         self.user.verify_email()
 
@@ -195,7 +195,7 @@ class Mechanic(UserProfile):
         if not self.slug:
             self.slug = slugify(self.business_name)
         super().save(*args, **kwargs)
-    
+
     def rating(self):
         return '0.0'
 
@@ -217,12 +217,12 @@ class Dealer(UserProfile):
 
     def __str__(self):
         return self.business_name or self.user.name
-    
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.business_name)
         super().save(*args, **kwargs)
-    
+
     def rating(self):
         return '0.0'
 
@@ -268,7 +268,7 @@ class Location(DbModel):
     zip_code = models.CharField(max_length=6, blank=True, null=True)
 
     def __str__(self):
-        return f'{self.country}' +', '+ f'{self.state}' 
+        return f'{self.country}' +', '+ f'{self.state}'
 
 
 
@@ -323,7 +323,7 @@ class CustomerCart(DbModel):
     @receiver(post_save, sender=Customer)
     def create_user_wallet(sender, instance, created, **kwargs):
         if created:
-            cart = Customer.objects.create(customer=instance)
+            cart = CustomerCart.objects.create(customer=instance)
             instance.cart = cart
             cart.save()
 
@@ -335,7 +335,7 @@ class File(DbModel):
         if not self.name and self.file:
             self.name = self.file.name
         super().save(*args, **kwargs)
-    
+
     def file_type(self):
         ext = self.file.name.split('.')[-1]
         types = {
