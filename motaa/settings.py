@@ -270,6 +270,8 @@ else:
                     },
                 },
             }
+
+            
 JAZZMIN_SETTINGS = {
     "site_title": "My Admin",
     "site_header": "My Admin Portal",
