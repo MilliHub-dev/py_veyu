@@ -64,6 +64,7 @@ INSTALLED_APPS = [
         'feedback',
         'listings',
         'wallet',
+        'analytics',
 
 
         # Third Party Apps
