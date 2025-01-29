@@ -1,5 +1,5 @@
 from ..models import (
-    Account,             
+    Account,
     Customer,
     Dealer,
     Mechanic,
@@ -113,7 +113,7 @@ class MechanicSerializer(ModelSerializer):
                 return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return ''
-    
+
     def get_user(self, obj):
         account = obj.user  # Get the related account instance
 
@@ -140,7 +140,7 @@ class DealershipSerializer(ModelSerializer):
             "verified_phone_number", 'listings', "location","reviews", 'logo',
             'business_name', 'slug', 'headline', 'about', 'rating',
         )
-    
+
     def get_user(self, obj):
         account = obj.user  # Get the related account instance
 
@@ -198,7 +198,7 @@ class GetAccountSerializer(ModelSerializer):
     #     """
     #     if data['password'] != data['password2']:
     #         raise serializers.ValidationError({"Error": "Password fields didn't match."})
-        
+
     #     # Validate the password and raise the exception if the validation fails
     #     validate_password(data['password'])
     #     return data
@@ -206,23 +206,34 @@ class GetAccountSerializer(ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(style={"input_type": "password"})
+    password = serializers.CharField(
+        style={"input_type": "password"},
+        required=False,  # Make password optional
+        allow_blank=True  # Allow empty strings
+    )
+    provider = serializers.CharField()
 
     def validate_email(self, value):
-        """Validate that user with email exists."""
+        """Validate that a user with the given email exists."""
         user = Account.objects.filter(email=value).first()
 
         if not user:
             raise serializers.ValidationError(
-                detail={'message':': user does not exist'}
+                detail={'message': 'User does not exist'}
             )
-        if user.is_active is False:
+        if not user.is_active:
             raise serializers.ValidationError(
-                detail={'message':': user is not activated'}
+                detail={'message': 'User is not activated'}
             )
+        return value
 
-        return user
-
+    def validate_provider(self, value):
+        """Validate that the provider is valid."""
+        if value not in ['google', 'apple', 'motaa']:
+            raise serializers.ValidationError(
+                detail={'message': 'Invalid Provider'}
+            )
+        return value
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField()
@@ -231,7 +242,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate(self):
         if self.new_password != self.new_password2:
-            raise serializers.ValidationError("new_password1 doen't match with new_password2.")    
+            raise serializers.ValidationError("new_password1 doen't match with new_password2.")
 
 
 class VerifyAccountSerializer(serializers.Serializer):
@@ -243,12 +254,12 @@ class VerifyAccountSerializer(serializers.Serializer):
         ('email', 'email'),
         ('sms', 'sms'),
     ]
-    
+
     ACTION_CHOICES = [
         ('request-code', 'request-code'),
         ('confirm-code', 'confirm-code'),
     ]
-    
+
     channel = serializers.ChoiceField(choices=CHANNEL_CHOICES)
     action = serializers.ChoiceField(choices=ACTION_CHOICES)
 
@@ -257,7 +268,7 @@ class VerifyAccountSerializer(serializers.Serializer):
         email = data.get('email')
         phone_number = data.get('phone_number')
         channel = data['channel']
-        
+
 
         # Determine user model type based on the request.user instance
         if hasattr(self.context['request'].user, 'customer'):
@@ -268,7 +279,7 @@ class VerifyAccountSerializer(serializers.Serializer):
             user_profile = self.context['request'].user.agent
         else:
             raise serializers.ValidationError("User type is not supported for this action.")
-                    
+
 
         if channel == 'email' and email:
             user = Account.objects.filter(email=data['email']).first()
@@ -306,7 +317,7 @@ class VerifyEmailSerializer(serializers.Serializer):
         email = data.get('email')
         action = data.get('action')
         code = data.get('code', None)
-    
+
         user = Account.objects.filter(email=data['email']).first()
 
         if not user:
@@ -315,12 +326,12 @@ class VerifyEmailSerializer(serializers.Serializer):
             )
         if not email:
             raise serializers.ValidationError("Email must be provided.")
-        
+
         if action == 'confirm-code' and not code:
             raise serializers.ValidationError("Code must be provided for confirmation.")
-        
+
         return data
-    
+
 
 class VerifyPhoneNumberSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
@@ -336,7 +347,7 @@ class VerifyPhoneNumberSerializer(serializers.Serializer):
         phone_number = data.get('phone_number')
         action = data.get('action')
         code = data.get('code', None)
-    
+
         if phone_number:
             user = (
                 Customer.objects.filter(phone_number=phone_number).first() or
@@ -353,9 +364,9 @@ class VerifyPhoneNumberSerializer(serializers.Serializer):
             )
         if not phone_number:
             raise serializers.ValidationError("Phone number must be provided.")
-        
+
         if action == 'confirm-code' and not code:
             raise serializers.ValidationError("Code must be provided for confirmation.")
-        
+
         return data
 

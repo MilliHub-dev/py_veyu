@@ -137,52 +137,63 @@ class SignUpView(generics.CreateAPIView):
 
 class LoginView(views.APIView):
     permission_classes = [AllowAny]
+    serializer_class = LoginSerializer
 
-    def post(self, request:Request):
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            validated_data = serializer.validated_data
-            email = validated_data['email']
-            password = validated_data['password']
 
-            try:
-                user = Account.objects.get(email=email)
-                if user and user.check_password(raw_password=password):
-                    login(request, user)
-                    access_token = AccessToken.for_user(user)
-                    refresh_token = RefreshToken.for_user(user)
+    def post(self, request: Request):
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"error": True, "message": "Invalid data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-                    return Response(
-                        {
-                            "access_token": str(access_token),
-                            "refresh_token": str(refresh_token),
-                            "token": str(user.api_token),
-                            "user_id": user.id,
-                            "first_name": user.first_name,
-                            "last_name": user.last_name,
-                            "email": user.email,
-                            "user_type": user.user_type,
-                            "is_active": user.is_active,
-                            'provider': user.provider,
-                        }
-                    )
-                else:
-                    return Response(
-                        {
-                            "message": "Unable to log in with provided credentials.",
-                        },
-                        status=status.HTTP_401_UNAUTHORIZED,
-                    )
+        validated_data = serializer.validated_data
+        email = validated_data.get("email")
+        password = validated_data.get("password")
+        provider = validated_data.get("provider")
 
-            except Account.DoesNotExist:
-                return Response(
-                    {
-                        "message": "Account does not exist"
-                    },
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-        else:
-            return Response(serializer.errors)
+        try:
+            user = Account.objects.get(email=email)
+        except Account.DoesNotExist:
+            return Response(
+                {"error": True, "message": "Account does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # **Strict Provider Matching Logic**
+        if user.provider != provider:
+            return Response(
+                {"error": True, "message": "Authentication failed: Provider mismatch"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # **If provider is "motaa", validate password**
+        if provider == "motaa" and not user.check_password(raw_password=password):
+            return Response(
+                {"error": True, "message": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # **Login the user and generate tokens**
+        login(request, user)
+        access_token = AccessToken.for_user(user)
+        refresh_token = RefreshToken.for_user(user)
+
+        return Response(
+            {
+                "access_token": str(access_token),
+                "refresh_token": str(refresh_token),
+                "token": str(user.api_token),
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "user_type": user.user_type,
+                "is_active": user.is_active,
+                "provider": user.provider,
+            }
+        )
 
 
 class CartView(views.APIView):
