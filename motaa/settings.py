@@ -36,6 +36,7 @@ else:
             'motaadev.pythonanywhere.com',
             'motaa.vercel.app',
             'motaa.com.ng',
+            'motaa-backend.onrender.com',
             '*', # remove after dev testing of frontend
             ]
 
