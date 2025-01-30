@@ -122,7 +122,6 @@ class ListingSearchView(ListAPIView):
         return Response(data, 200)
 
 
-
 class MyListingsView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticated]
@@ -152,7 +151,6 @@ class MyListingsView(ListAPIView):
             'data': listings
         }
         return Response(data)
-
 
 
 # Rentals
@@ -379,6 +377,7 @@ class BuyListingDetailView(RetrieveAPIView):
         except Exception as error:
             return Response({'error': True, 'message': str(error)}, status=500)
 
+
 class CheckoutView(APIView):
     def get(self, request, *args, **kwargs):
         data = {
@@ -466,7 +465,7 @@ class CreateListingView(CreateAPIView):
         if request.files:
             print("Files:", request.files)
 
-        raise Exception
+        # raise Exception
 
         listing = Listing(
             vehicle=vehicle,

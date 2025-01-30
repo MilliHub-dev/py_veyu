@@ -3,6 +3,24 @@ from utils.models import DbModel
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 
+VEHICLE_FEATURES = {
+    'seats': 'Seats',
+    'doors': 'Doors',
+    'drivetrain': 'Drivetrain',
+    'engine': 'Engine',
+    'parking-assistant': 'Parking Assistant',
+    'seats': 'Seats',
+    'seats': 'Seats',
+    'seats': 'Seats',
+    'seats': 'Seats',
+}
+
+class VehicleFeature(models.Model):
+    name = models.CharField(max_length=20)
+
+    def __str__(self):
+        return self.name
+
 
 class VehicleImage(DbModel):
     image = models.ImageField(upload_to='vehicles/images/')
@@ -18,6 +36,7 @@ class VehicleImage(DbModel):
 
     def __str__(self):
         return self.image.name
+
 
 class Vehicle(DbModel):
     CONDITION_CHOICES = [
@@ -55,11 +74,16 @@ class Vehicle(DbModel):
     mileage = models.CharField(max_length=200, blank=True, null=True)
     transmission = models.CharField(max_length=200, blank=True, null=True, choices=TRANSMISSION)
     fuel_system = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
+    drivetrain = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
+    seats = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
+    
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
     tags = models.ManyToManyField('VehicleTag', blank=True)
     custom_duty = models.BooleanField(default=False)
-    
+
+    # vehicle features like car seats, driving assistants
+    features = models.ManyToManyField('VehicleFeature', blank=True, related_name="vehicle_features")
     
     # rental history
     last_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
@@ -80,6 +104,7 @@ class Vehicle(DbModel):
         if not self.slug:
             self.slug = self.name.replace(' ', '-').replace('.', '').replace("'", '').lower().strip()
         return super().save(*args, **kwargs)
+
 
 class VehicleCategory(DbModel):
     name = models.CharField(max_length=200)

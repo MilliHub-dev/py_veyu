@@ -5,10 +5,12 @@ from utils.models import DbModel
 # Create your models here.
 class Review(DbModel):
     REVIEW_OBJECTS = {
-        'vehicle': 'Vehicle Review',
+        'vehicle': 'Vehicle Review', # for rentals
         'dealer': 'Delearship Review',
         'mechanic': 'Mechanic',
         'support_ticket': 'Support Ticket',
+        'purchase': 'Car Purchase',
+        'service': 'Service', # for bookings
     }
 
     stars = models.ManyToManyField("ReviewArea", blank=True)
@@ -21,9 +23,9 @@ class Review(DbModel):
 class ReviewArea(DbModel):
     REVIEW_ARES = {
         'communication': 'Communication',
-        'service': 'Service Delivery', # for mechs
-        'quality': 'Car Quality', # for dealers
-
+        'service-delivery': 'Service Delivery', # for mechs
+        'car-quality': 'Car Quality', # for dealers
+        'car-cleanliness': 'Car Cleanliness',
     }
     reviewId = models.ForeignKey(Review, on_delete=models.CASCADE)
     area = models.CharField(max_length=200)

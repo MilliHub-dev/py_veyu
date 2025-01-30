@@ -268,7 +268,7 @@ CHANNEL_LAYERS = {
 
 
 JAZZMIN_SETTINGS = {
-    "site_logo": 'motaa/motaa-logo-1.png',
+    "site_logo": 'motaa/motaa-logo-3.png',
     "site_title": "My Admin",
     "site_header": "My Admin Portal",
     "welcome_sign": "Welcome to My Custom Admin!",
