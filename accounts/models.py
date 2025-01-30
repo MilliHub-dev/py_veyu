@@ -327,8 +327,9 @@ class CustomerCart(DbModel):
     def create_user_wallet(sender, instance, created, **kwargs):
         if created:
             cart = CustomerCart.objects.create(customer=instance)
-            instance.cart = cart
             cart.save()
+            instance.cart = cart
+            instance.save()
 
 class File(DbModel):
     name = models.CharField(max_length=200, blank=True, null=True)

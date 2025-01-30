@@ -3,6 +3,14 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 from .models import AnalyticsData
+from accounts.models import (
+    Customer,
+    Dealer,
+    Mechanic
+)
+from listings.models import (
+    Order,
+)
 import json
 
 @admin.register(AnalyticsData)
@@ -13,9 +21,9 @@ class AnalyticsDataAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         # Get aggregated metrics
         metrics = {
-            'total_customers': AnalyticsData.objects.aggregate(total=Sum('customers'))['total'] or 0,
-            'total_dealers': AnalyticsData.objects.aggregate(total=Sum('dealers'))['total'] or 0,
-            'total_orders': AnalyticsData.objects.aggregate(total=Sum('orders'))['total'] or 0,
+            'total_customers': Customers.objects.count(),
+            'total_dealers': Dealer.objects.count(),
+            'total_orders': Order.objects.count(),
             'total_revenue': AnalyticsData.objects.aggregate(total=Sum('revenue'))['total'] or 0,
         }
         
