@@ -99,40 +99,38 @@ class SignUpView(generics.CreateAPIView):
     def post(self, request:Request):
         with transaction.atomic():
             data = request.data
-            # serializer = self.serializer_class(data=data)
-            # if serializer.is_valid():
-            # validated_data  = serializer.validated_data
-            user = Account(
-                first_name=data['first_name'],
-                last_name=data['last_name'],
-                email=data['email'],
-                provider=data['provider'],
-            )
+            action = data['action'] or 'create-account'
 
-            if data['provider'] == 'motaa':
-                user.set_password(data['password'])
+            if action == 'create-account':
+                user = Account(
+                    first_name=data['first_name'],
+                    last_name=data['last_name'],
+                    email=data['email'],
+                    provider=data['provider'],
+                    user_type=data['user_type']
+                )
+
+                if data['provider'] == 'motaa':
+                    user.set_password(data['password'])
+                else:
+                    user.set_unusable_password()
+                user.save()
+                user_type = data['user_type']
+
+                # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
+                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
+                if profile_model:
+                    profile_model.objects.create(user=user, phone_number=data['phone_number'], business_name="")
+                    data = {
+                        'access_token': str(AccessToken.for_user(user)),
+                        'refresh_token': str(RefreshToken.for_user(user))
+                    }
+                    data.update(AccountSerializer(user).data)
+                    return Response(data, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({'error' : False, 'message': "invalid user type"})
             else:
-                user.set_unusable_password()
-            user.save()
-            user_type = data['user_type']
-
-
-
-            # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
-            profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
-            if profile_model:
-                profile_model.objects.create(user=user, phone_number=data['phone_number'])
-                data = {
-                    'access_token': str(AccessToken.for_user(user)),
-                    'refresh_token': str(RefreshToken.for_user(user))
-                }
-                data.update(AccountSerializer(user).data)
-                return Response(data, status=status.HTTP_201_CREATED)
-            else:
-                raise ValueError('invalid user type')
-            # else:
-                # raise serializer.errors
-                # return Response(serializer.errors)
+                return Response({'error' : False, 'message': ""})
 
 
 class LoginView(views.APIView):
