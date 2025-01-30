@@ -268,6 +268,7 @@ CHANNEL_LAYERS = {
 
 
 JAZZMIN_SETTINGS = {
+    "site_logo": 'motaa/motaa-logo-1.png',
     "site_title": "My Admin",
     "site_header": "My Admin Portal",
     "welcome_sign": "Welcome to My Custom Admin!",
@@ -284,12 +285,12 @@ JAZZMIN_SETTINGS = {
     },
     "order_with_respect_to": ["auth", "my_app"],
     "custom_links": {
-        "my_app": [
-            {
-                "name": "Custom View",
-                "url": "custom-view",
-                "icon": "fas fa-cogs",
-            },
-        ]
+        # "my_app": [
+        #     {
+        #         "name": "Custom View",
+        #         "url": "custom-view",
+        #         "icon": "fas fa-cogs",
+        #     },
+        # ]
     },
 }
