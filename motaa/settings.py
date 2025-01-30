@@ -268,10 +268,11 @@ CHANNEL_LAYERS = {
 
 
 JAZZMIN_SETTINGS = {
+    # Logo not suitable for background
     "site_logo": 'motaa/motaa-logo-1.png',
-    "site_title": "My Admin",
-    "site_header": "My Admin Portal",
-    "welcome_sign": "Welcome to My Custom Admin!",
+    "site_title": "Motaa Admin",
+    "site_header": "Motaa Admin Portal",
+    "welcome_sign": "Welcome to Motaa Admin!",
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"app": "my_app"},  # Direct link to an app
