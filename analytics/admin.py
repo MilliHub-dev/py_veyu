@@ -21,7 +21,7 @@ class AnalyticsDataAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         # Get aggregated metrics
         metrics = {
-            'total_customers': Customers.objects.count(),
+            'total_customers': Customer.objects.count(),
             'total_dealers': Dealer.objects.count(),
             'total_orders': Order.objects.count(),
             'total_revenue': AnalyticsData.objects.aggregate(total=Sum('revenue'))['total'] or 0,
