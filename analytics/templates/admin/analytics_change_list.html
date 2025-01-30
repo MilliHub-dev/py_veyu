@@ -2,42 +2,33 @@
 {% load static %}
 
 {% block content %}
-<!-- Stats boxes -->
-<div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
-    <!-- Each stat box uses consistent styling and semantic markup -->
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h3>Total Customers</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #2563eb;">{{ metrics.total_customers }}</p>
+<!-- Stats Boxes -->
+<div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+    {% for stat in metrics.items %}
+    <div style="flex: 1; min-width: 200px; max-width: 250px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;">
+        <h3>{{ stat.0 }}</h3>
+        <p style="font-size: 24px; font-weight: bold; color: #2563eb;">{{ stat.1 }}</p>
     </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h3>Total Dealers</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #16a34a;">{{ metrics.total_dealers }}</p>
-    </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h3>Total Orders</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #ea580c;">{{ metrics.total_orders }}</p>
-    </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h3>Total Revenue</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #dc2626;">${{ metrics.total_revenue|floatformat:2 }}</p>
-    </div>
+    {% endfor %}
 </div>
 
 <!-- Charts Section -->
-<div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
-    <!-- User Growth Chart -->
-    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+<div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+    <div style="flex: 1; min-width: 400px; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <h3>User Growth</h3>
-        <canvas id="userChart" height="300"></canvas>
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="userChart"></canvas>
+        </div>
     </div>
-    <!-- Orders & Revenue Chart -->
-    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div style="flex: 1; min-width: 400px; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <h3>Orders & Revenue</h3>
-        <canvas id="revenueChart" height="300"></canvas>
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="revenueChart"></canvas>
+        </div>
     </div>
 </div>
 
-<!-- Include the original change list content -->
+<!-- Default Django Change List Content -->
 {{ block.super }}
 {% endblock %}
 
@@ -46,89 +37,53 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // User Growth Chart Configuration
-    const userChartConfig = {
+    // Ensure data is available to avoid errors
+    const labels = {{ monthly_data.labels|default:"[]"|safe }};
+    const customers = {{ monthly_data.customers|default:"[]"|safe }};
+    const dealers = {{ monthly_data.dealers|default:"[]"|safe }};
+    const mechanics = {{ monthly_data.mechanics|default:"[]"|safe }};
+    const orders = {{ monthly_data.orders|default:"[]"|safe }};
+    const revenue = {{ monthly_data.revenue|default:"[]"|safe }};
+
+    // User Growth Chart
+    new Chart(document.getElementById('userChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: {{ monthly_data.labels|safe }},
-            datasets: [{
-                label: 'Customers',
-                data: {{ monthly_data.customers|safe }},
-                borderColor: '#2563eb',
-                fill: false
-            }, {
-                label: 'Dealers',
-                data: {{ monthly_data.dealers|safe }},
-                borderColor: '#16a34a',
-                fill: false
-            }, {
-                label: 'Mechanics',
-                data: {{ monthly_data.mechanics|safe }},
-                borderColor: '#ea580c',
-                fill: false
-            }]
+            labels: labels,
+            datasets: [
+                { label: 'Customers', data: customers, borderColor: '#2563eb', fill: false },
+                { label: 'Dealers', data: dealers, borderColor: '#16a34a', fill: false },
+                { label: 'Mechanics', data: mechanics, borderColor: '#ea580c', fill: false }
+            ]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             plugins: {
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                }
+                tooltip: { mode: 'index', intersect: false }
             }
         }
-    };
+    });
 
-    // Revenue Chart Configuration
-    const revenueChartConfig = {
+    // Revenue Chart
+    new Chart(document.getElementById('revenueChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: {{ monthly_data.labels|safe }},
-            datasets: [{
-                label: 'Orders',
-                data: {{ monthly_data.orders|safe }},
-                backgroundColor: '#ea580c',
-                yAxisID: 'y-axis-1'
-            }, {
-                label: 'Revenue',
-                data: {{ monthly_data.revenue|safe }},
-                backgroundColor: '#dc2626',
-                yAxisID: 'y-axis-2',
-                type: 'line'
-            }]
+            labels: labels,
+            datasets: [
+                { label: 'Orders', data: orders, backgroundColor: '#ea580c', yAxisID: 'y-axis-1' },
+                { label: 'Revenue', data: revenue, backgroundColor: '#dc2626', yAxisID: 'y-axis-2', type: 'line' }
+            ]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
+            maintainAspectRatio: true,
             scales: {
-                'y-axis-1': {
-                    position: 'left',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Orders'
-                    }
-                },
-                'y-axis-2': {
-                    position: 'right',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Revenue ($)'
-                    }
-                }
+                'y-axis-1': { position: 'left', beginAtZero: true, title: { display: true, text: 'Number of Orders' } },
+                'y-axis-2': { position: 'right', beginAtZero: true, title: { display: true, text: 'Revenue ($)' } }
             }
         }
-    };
-
-    // Initialize Charts
-    new Chart(document.getElementById('userChart'), userChartConfig);
-    new Chart(document.getElementById('revenueChart'), revenueChartConfig);
+    });
 });
 </script>
 {% endblock %}
