@@ -126,6 +126,21 @@ class MechanicSerializer(ModelSerializer):
         }
 
 
+class GetDealershipSerializer(ModelSerializer):
+    logo = SerializerMethodField()
+
+    class Meta:
+        model = Dealer
+        fields = ['business_name', 'slug', 'logo']
+
+    def get_logo(self, obj):
+        request = self.context.get('request', None)
+        if obj.logo:
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return ''
+
 
 class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
@@ -234,6 +249,7 @@ class LoginSerializer(serializers.Serializer):
                 detail={'message': 'Invalid Provider'}
             )
         return value
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField()

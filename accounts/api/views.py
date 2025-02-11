@@ -33,7 +33,10 @@ from django.db.models import QuerySet
 # Utility imports
 from utils.sms import send_sms
 from utils.mail import send_email
-from utils import OffsetPaginator
+from utils import (
+    IsDealerOrStaff,
+    OffsetPaginator,
+)
 from utils.dispatch import (
     otp_requested,
 )
@@ -61,7 +64,8 @@ from .serializers import (
     VerifyAccountSerializer,
     VerifyPhoneNumberSerializer,
     CustomerCartSerializer,
-    SignupSerializer
+    SignupSerializer,
+    GetDealershipSerializer,
 )
 from .filters import (
     MechanicFilter,
@@ -178,20 +182,27 @@ class LoginView(views.APIView):
         access_token = AccessToken.for_user(user)
         refresh_token = RefreshToken.for_user(user)
 
-        return Response(
-            {
-                "access_token": str(access_token),
-                "refresh_token": str(refresh_token),
-                "token": str(user.api_token),
-                "id": user.id,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email": user.email,
-                "user_type": user.user_type,
-                "is_active": user.is_active,
-                "provider": user.provider,
-            }
-        )
+        data = {
+            "access_token": str(access_token),
+            "refresh_token": str(refresh_token),
+            "token": str(user.api_token),
+            "id": user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "user_type": user.user_type,
+            "is_active": user.is_active,
+            "provider": user.provider,
+        }
+
+        # signing into dashboard
+        if user.user_type == 'dealer':
+            data.update({ "dealerId": str(user.dealer.uuid) })
+        elif user.user_type == 'mechanic':
+            data.update({ "mechanicId": str(user.mechanic.uuid) })
+
+        print("Sign in data:", data)
+        return Response(data)
 
 
 class CartView(views.APIView):
@@ -320,6 +331,27 @@ class VerifyPhoneNumberView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
         else:
             return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
+
+
+
+# Admin Views
+
+class GetDealershipView(APIView):
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    serializer_class = GetDealershipSerializer
+
+    def get(self, request, dealerId):
+        try:
+            dealer = Dealer.objects.get(uuid=dealerId)
+            data = {
+                'error': False,
+                'data': GetDealershipSerializer(dealer, context={'request': request}).data
+            }
+            return Response(data)
+        except Dealer.DoesNotExist:
+            return Response({'error': True, 'message': "Dealership not found"})
+
 
 
 class MechanicListView(ListAPIView):

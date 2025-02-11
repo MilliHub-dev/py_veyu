@@ -10,6 +10,7 @@ from .views import (
     VerifyEmailView,
     VerifyPhoneNumberView,
     CartView,
+    GetDealershipView,
 )
 from django.urls import include
 
@@ -21,6 +22,7 @@ urlpatterns = [
     path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
     path('verify-email/', VerifyEmailView.as_view()),
     path('update-profile/',  UpdateProfileView.as_view()),
+    path('dealership/<dealerId>/',  GetDealershipView.as_view()),
 
     path('cart/', CartView.as_view()),
 

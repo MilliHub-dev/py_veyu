@@ -131,20 +131,16 @@ class MyListingsView(ListAPIView):
     def get(self, request, *args, **kwargs):
         scope = request.GET.get('scope', 'recents') # defaults to recently viewed
         qs = self.get_queryset()
-        listing = None
+        listings = None
         print("Getting your listings", request.user)
 
 
         if scope == 'recents':
-            listing = self.serializer_class(
-                qs.filter(viewers=self.request.user),
+            listings = self.serializer_class(
+                qs.filter(viewers__in=[self.request.user,]),
                 many=True, context={'request': request}
             ).data
         elif scope == 'favorites':
-            # listing = self.serializer_class(
-            #     qs.filter(viewers__account_id__icontains=self.request.user),
-            #     many=True, context={'request': request}
-            # ).data
             pass
         data = {
             'error': False,
@@ -380,10 +376,13 @@ class BuyListingDetailView(RetrieveAPIView):
 
 class CheckoutView(APIView):
     def get(self, request, *args, **kwargs):
+        listing = Listing.objects.get(uuid=kwargs['listingId'])
         data = {
-            
+            'error': False,
+            # 'order_details'
+            'listing': ListingSerializer(listing, context={'request': request}).data,
         }
-        return Response({ 'error': False, 'data': data})
+        return Response(data)
 
     def post(self, request, *args, **kwargs):
         return Response()
@@ -490,12 +489,27 @@ class CreateListingView(CreateAPIView):
 
 class ListingAdminView(ListAPIView):
     allowed_methods = ['GET', 'POST']
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    serializer_class = ListingSerializer
 
     def get(self, request, *args, **kwargs):
-        dealer = Dealer.objects.get(uuid=kwargs['dealershipId'])
-
+        dealer = Dealer.objects.get(uuid=kwargs['dealerId'])
         listings = Listing.objects.filter(dealer=dealer)
+        data = {
+            'error': False,
+            'data': self.serializer_class(listings, context={'request': request}, many=True).data
+        }
+        return(data)
 
+    def post(self, request, *args, **kwargs):
+        action = request.data['action']
+
+        if action == 'delete':
+            pass
+        elif action == 'boost':
+            pass
+        elif action == 'make-available':pass
+        return
 
 
 class VehicleView(ListAPIView):
