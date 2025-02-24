@@ -14,8 +14,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 from decimal import Decimal
 
-from .gatway.payment_factory import get_payment_gateway
-from .gatway.payment_adapter import FlutterwaveAdapter
+from .gateway.payment_factory import get_payment_gateway
+from .gateway.payment_adapter import FlutterwaveAdapter
 import uuid
 from drf_yasg.utils import swagger_auto_schema
 
@@ -131,8 +131,7 @@ class CompleteWalletDepositFlutterwave(APIView):
             return Response('Invalid hash', status=status.HTTP_400_BAD_REQUEST)
 
 
-
-    
+ 
 class ResolveAccountNumber(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -150,15 +149,14 @@ class ResolveAccountNumber(APIView):
         else:
             return Response(seralizer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class GetBanks(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request:Request):
         country = request.data.get('country')
-    
         gateway = FlutterwaveAdapter()
         response = gateway.get_banks(country=country)
-
         return Response('ok', status=status.HTTP_200_OK)
 
 

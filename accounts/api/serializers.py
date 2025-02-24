@@ -3,7 +3,6 @@ from ..models import (
     Customer,
     Dealer,
     Mechanic,
-    CustomerCart,
     PayoutInformation,
 )
 from feedback.api.serializers import (
@@ -12,6 +11,7 @@ from feedback.api.serializers import (
 
 from listings.api.serializers import (
     OrderItemSerializer,
+    ListingSerializer,
 )
 
 from bookings.api.serializers import (
@@ -57,6 +57,7 @@ class AccountSerializer(ModelSerializer):
 
 
 class CustomerSerializer(ModelSerializer):
+    cart = ListingSerializer(many=True)
     class Meta:
         model = Customer
         fields = '__all__'
@@ -79,16 +80,6 @@ def get_user_serializer(user_type):
     model = profile_model
     UserProfileSerializer.Meta.model = model
     return UserProfileSerializer
-
-
-
-class CustomerCartSerializer(ModelSerializer):
-    cart_items = OrderItemSerializer(many=True)
-
-    class Meta:
-        model = CustomerCart
-        fields = '__all__'
-
 
 
 class MechanicSerializer(ModelSerializer):

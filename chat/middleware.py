@@ -43,5 +43,4 @@ class ApiTokenAuthMiddleware:
         has_auth_header, token = self.has_auth_header(scope)
         if has_auth_header:
             scope['user'] = await get_user(token)
-            print("User:", scope['user'])
         return await self.app(scope, receive, send)

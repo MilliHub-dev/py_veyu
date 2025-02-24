@@ -69,8 +69,8 @@ INSTALLED_APPS = [
 
         # Third Party Apps
         'rest_framework',
-        'dj_rest_auth',
         'rest_framework.authtoken',
+        'dj_rest_auth',
         'django_filters',
         'corsheaders',
         'channels',

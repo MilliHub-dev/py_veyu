@@ -11,7 +11,6 @@ from .models import (
     TradeInRequest,
     PurchaseOffer,
     CarPurchase,
-    OrderItem,
 )
 
 
@@ -34,7 +33,7 @@ class CarRentalAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['order_type', 'sub_total', 'discount', 'commission', 'paid', 'customer']
+    list_display = ['order_type', 'paid', 'customer']
     list_filter = ['order_type', 'paid'] 
     search_fields = ['customer__account__email', 'sub_total']
 
@@ -83,12 +82,6 @@ class VehicleTagAdmin(admin.ModelAdmin):
 class VehicleCategoryAdmin(admin.ModelAdmin):
     list_display = ['name']
     search_fields = ['name']
-
-
-@admin.register(OrderItem)
-class VehicleCategoryAdmin(admin.ModelAdmin):
-    list_display = ['listing', 'item_type',]
-    # search_fields = ['name']
 
 
 @admin.register(Vehicle)

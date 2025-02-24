@@ -11,12 +11,13 @@ for model in models:
 @admin.register(Transaction)
 class TransactionManager(admin.ModelAdmin):
     list_display = [
-        "wallet",
-        "type",
+        "sender",
+        "sender_wallet",
         "recipient",
+        "type",
         "amount",
         'status',
-        "reference",
+        "date_created",
     ]
 
     list_filter = (
@@ -29,10 +30,10 @@ class TransactionManager(admin.ModelAdmin):
      
     )
     search_fields = (
-        "wallet__user__email",
+        "sender_wallet__user__email",
         "type",
-        "recipient",
+        "recipient_wallet__user__email",
+        "recipient_wallet__user__first_name",
         "amount",
-        "reference",
         'status'
     )

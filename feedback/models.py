@@ -78,10 +78,19 @@ class Notification(DbModel):
         'in-app': 'In-App Notification',
         'sms': 'SMS Notification',
     }
+    LEVELS = {
+        'info': 'Info',
+        'warning': 'Warning',
+        'error': 'Error',
+        'success': 'Success',
+    }
     user = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     subject = models.CharField(max_length=350)
     message = models.TextField()
+    level = models.CharField(max_length=10, choices=LEVELS, default='info')
     channel = models.CharField(max_length=10, default='in-app', choices=CHANNELS)
+    cta_text = models.CharField(max_length=20, blank=True, null=True)
+    cta_link = models.URLField(blank=True, null=True)
 
     def send(self):
         if self.channel =='sms':

@@ -7,7 +7,6 @@ from decouple import config
 class FlutterwaveAdapter(PaymentGateway):
     def initiate_deposit(self, amount:float, currency:str, customer_details:object, reference):
         
-
         # Set up headers and payload for the POST request
         headers = {
             'Authorization': f'Bearer {config("FLW_SECRET_KEY")}',

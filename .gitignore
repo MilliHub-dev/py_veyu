@@ -1,10 +1,7 @@
 .vscode/
-<<<<<<< HEAD
 venv/
 penv/
-=======
 *env/
->>>>>>> 6e051ca (add chats)
 venv_win/
 motaa_venv/
 media/
@@ -22,5 +19,5 @@ db.sqlite3-journal
 doc.md
 .env.local
 .env
-uploads/
+# uploads/
 static/

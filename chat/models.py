@@ -1,5 +1,6 @@
 from django.db import models
 from utils.models import DbModel
+from django.utils.timesince import timesince
 
 # Create your models here.
 
@@ -34,4 +35,8 @@ class ChatMessage(DbModel):
     
     def __str__(self) -> str:
         return self.message_type
+
+    @property
+    def sent(self):
+        return timesince(self.date_created)
     

@@ -23,7 +23,6 @@ class IsAgentOrStaff(BasePermission):
 class IsDealerOrStaff(BasePermission):
     def has_permission(self, request, view):
         if request.user.user_type in ['dealer', 'staff',] or request.user.is_admin:
-            print("Kwargs:", dir(request))
             return True
             # dealer = Dealer.objects.get(request.kwargs)
             # if request.user.user_profile:

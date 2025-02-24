@@ -8,7 +8,6 @@ from ..models import (
     VehicleImage,
     VehicleCategory,
     TestDriveRequest,
-    OrderItem,
     TradeInRequest,
     PurchaseOffer,
 )
@@ -123,9 +122,8 @@ class CreateListingSerializer(ModelSerializer):
 
 
 class OrderItemSerializer(ModelSerializer):
-    listing = ListingSerializer()
     class Meta:
-        model = OrderItem
+        model = Listing
         fields = '__all__'
 
 

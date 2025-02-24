@@ -46,7 +46,6 @@ from ..models import (
     Account,
     OTP,
     Mechanic,
-    CustomerCart,
     Customer,
     Dealer,
     UserProfile,
@@ -63,9 +62,9 @@ from .serializers import (
     ChangePasswordSerializer,
     VerifyAccountSerializer,
     VerifyPhoneNumberSerializer,
-    CustomerCartSerializer,
     SignupSerializer,
     GetDealershipSerializer,
+    ListingSerializer,
 )
 from .filters import (
     MechanicFilter,
@@ -206,7 +205,7 @@ class LoginView(views.APIView):
 
 
 class CartView(views.APIView):
-    serializer_class = CustomerCartSerializer
+    serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
@@ -216,7 +215,7 @@ class CartView(views.APIView):
         data = {
             'error': False,
             'message': '',
-            'data': CustomerCartSerializer(customer.cart, context={'request': request}).data
+            'data': ListingSerializer(customer.cart, context={'request': request}, many=True).data
         }
         return Response(data, 200)
 
@@ -226,11 +225,12 @@ class CartView(views.APIView):
         cart = customer.cart
 
         if action == "remove-from-cart":
-            item = cart.cart_items.filter(item_type=request.data['item_type']).get(id=request.data['id'])
-            item.delete()
+            item = cart.filter(id=request.data['id'])
+            cart.remove(item)
             return Response({'error': False, 'message': 'Successfully removed from your cart'})
 
-        return Response()
+        else:
+            return Response({'error': True, 'message': 'Invalid action parameter!'}, status=400)
 
 
 class UpdateProfileView(views.APIView):

@@ -40,7 +40,7 @@ urlpatterns = [
     path('api/v1/listings/', include('listings.api.urls', namespace='listings_api')),
     path('api/v1/chat/', include('chat.api.urls', namespace="chat_api")),
     path('api/v1/wallet/', include('wallet.urls')),
-    path('', include('utils.urls', namespace='utils')),
+    path('api/v1/admin/dealership/', include('listings.api.dealership_urls', namespace='dealership_api')),
     
     # JWT Token Views
     path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -54,6 +54,7 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm'
     ),
+    path('', include('utils.urls', namespace='utils')),
 ]
 
 if settings.DEBUG:

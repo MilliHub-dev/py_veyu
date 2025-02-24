@@ -6,7 +6,6 @@ from .models import (
     Location,
     OTP,
     Dealer,
-    CustomerCart,
 )
 from utils.sms import send_sms
 from utils.mail import send_email
@@ -81,4 +80,3 @@ admin.site.register(Mechanic)
 admin.site.register(Location)
 admin.site.register(Dealer)
 admin.site.register(OTP, OTPAdmin)
-admin.site.register(CustomerCart)

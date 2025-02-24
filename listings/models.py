@@ -3,6 +3,13 @@ from utils.models import DbModel
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 
+PAYMENT_CYCLES = [
+    ('day', 'Daily Payments'),
+    ('week', 'Weekly Payments'),
+    ('month', 'Monthly Payments'),
+    ('year', 'Annual Payments'),
+]
+
 VEHICLE_FEATURES = {
     'seats': 'Seats',
     'doors': 'Doors',
@@ -16,7 +23,9 @@ VEHICLE_FEATURES = {
 }
 
 class VehicleFeature(models.Model):
-    name = models.CharField(max_length=20)
+    name = models.CharField(max_length=50, choices=VEHICLE_FEATURES)
+    available = models.BooleanField(default=True)
+    value = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -51,7 +60,7 @@ class Vehicle(DbModel):
     ]
     FUEL_SYSTEM = [
         ('diesel', 'Diesel'),
-        ('Electric', 'Electric'),
+        ('electric', 'Electric'),
         ('petrol', 'Petrol'),
         ('hybrid', 'Hybrid'),
     ]
@@ -68,7 +77,7 @@ class Vehicle(DbModel):
         'FWD' : 'Front Wheel Drive',
     }
 
-    dealer = models.ForeignKey('accounts.Dealer', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
+    dealer = models.ForeignKey('accounts.Dealership', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, blank=True, null=True)
     
@@ -123,11 +132,13 @@ class VehicleCategory(DbModel):
     def __str__(self):
         return self.name
 
+
 class VehicleTag(DbModel):
     name = models.CharField(max_length=200)
 
     def __str__(self):
         return self.name or 'Unnamed Vehicle'
+
 
 class CarRental(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
@@ -135,6 +146,7 @@ class CarRental(DbModel):
 
     def __str__(self):
         return f'{self.customer.account.email}  - Order #{self.order.id}'
+
 
 class CarPurchase(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
@@ -168,44 +180,59 @@ class Order(DbModel):
         'awaiting-inspection': 'Awaiting Inspection',
         'inspecting': 'Inspecting',
         'pending': 'Pending',
-        'successful': 'Successful',
+        'completed': 'Completed',
+        'expired': 'Expired', # when a rental expires
+        'renewed': 'Renewed', # when a rental is renewed
     }
     PAYMENT_OPTION  = {
-        'pay-after-inspection': 'Inspecting',
-        'card': 'Credit Card',
+        'pay-after-inspection': 'Payment after Inspection',
+        'wallet': 'Motaa Wallet',
+        'card': 'Credit / Debit Card',
         'financial-aid': 'Financing Aid',
     }
 
-    order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
-    order_items = models.ManyToManyField('OrderItem', blank=True)
-    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES, default="Not Available")
-    sub_total = models.DecimalField(decimal_places=2, max_digits=100, blank=True, null=True)
-    discount = models.DecimalField(max_digits=10, decimal_places=2, default=10.00, blank=True, null=True)
-    commission = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
+    # switched from ManyToMany to ForeignKey
+    # because user can only checkout one item at a time
+    order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE)
+    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES, default="Not Available")
     paid = models.BooleanField(default=False)
+    order_status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
+    applied_coupons = models.ManyToManyField('Coupon', blank=True)
+    # for rentals
+    is_recurring = models.BooleanField(default=False)
+    payment_cycle = models.CharField(max_length=20, choices=PAYMENT_CYCLES, default="month")
+    rent_from = models.DateField(blank=True, null=True)
+    rent_until = models.DateField(blank=True, null=True)
+    last_payment = models.DateField(blank=True, null=True)
+    next_payment = models.DateField(blank=True, null=True)
+    
 
-    # def save(self, *args, **kwargs):
-    #     try:
-    #         # Ensure sub_total is a valid Decimal value
-    #         if self.sub_total and not self.pk:
-    #             # self.sub_total = Decimal(self.sub_total)
+    @property
+    def sub_total(self):
+        amt = 0
+        if self.is_recurring:
+            cycle = 1
+            days = 30 # count days 
+            amt += (self.order_item.listing.price/30) * days
+        else:
+            amt += self.order_item.listing.price
 
-    #             # Calculate commission using Decimal to avoid rounding issues
-    #             self.commission = Decimal('0.02') * self.sub_total
-
-    #         super().save(*args, **kwargs)
-
-    #     except InvalidOperation as e:
-    #         raise ValueError(f"Invalid decimal value: {e}")
+        # 0.5% added fees
+        amt += ((0.5/100) * amt)
 
     @property
     def total(self):
         amt = self.sub_total
-        if self.discount:
-            amt -= ((self.discount / 100) * amt)
-        if self.commission:
-            amt += ((self.commission / 100) * self.sub_total)
+        # add discounts from coupons
+        for coupon in self.coupons.all():
+            val = coupon.discount_value
+            if coupon.discount_type == 'percentage':
+                val = ((coupon.discount_value/100) * amt)
+            amt -= val
+        # add 0.5% commission
+        amt += ((0.5 / 100) * amt)
         return amt
 
     def __str__(self):
@@ -213,15 +240,32 @@ class Order(DbModel):
 
 
 
+class Coupon(DbModel):
+    # motaa can issue coupons that are valid in all dealerships
+    issuer = models.CharField(max_length=20, default='dealership') # motaa | dealership
+    valid_in = models.ManyToManyField('accounts.Dealership', blank=True)
+    expires = models.DateTimeField(blank=True, null=True)
+    users = models.ManyToManyField('accounts.Customer', blank=True)
+    discount_type = models.CharField(max_length=20, default='flat') # flat | percentage
+    discount_value = models.DecimalField(decimal_places=2, default=0.00, max_digits=1000)
+    code = models.CharField(blank=True, null=True, max_length=20)
+
+    def __str__(self):
+        return self.code
+
+    @property
+    def dealership(self):
+        if self.issuer == 'motaa':
+            return 'Motaa'
+        else:
+            return self.valid_in.first().business_name
+
+
+
+
 class Listing(DbModel):
     LISTING_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
-    PAYMENT_CYCLES = [
-        ('day', 'Daily Payments'),
-        ('week', 'Weekly Payments'),
-        ('month', 'Monthly Payments'),
-        ('year', 'Annual Payments'),
-    ]
-
+    
     listing_type = models.CharField(max_length=20, choices=LISTING_TYPES, default='sale')
     verified = models.BooleanField(default=False)
     approved = models.BooleanField(default=False)
@@ -253,7 +297,7 @@ class PurchaseOffer(DbModel):
 
 class TestDriveRequest(DbModel):
     requested_by = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    requested_to = models.ForeignKey('accounts.Dealer', on_delete=models.CASCADE)
+    requested_to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     granted = models.BooleanField(default=False)
     testdrive_complete = models.BooleanField(default=False)
@@ -261,24 +305,12 @@ class TestDriveRequest(DbModel):
 
 class TradeInRequest(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE)
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
     estimated_value = models.DecimalField(decimal_places=2, max_digits=10000)
     comments = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f'Trade-in Request from {self.customer.account.email}'
-
-
-
-class OrderItem(DbModel):
-    ORDER_ITEM_TYPES = {
-        'car': 'Car',
-        'service': 'Service',
-        'rental': 'Rental',
-    }
-    cart = models.ForeignKey('accounts.CustomerCart', on_delete=models.CASCADE)
-    listing = models.ForeignKey("Listing", on_delete=models.CASCADE, blank=True, null=True)
-    service = models.ForeignKey("bookings.ServiceOffering", on_delete=models.CASCADE, blank=True, null=True)
-    item_type = models.CharField(max_length=50, default='car', choices=ORDER_ITEM_TYPES)
 
 

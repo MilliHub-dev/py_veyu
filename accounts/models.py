@@ -65,7 +65,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
-    api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.CASCADE)
+    api_token = models.ForeignKey('authtoken.Token', blank=True, null=True, on_delete=models.SET_NULL)
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='motaa')
 
     groups = None
@@ -158,11 +158,11 @@ class UserProfile(DbModel):
 
 
 class Customer(UserProfile):
-    orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
-    service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
-    cart = models.ForeignKey("CustomerCart", on_delete=models.CASCADE, blank=True, null=True, related_name="cart")
     image = models.ImageField(upload_to='profiles/', blank=True, null=True)
-
+    cart = models.ManyToManyField("listings.Listing", blank=True, related_name="cart")
+    favorites = models.ManyToManyField("listings.Listing", blank=True, related_name="favorites")
+    service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
+    orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
 
     def __str__(self):
         return self.user.email
@@ -203,20 +203,33 @@ class Mechanic(UserProfile):
         return '0.0'
 
 
-class Dealer(UserProfile):
+class Dealership(UserProfile):
     about = models.TextField(blank=True, null=True)
+    slug = models.SlugField(blank=True, null=True)
     logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     headline = models.CharField(max_length=200, blank=True, null=True)
+
+    # verifications
+    cac_number = models.CharField(max_length=200)
+    tin_number = models.CharField(max_length=200)
+
+    verified_business = models.BooleanField(default=False) # cac / business verification
+    verified_tin = models.BooleanField(default=False) # verified tax number
+    verified_location = models.BooleanField(default=False) # verified proof of address
+    
     listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
-    rental_services = models.BooleanField(default=False)
-    purchase_services = models.BooleanField(default=False)
-    offers_trade_in = models.BooleanField(default=False)
-    slug = models.SlugField(blank=True, null=True)
-    cac_number = models.CharField(max_length=200)
-    tin_number = models.CharField(max_length=200)
+    
+    # service scope
+    offers_rental = models.BooleanField(default=False) # rents?
+    offers_purchase = models.BooleanField(default=True) # sells cars, by default yes
+    offers_drivers = models.BooleanField(default=False) # provide driver services
+    offers_trade_in = models.BooleanField(default=False) # can customers trade in
+
+    class Meta:
+        verbose_name = 'Dealership'
 
     def __str__(self):
         return self.business_name or self.user.name
@@ -228,13 +241,6 @@ class Dealer(UserProfile):
 
     def rating(self):
         return '0.0'
-
-
-class Transaction(DbModel):
-    related_order = models.ForeignKey('listings.Order', blank=True, null=True, on_delete=models.CASCADE)
-    status = models.CharField(max_length=200, default='pending')
-    amount = models.DecimalField(decimal_places=2, max_digits=10000)
-
 
 
 class PayoutInformation(DbModel):
@@ -316,21 +322,6 @@ class OTP(DbModel):
         return self.code
 
 
-class CustomerCart(DbModel):
-    customer = models.OneToOneField("Customer", on_delete=models.CASCADE)
-    cart_items = models.ManyToManyField("listings.OrderItem", blank=True)
-
-    def __str__(self):
-        return f"{self.customer.user.name}'s Cart"
-
-    @receiver(post_save, sender=Customer)
-    def create_user_wallet(sender, instance, created, **kwargs):
-        if created:
-            cart = CustomerCart.objects.create(customer=instance)
-            cart.save()
-            instance.cart = cart
-            instance.save()
-
 class File(DbModel):
     name = models.CharField(max_length=200, blank=True, null=True)
     file = models.FileField(upload_to='docs/')
@@ -364,4 +355,6 @@ class Document(DbModel):
 
 
 
-
+# use as ref to old imports for now
+# TODO: rename old imports before staging
+Dealer = Dealership

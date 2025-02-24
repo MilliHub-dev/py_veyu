@@ -47,7 +47,6 @@ from ..models import (
     Vehicle,
     Listing,
     Order,
-    OrderItem,
     CarRental,
     PurchaseOffer,
 )
@@ -315,7 +314,7 @@ class BuyListingDetailView(RetrieveAPIView):
     queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
 
     def get(self, request, *args, **kwargs):
-        uuid = self.kwargs['uuid']
+        uuid = self.kwargs['listingId']
         listing = self.get_object()
         
         if not request.user in listing.viewers.all():
@@ -351,22 +350,13 @@ class BuyListingDetailView(RetrieveAPIView):
             }
             customer = Customer.objects.get(user=request.user)
             cart = customer.cart
-            print("Cart:", cart)
-
-            order_item = OrderItem(
-                cart=cart,
-                listing=listing,
-                item_type=data['item_type']
-            )
-            order_item.save()
-
             if action == 'add-to-cart':
-                cart.cart_items.add(order_item,)
-                cart.save()
+                cart.add(listing,)
+                customer.save()
                 response['message'] = 'Successfully added to your cart'
             elif action == 'buy-now':
                 order = Order(customer=customer,)
-                order.order_items.add(order_item,)
+                order.order_items.add(listing,)
                 order.save()
                 response['message'] = 'Successfully added to your cart'
             return Response(response, status=200)
@@ -375,16 +365,36 @@ class BuyListingDetailView(RetrieveAPIView):
 
 
 class CheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer
+    queryset = Listing.objects.all()
+    lookup_field = 'uuid'
+
+
     def get(self, request, *args, **kwargs):
         listing = Listing.objects.get(uuid=kwargs['listingId'])
+        customer = request.user.customer
         data = {
             'error': False,
-            # 'order_details'
+            'order': OrderSerializer(order).data,
+            'total': 0,
+            'fees': {
+                'tax': 0.00,
+                'inspection_fee': 0.00,
+                'motaa_fee': 0.00,
+            },
             'listing': ListingSerializer(listing, context={'request': request}).data,
         }
         return Response(data)
 
     def post(self, request, *args, **kwargs):
+        listing = Listing.objects.get(uuid=kwargs['listingId'])
+        order = Order(
+        )
+        on_checkout_success.send(order, listing, customer,)
+        # create a new order
+        # create a notification for both dealer and customer
+        # register a sale in dealer's dashboard
         return Response()
 
 
@@ -446,172 +456,3 @@ class CompleteOrderView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-# Dealership Views
-class CreateListingView(CreateAPIView):
-    allowed_methods = ['POST']
-    parser_classes = [MultiPartParser, JSONParser]
-    permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = CreateListingSerializer
-
-    def post(self, request, **kwargs):
-        data = request.data
-
-        vehicle = Vehicle.objects.create(**request.data)
-
-        if request.files:
-            print("Files:", request.files)
-
-        # raise Exception
-
-        listing = Listing(
-            vehicle=vehicle,
-            created_by=request.user,
-            listing_type=data['listing_type'],
-            rental_price=data['rental_price'],
-            sale_price=data['sale_price'],
-        )
-
-        if not data['sale_price'] and not data['rental_price']:
-            raise Exception('Sale Price or Rental Price must be provided for a listing')
-        
-        listing.save()
-        data = {
-            'error': False,
-            'message': 'Successfully created new listing',
-            'data': self.serializer_class(listing, context={'request': request}).data
-
-        }
-        return Response()
-
-
-class ListingAdminView(ListAPIView):
-    allowed_methods = ['GET', 'POST']
-    permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    serializer_class = ListingSerializer
-
-    def get(self, request, *args, **kwargs):
-        dealer = Dealer.objects.get(uuid=kwargs['dealerId'])
-        listings = Listing.objects.filter(dealer=dealer)
-        data = {
-            'error': False,
-            'data': self.serializer_class(listings, context={'request': request}, many=True).data
-        }
-        return(data)
-
-    def post(self, request, *args, **kwargs):
-        action = request.data['action']
-
-        if action == 'delete':
-            pass
-        elif action == 'boost':
-            pass
-        elif action == 'make-available':pass
-        return
-
-
-class VehicleView(ListAPIView):
-    allowed_methods = ['GET']
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Vehicle.objects.all()
-    serializer_class = VehicleSerializer
-
-
-# NOT DONE FOR NOW IMAGE STUFF STILL HANGING
-class CreateVehicleView(CreateAPIView):
-    allowed_methods = ['POST']
-    permission_classes = [IsAuthenticated, IsAgentOrStaff]
-    parser_classes = [JSONParser, MultiPartParser]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Vehicle.objects.all()
-    serializer_class = VehicleSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = VehicleSerializer(data=request.data)
-
-        if serializer.is_valid():
-            vehicle = serializer.save()
-
-            # Create a corresponding listing
-            listing_type = 'rental' if vehicle.available and not vehicle.for_sale else 'sale'
-            Listing.objects.create(
-                listing_type=listing_type,
-                created_by=request.user,
-                vehicle=vehicle,
-                sale_price=vehicle.sale_price,
-                rental_price=vehicle.rental_price,
-                title=vehicle.listing_title,
-            )
-
-            return Response({'message': 'Vehicle created and added to listing successfully'}, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class VehicleDetailView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Vehicle.objects.all()
-    serializer_class = VehicleSerializer
-    lookup_field = 'uuid'
-
-    def get_object(self):
-        try:
-            return Vehicle.objects.get(uuid=self.kwargs['uuid'])
-        except Vehicle.DoesNotExist:
-            raise NotFound('Vehicle not found')
-
-    # for update
-    def put(self, request, *args, **kwargs):
-        vehicle = self.get_object()
-        serializer = self.get_serializer(vehicle, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        try:
-            listing = Listing.objects.get(vehicle=vehicle)
-            
-            listing_type = 'rental' if vehicle.available and not vehicle.for_sale else 'sale'
-            
-            listing.listing_type = listing_type
-            listing.sale_price = vehicle.sale_price
-            listing.rental_price = vehicle.rental_price
-            listing.title = vehicle.listing_title
-            
-            # Save the updated listing
-            listing.save()
-
-        except Listing.DoesNotExist:
-            pass 
-
-        return Response(serializer.data)
-
-    # for delete
-    def delete(self, request, *args, **kwargs):
-        vehicle = self.get_object()
-        
-        # Delete the corresponding listing if it exists
-        try:
-            listing = Listing.objects.get(vehicle=vehicle)
-            listing.delete()
-        except Listing.DoesNotExist:
-            pass
-
-        # Delete the vehicle
-        self.perform_destroy(vehicle)
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-class ViewCarOffersView(ListAPIView):
-    allowed_methods = ['GET']
-    serializer_class = PurchaseOfferSerializer
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def get_queryset(self):
-        return PurchaseOffer.objects.filter(listing__created_by=self.request.user)
-
-# English or spanish 😂🫴
