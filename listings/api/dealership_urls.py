@@ -5,6 +5,7 @@ from .dealership_views import (
     ListingsView,
     DashboardView,
     ListingsView,
+    DealershipView,
 
 )
 
@@ -12,7 +13,8 @@ app_name = "dealership_api"
 
 urlpatterns = [
    # Admin
-    path('', DashboardView.as_view(), name='dashboard'),
+    path('', DealershipView.as_view(), name='dealership'),
+    path('dashboard/', DashboardView.as_view(), name='dashboard'),
     # path('orders/', VehicleDetailView.as_view(), name='orders'),
     path('listings/', ListingsView.as_view(), name='listings'),
     # path('transactions/', VehicleDetailView.as_view(), name='transactions'),

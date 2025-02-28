@@ -41,7 +41,7 @@ class VehicleImage(DbModel):
             count = self.vehicle.images.count()
             self.image.name = f'{self.vehicle.slug}_image-{count}.{ext}'
         super().save(*args, **kwargs)
-    
+
 
     def __str__(self):
         return self.image.name
@@ -80,7 +80,7 @@ class Vehicle(DbModel):
     dealer = models.ForeignKey('accounts.Dealership', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, blank=True, null=True)
-    
+
     # car details
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200) # aka make
@@ -93,7 +93,7 @@ class Vehicle(DbModel):
     seats = models.PositiveIntegerField(blank=True, null=True, default=5)
     doors = models.PositiveIntegerField(blank=True, null=True, default=4)
     vin = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
-    
+
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
     tags = models.ManyToManyField('VehicleTag', blank=True)
@@ -101,12 +101,12 @@ class Vehicle(DbModel):
 
     # vehicle features like car seats, driving assistants
     features = models.ManyToManyField('VehicleFeature', blank=True, related_name="vehicle_features")
-    
+
     # rental history
     last_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
     current_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='current_rental')
     rentals = models.ManyToManyField('CarRental', blank=True, related_name='rentals')
-    
+
     # availability
     available = models.BooleanField(default=True)
     for_sale = models.BooleanField(default=False)
@@ -116,7 +116,7 @@ class Vehicle(DbModel):
 
     def __str__(self):
         return self.name or 'Unnamed Vehicle'
-    
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = self.name.replace(' ', '-').replace('.', '').replace("'", '').lower().strip()
@@ -207,14 +207,14 @@ class Order(DbModel):
     rent_until = models.DateField(blank=True, null=True)
     last_payment = models.DateField(blank=True, null=True)
     next_payment = models.DateField(blank=True, null=True)
-    
+
 
     @property
     def sub_total(self):
         amt = 0
         if self.is_recurring:
             cycle = 1
-            days = 30 # count days 
+            days = 30 # count days
             amt += (self.order_item.listing.price/30) * days
         else:
             amt += self.order_item.listing.price
@@ -265,7 +265,7 @@ class Coupon(DbModel):
 
 class Listing(DbModel):
     LISTING_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
-    
+
     listing_type = models.CharField(max_length=20, choices=LISTING_TYPES, default='sale')
     verified = models.BooleanField(default=False)
     approved = models.BooleanField(default=False)
@@ -282,7 +282,7 @@ class Listing(DbModel):
 
     def __str__(self):
         return f'{self.title}'
-    
+
     def save(self, *args, **kwargs):
         if not self.title and self.vehicle:
             self.title = self.vehicle.name

@@ -3,7 +3,7 @@ from ..models import (
     SupportTicket,
     TicketCategory,
     Tag,
-    Notification
+    Notification,
 )
 
 from rest_framework.serializers import (
@@ -17,6 +17,13 @@ class RatingSerializer(ModelSerializer):
     class Meta:
         model = Review
         fields = ('id', 'uuid', 'stars', 'comment', 'reviewer')
+
+
+class NotificationSerializer(ModelSerializer):
+    user = StringRelatedField()
+    class Meta:
+        model = Notification
+        fields = '__all__'
 
 
 

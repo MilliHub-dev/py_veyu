@@ -22,7 +22,7 @@ class ServiceSerializer(ModelSerializer):
 
 class MechanicServiceSerializer(ModelSerializer):
     service = StringRelatedField()
-    
+
     class Meta:
         model = ServiceOffering
         fields = ('service', 'charge_rate', 'charge', 'uuid',)
@@ -51,6 +51,38 @@ class UpdateBookingSerializer(ModelSerializer):
         # read_only_fields = ('id', 'uuid', 'services', 'customer', 'date_created', )
 
 
+class BookingSerializer(ModelSerializer):
+    ended = SerializerMethodField('get_ended')
+    started = SerializerMethodField('get_started')
+    mechanic = StringRelatedField()
+    customer = StringRelatedField()
+    services = StringRelatedField(many=True)
+
+    class Meta:
+        model = ServiceBooking
+        fields = ['started', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status', 'date_created', 'services']
+
+    def get_started(self, obj):
+        if obj.started_on:
+            return obj.started_on.date
+        return None
+
+    def get_ended(self, obj):
+        if obj.ended_on:
+            return obj.ended_on.date
+        return None
+
+    def get_review(self, obj):
+        if obj.client_feedback:
+            return obj.client_feedback.review
+        return "No feedback given"
+
+    def get_rating(self, obj):
+        if obj.client_feedback:
+            return obj.client_feedback.stars
+        return None
+
+
 class ViewBookingSerializer(ModelSerializer):
     ended = SerializerMethodField('get_ended')
     rating = SerializerMethodField('get_rating')
@@ -63,22 +95,22 @@ class ViewBookingSerializer(ModelSerializer):
     class Meta:
         model = ServiceBooking
         fields = ['started', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status', 'date_created', 'services']
-    
+
     def get_started(self, obj):
         if obj.started_on:
             return obj.started_on.date
         return None
-    
+
     def get_ended(self, obj):
         if obj.ended_on:
             return obj.ended_on.date
         return None
-    
+
     def get_review(self, obj):
         if obj.client_feedback:
             return obj.client_feedback.review
         return "No feedback given"
-    
+
     def get_rating(self, obj):
         if obj.client_feedback:
             return obj.client_feedback.stars
@@ -96,22 +128,22 @@ class ServiceHistorySerializer(ModelSerializer):
     class Meta:
         model = ServiceBooking
         fields = ['started', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status']
-    
+
     def get_started(self, obj):
         if obj.started_on:
             return obj.started_on.date
         return None
-    
+
     def get_ended(self, obj):
         if obj.ended_on:
             return obj.ended_on.date
         return None
-    
+
     def get_review(self, obj):
         if obj.client_feedback:
             return obj.client_feedback.review
         return "No feedback given"
-    
+
     def get_rating(self, obj):
         if obj.client_feedback:
             return obj.client_feedback.stars

@@ -21,8 +21,8 @@ urlpatterns = [
     path('find/', ListingSearchView.as_view(), name='find-cars'),
     path('rentals/', RentListingView.as_view(), name='rentals'),
     path('my-listings/', MyListingsView.as_view()),
-    path('buy/<uuid:listingId>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
-    path('rentals/<uuid:uuid>/', RentListingDetailView.as_view(), name='rental-detail'),
+    path('buy/<uuid>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
+    path('rentals/<uuid>/', RentListingDetailView.as_view(), name='rental-detail'),
     # path('checkout/complete-order/', CompleteOrderView.as_view()),
     path('checkout/<uuid:listingId>/', CheckoutView.as_view(), name='checkout'),
     # path('rentals/<uuid:uuid>/modify/', BookCarRentalViewDetailView.as_view(), name='rental-modify'), #for user

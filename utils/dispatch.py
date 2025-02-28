@@ -9,15 +9,26 @@ import threading
 
 otp_requested = Signal()
 on_booking_requested = Signal()
-on_listing_created = Signal()
 on_checkout_success = Signal()
+on_listing_created = Signal()
 user_just_registered = Signal(['otp'])
-
 
 @receiver(on_listing_created)
 def notify_motaa_staff_of_listing_creation(sender, **kwargs):
-    pass
-
+    # in the future, add this to a shelf db
+    # and use celery to run this function after
+    # 30 mins to catch bulk listings
+    try:
+        threading.Thread(
+            target=send_email,
+            kwargs={
+                'message':'<b> Someone just added a new listing that needs approval. </b> ',
+                'recipients':[user.email for user in Account.objects.filter(is_superuser=True)],
+                'subject':"New Listing on Motaa!",
+            }
+        ).start()
+    except Exception as error:
+        print("Couldn't notify staff of listing.")
 
 
 @receiver(otp_requested)
@@ -66,7 +77,10 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
             message="You just bought a new car!",
             level='success',
         )
-
+        notification.save()
+        # customer.notifications.add(notification,)
+        # customer.save()
+    send_customer_notification()
 
 
 def handle_new_signup(sender:Account, otp, **kwargs):

@@ -1,16 +1,14 @@
 from django.urls import path
-from django.contrib.auth import views as auth_views
-
+# from django.contrib.auth import views as auth_views
 
 from .views import (
     SignUpView,
     LoginView,
-    MechanicListView,
     UpdateProfileView,
     VerifyEmailView,
     VerifyPhoneNumberView,
     CartView,
-    GetDealershipView,
+    NotificationView,
 )
 from django.urls import include
 
@@ -22,9 +20,10 @@ urlpatterns = [
     path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
     path('verify-email/', VerifyEmailView.as_view()),
     path('update-profile/',  UpdateProfileView.as_view()),
-    path('dealership/<dealerId>/',  GetDealershipView.as_view()),
+
 
     path('cart/', CartView.as_view()),
+    path('notifications/', NotificationView.as_view()),
 
     path("accounts/", include("django.contrib.auth.urls")),
     path('auth/', include('dj_rest_auth.urls')),

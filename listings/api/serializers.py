@@ -55,13 +55,13 @@ class VehicleImageSerializer(ModelSerializer):
         model = VehicleImage
         fields = ['id', 'uuid', 'url']
         extra_kwargs = {'vehicle': {'required': False}}
-    
+
     def get_image_url(self, obj):
         request = self.context.get('request')
         if request:
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url
-        
+
 
 class VehicleSerializer(serializers.ModelSerializer):
     images = VehicleImageSerializer(many=True)
@@ -85,14 +85,14 @@ class VehicleSerializer(serializers.ModelSerializer):
 
     def get_condition(self, obj):
         return obj.get_condition_display()
-    
+
     def get_transmission(self, obj):
         return obj.get_transmission_display()
 
     def get_fuel_system(self, obj):
         return obj.get_fuel_system_display()
 
-    
+
 
 class CreateVehicleSerializer(serializers.ModelSerializer):
     images = VehicleImageSerializer(many=True)
@@ -147,7 +147,7 @@ class VehicleUpdateSerializer(ModelSerializer):
 class BookCarRentalSerializer(serializers.ModelSerializer):
     order_items = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Order
         fields = ['order_type', 'order_items', 'customer', 'sub_total', 'discount']
@@ -186,7 +186,7 @@ class BookCarRentalSerializer(serializers.ModelSerializer):
 
         # Assign the selected order items
         order.order_items.set(order_items_queryset)
-        
+
         print('Order created successfully with ID:', order.id)
         return order
 
@@ -244,7 +244,7 @@ class CompleteOrderSerializer(serializers.Serializer):
         order_id = data['order_id']
         if not User.objects.filter(email=email).exists():
             raise serializers.ValidationError("Recipient not found")
-        
+
         if not Order.objects.filter(uuid=order_id).exists():
             raise serializers.ValidationError("Order not found")
 
