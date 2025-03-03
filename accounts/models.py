@@ -65,7 +65,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
-    api_token = models.ForeignKey('authtoken.Token', blank=True, null=True, on_delete=models.SET_NULL)
+    api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.SET_NULL)
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='motaa')
 
     groups = None

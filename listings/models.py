@@ -196,7 +196,7 @@ class Order(DbModel):
     # switched from ManyToMany to ForeignKey
     # because user can only checkout one item at a time
     order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE)
-    payment_option = models.CharField(max_length=20, choices=ORDER_TYPES, default="Not Available")
+    payment_option = models.CharField(max_length=20, choices=PAYMENT_OPTION, default="Not Available")
     paid = models.BooleanField(default=False)
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
     applied_coupons = models.ManyToManyField('Coupon', blank=True)

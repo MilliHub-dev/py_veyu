@@ -1,5 +1,6 @@
 from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
+import decimal
 from django.db.models import Q
 from utils import (
     OffsetPaginator,
@@ -295,8 +296,6 @@ class BuyListingView(ListAPIView):
                     'offset': self.paginator.offset,
                     'limit': self.paginator.limit,
                     'results_count': self.paginator.count,
-                    # 'page_range': self.paginator.get_page_range(),
-                    # 'num_pages': self.paginator.num_pages,
                     'next': self.paginator.get_next_link(),
                     'previous': self.paginator.get_previous_link(),
                 },
@@ -321,11 +320,20 @@ class BuyListingDetailView(RetrieveAPIView):
             listing.viewers.add(request.user,)
             listing.save()
 
+        small_change = (decimal.Decimal(7.5/100) * listing.price)
+
+        recommended = self.queryset.filter(
+            Q(vehicle__brand__iexact=listing.vehicle.brand) |
+            Q(price__gte=(listing.price - small_change)) |
+            Q(price__lte=(listing.price + small_change))
+            # Q(vehicle__brand__iexact=listing.vehicle.brand) |
+        ).exclude(uuid=listing.uuid).distinct()
+
         data = {
             'error': False,
             'message': '',
             'data': {
-                'recommended': None,
+                'recommended': self.serializer_class(recommended, context={'request': request}, many=True).data,
                 'listing': self.serializer_class(listing, context={'request': request}).data
             }
         }

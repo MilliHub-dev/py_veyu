@@ -129,7 +129,7 @@ class OrderItemSerializer(ModelSerializer):
 
 
 class OrderSerializer(ModelSerializer):
-    order_items = OrderItemSerializer(many=True)
+    order_item = ListingSerializer()
 
     class Meta:
         model = Order

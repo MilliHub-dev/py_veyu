@@ -67,6 +67,7 @@ from .serializers import (
     GetDealershipSerializer,
     ListingSerializer,
 )
+from listings.api.serializers import OrderSerializer
 from .filters import (
     MechanicFilter,
 )
@@ -103,6 +104,7 @@ class SignUpView(generics.CreateAPIView):
         }, status=400)
 
     def post(self, request:Request):
+
         with transaction.atomic():
             data = request.data
             action = data['action'] or 'create-account'
@@ -138,9 +140,12 @@ class SignUpView(generics.CreateAPIView):
                     data.update(AccountSerializer(user).data)
                     return Response(data, status=status.HTTP_201_CREATED)
                 else:
-                    return Response({'error' : False, 'message': "invalid user type"})
-            else:
-                return Response({'error' : False, 'message': ""})
+                    return Response({'error' : False, 'message': ""})
+        except Exception as error:
+            message = str(error.__cause__)
+            if message == 'UNIQUE constraint failed: accounts_customer.phone_number':
+                message = "User with this phone number already exists"
+            return Response({'error' : True, 'message': message}, 500)
 
 
 class LoginView(views.APIView):
@@ -220,12 +225,14 @@ class CartView(views.APIView):
         cars = customer.cart.filter(listing_type='sale')
         rentals = customer.cart.filter(listing_type='rental')
         services = customer.service_history.all()
+        orders = customer.orders.all()
 
         data = {
             'error': False,
             'message': 'Loaded your cart',
             'data': {
                 'cars': ListingSerializer(cars, context={'request': request}, many=True).data,
+                'orders': OrderSerializer(orders, context={'request': request}, many=True).data,
                 'rentals': ListingSerializer(rentals, context={'request': request}, many=True).data,
                 'services': BookingSerializer(services, context={'request': request}, many=True).data,
             }
@@ -353,9 +360,20 @@ class NotificationView(APIView):
 
     def get(self, request):
         notifications = Notification.objects.filter(user=request.user)
+        notifications = Notification.objects.filter(user=request.user, read=False)
         data = {
             'error': False,
             'data': NotificationSerializer(notifications, many=True).data
+        }
+        return Response(data, 200)
+
+    def post(self, request):
+        notifications = Notification.objects.filter(user=request.user)
+        notification = notifications.get(uuid=request.data['notification_id'])
+        notification.mark_as_read()
+        data = {
+            'error': False,
+            'data': NotificationSerializer(notifications.filter(read=False), many=True).data
         }
         return Response(data, 200)
 
