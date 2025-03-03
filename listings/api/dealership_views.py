@@ -21,7 +21,7 @@ from rest_framework.authentication import (
     SessionAuthentication
 )
 from rest_framework.permissions import (
-    BasePermission, 
+    BasePermission,
     IsAuthenticated,
     IsAdminUser,
     IsAuthenticatedOrReadOnly,
@@ -72,6 +72,7 @@ from wallet.models import Wallet
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
+from utils.dispatch import (on_listing_created, )
 User = get_user_model()
 
 # Dealership Views
@@ -82,7 +83,7 @@ class DealershipView(APIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
 
     def get(self, request):
-        dealership = Dealer.objects.get(user=request.user)
+        dealership = Dealership.objects.get(user=request.user)
         data = {
             'error': False,
             'data': self.serializer_class(dealership, context={'request': request}).data
@@ -115,11 +116,13 @@ class CreateListingView(CreateAPIView):
 
     def post(self, request, **kwargs):
         try:
+            dealer = Dealership.objects.get(user=request.user)
             data = request.data
             images = data.getlist('image')
 
             vehicle = Vehicle(
                 name = data['title'],
+                dealer=dealer,
                 color = data.get('color', 'None'),
                 brand = data['brand'],
                 condition = data['condition'],
@@ -156,11 +159,17 @@ class CreateListingView(CreateAPIView):
                 title=data['title'],
             )
             listing.save()
+
+            dealer.vehicles.add(vehicle,)
+            dealer.listings.add(listing,)
+            dealer.save()
+
             data = {
                 'error': False,
                 'message': 'Successfully created new listing',
                 'data': self.serializer_class(listing, context={'request': request}).data
             }
+            on_listing_created.send(dealer, listing=listing)
             return Response(data, 200)
         except Exception as error:
             return Response({'error': True, 'message': str(error)}, 500)
@@ -171,7 +180,6 @@ class ListingsView(ListAPIView):
     serializer_class = ListingSerializer
 
     def get(self, request, *args, **kwargs):
-        # dealer = Dealership.objects.get(uuid=kwargs['dealerId'])
         dealer = Dealership.objects.get(user=request.user)
         listings = Listing.objects.filter(vehicle__dealer=dealer)
         data = {
@@ -252,26 +260,26 @@ class VehicleDetailView(RetrieveUpdateDestroyAPIView):
 
         try:
             listing = Listing.objects.get(vehicle=vehicle)
-            
+
             listing_type = 'rental' if vehicle.available and not vehicle.for_sale else 'sale'
-            
+
             listing.listing_type = listing_type
             listing.sale_price = vehicle.sale_price
             listing.rental_price = vehicle.rental_price
             listing.title = vehicle.listing_title
-            
+
             # Save the updated listing
             listing.save()
 
         except Listing.DoesNotExist:
-            pass 
+            pass
 
         return Response(serializer.data)
 
     # for delete
     def delete(self, request, *args, **kwargs):
         vehicle = self.get_object()
-        
+
         # Delete the corresponding listing if it exists
         try:
             listing = Listing.objects.get(vehicle=vehicle)

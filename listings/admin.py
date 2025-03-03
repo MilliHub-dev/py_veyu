@@ -18,10 +18,15 @@ from .models import (
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ['vehicle', 'listing_type', 'approved', 'title']
+    list_display = ['vehicle', 'listing_type', 'approved', 'verified', 'title']
     list_filter = ['listing_type', 'approved', 'approved_by', 'vehicle__brand']
     search_fields = ['vehicle__name', 'title', 'vehicle__brand']
-    list_editable = ['approved']
+    list_editable = ['approved', 'verified']
+    actions = ['approve_selected_listings']
+
+    def approve_selected_listings(self, request, queryset, *args, **kwargs):
+        queryset.update(approved=True, verified=True)
+        self.message_user(request, f"Successfully approved {queryset.count()} listings")
 
 
 @admin.register(CarRental)
@@ -34,7 +39,7 @@ class CarRentalAdmin(admin.ModelAdmin):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['order_type', 'paid', 'customer']
-    list_filter = ['order_type', 'paid'] 
+    list_filter = ['order_type', 'paid']
     search_fields = ['customer__account__email', 'sub_total']
 
 

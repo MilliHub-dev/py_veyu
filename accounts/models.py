@@ -65,7 +65,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
-    api_token = models.ForeignKey('authtoken.Token', blank=True, null=True, on_delete=models.SET_NULL)
+    api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.SET_NULL)
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='motaa')
 
     groups = None
@@ -196,7 +196,8 @@ class Mechanic(UserProfile):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.business_name)
+            if self.business_name:
+                self.slug = slugify(self.business_name)
         super().save(*args, **kwargs)
 
     def rating(self):
@@ -217,11 +218,11 @@ class Dealership(UserProfile):
     verified_business = models.BooleanField(default=False) # cac / business verification
     verified_tin = models.BooleanField(default=False) # verified tax number
     verified_location = models.BooleanField(default=False) # verified proof of address
-    
+
     listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
-    
+
     # service scope
     offers_rental = models.BooleanField(default=False) # rents?
     offers_purchase = models.BooleanField(default=True) # sells cars, by default yes
@@ -236,7 +237,8 @@ class Dealership(UserProfile):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.business_name)
+            if self.business_name:
+                self.slug = slugify(self.business_name)
         super().save(*args, **kwargs)
 
     def rating(self):

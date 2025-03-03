@@ -47,6 +47,7 @@ from ..models import (
     OTP,
     Mechanic,
     Customer,
+    Dealership,
     Dealer,
     UserProfile,
 )
@@ -66,10 +67,13 @@ from .serializers import (
     GetDealershipSerializer,
     ListingSerializer,
 )
+from listings.api.serializers import OrderSerializer
 from .filters import (
     MechanicFilter,
 )
-# from rest_framework_simplejwt.authentication import JWTAuthentication
+from feedback.models import Notification
+from feedback.api.serializers import NotificationSerializer
+from bookings.api.serializers import (BookingSerializer, )
 from dj_rest_auth.jwt_auth import JWTAuthentication
 
 
@@ -100,40 +104,50 @@ class SignUpView(generics.CreateAPIView):
         }, status=400)
 
     def post(self, request:Request):
-        with transaction.atomic():
-            data = request.data
-            action = data['action'] or 'create-account'
+        try:
+            with transaction.atomic():
+                data = request.data
+                action = data['action'] or 'create-account'
 
-            if action == 'create-account':
-                user = Account(
-                    first_name=data['first_name'],
-                    last_name=data['last_name'],
-                    email=data['email'],
-                    provider=data['provider'],
-                    user_type=data['user_type']
-                )
+                if action == 'create-account':
+                    user_type = data['user_type']
+                    user = Account(
+                        first_name=data['first_name'],
+                        last_name=data['last_name'],
+                        email=data['email'],
+                        provider=data['provider'],
+                        user_type=data['user_type']
+                    )
+                    user.save(using=None)
+                    if data['provider'] == 'motaa':
+                        user.set_password(data['password'])
+                    else:
+                        user.set_unusable_password()
+                    user.save()
 
-                if data['provider'] == 'motaa':
-                    user.set_password(data['password'])
+                    # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
+                    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealership}.get(user_type)
+                    if profile_model:
+                        profile_model.objects.create(user=user, phone_number=data['phone_number'])
+                        # if not user_type == 'customer':
+                        #     profile_model.business_name = ""
+                        #     profile_model.save()
+
+                        data = {
+                            'access_token': str(AccessToken.for_user(user)),
+                            'refresh_token': str(RefreshToken.for_user(user))
+                        }
+                        data.update(AccountSerializer(user).data)
+                        return Response(data, status=status.HTTP_201_CREATED)
+                    else:
+                        return Response({'error' : False, 'message': "invalid user type"})
                 else:
-                    user.set_unusable_password()
-                user.save()
-                user_type = data['user_type']
-
-                # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
-                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
-                if profile_model:
-                    profile_model.objects.create(user=user, phone_number=data['phone_number'], business_name="")
-                    data = {
-                        'access_token': str(AccessToken.for_user(user)),
-                        'refresh_token': str(RefreshToken.for_user(user))
-                    }
-                    data.update(AccountSerializer(user).data)
-                    return Response(data, status=status.HTTP_201_CREATED)
-                else:
-                    return Response({'error' : False, 'message': "invalid user type"})
-            else:
-                return Response({'error' : False, 'message': ""})
+                    return Response({'error' : False, 'message': ""})
+        except Exception as error:
+            message = str(error.__cause__)
+            if message == 'UNIQUE constraint failed: accounts_customer.phone_number':
+                message = "User with this phone number already exists"
+            return Response({'error' : True, 'message': message}, 500)
 
 
 class LoginView(views.APIView):
@@ -196,7 +210,7 @@ class LoginView(views.APIView):
 
         # signing into dashboard
         if user.user_type == 'dealer':
-            data.update({ "dealerId": str(user.dealer.uuid) })
+            data.update({ "dealerId": str(user.dealership.uuid) })
         elif user.user_type == 'mechanic':
             data.update({ "mechanicId": str(user.mechanic.uuid) })
 
@@ -210,12 +224,20 @@ class CartView(views.APIView):
 
     def get(self, request, *args, **kwargs):
         customer = Customer.objects.get(user=request.user)
-        cart = customer.cart
+        cars = customer.cart.filter(listing_type='sale')
+        rentals = customer.cart.filter(listing_type='rental')
+        services = customer.service_history.all()
+        orders = customer.orders.all()
 
         data = {
             'error': False,
-            'message': '',
-            'data': ListingSerializer(customer.cart, context={'request': request}, many=True).data
+            'message': 'Loaded your cart',
+            'data': {
+                'cars': ListingSerializer(cars, context={'request': request}, many=True).data,
+                'orders': OrderSerializer(orders, context={'request': request}, many=True).data,
+                'rentals': ListingSerializer(rentals, context={'request': request}, many=True).data,
+                'services': BookingSerializer(services, context={'request': request}, many=True).data,
+            }
         }
         return Response(data, 200)
 
@@ -225,10 +247,10 @@ class CartView(views.APIView):
         cart = customer.cart
 
         if action == "remove-from-cart":
-            item = cart.filter(id=request.data['id'])
+            item = cart.get(uuid=request.data['item'])
             cart.remove(item)
+            customer.save()
             return Response({'error': False, 'message': 'Successfully removed from your cart'})
-
         else:
             return Response({'error': True, 'message': 'Invalid action parameter!'}, status=400)
 
@@ -333,66 +355,26 @@ class VerifyPhoneNumberView(APIView):
             return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
 
 
+class NotificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    allowed_methods = ['GET', 'POST']
+    serializer_class =  NotificationSerializer
 
-# Admin Views
-
-class GetDealershipView(APIView):
-    allowed_methods = ['GET']
-    permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    serializer_class = GetDealershipSerializer
-
-    def get(self, request, dealerId):
-        try:
-            dealer = Dealer.objects.get(uuid=dealerId)
-            data = {
-                'error': False,
-                'data': GetDealershipSerializer(dealer, context={'request': request}).data
-            }
-            return Response(data)
-        except Dealer.DoesNotExist:
-            return Response({'error': True, 'message': "Dealership not found"})
-
-
-
-class MechanicListView(ListAPIView):
-    pagination_class = OffsetPaginator
-    serializer_class = MechanicSerializer
-    allowed_methods = ['GET']
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    # Add both the filter and ordering backends
-    filter_backends = [DjangoFilterBackend,]
-    filterset_class = MechanicFilter  # Use the filter class
-    ordering = ['account__first_name']  # Default ordering if none specified by the user
-
-    def get_queryset(self):
-        return Mechanic.objects.all()
-
-    def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(
-            self.filter_queryset(
-                self.get_queryset()
-            )
-        )
-        serializer = self.serializer_class(queryset, many=True)
-
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user, read=False)
         data = {
             'error': False,
-            'message': '',
-            'results': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'data': serializer.data
-            }
+            'data': NotificationSerializer(notifications, many=True).data
         }
         return Response(data, 200)
 
-
-
+    def post(self, request):
+        notifications = Notification.objects.filter(user=request.user)
+        notification = notifications.get(uuid=request.data['notification_id'])
+        notification.mark_as_read()
+        data = {
+            'error': False,
+            'data': NotificationSerializer(notifications.filter(read=False), many=True).data
+        }
+        return Response(data, 200)
 

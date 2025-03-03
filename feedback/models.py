@@ -87,6 +87,7 @@ class Notification(DbModel):
     user = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
     subject = models.CharField(max_length=350)
     message = models.TextField()
+    read = models.BooleanField(default=False)
     level = models.CharField(max_length=10, choices=LEVELS, default='info')
     channel = models.CharField(max_length=10, default='in-app', choices=CHANNELS)
     cta_text = models.CharField(max_length=20, blank=True, null=True)
@@ -101,6 +102,11 @@ class Notification(DbModel):
             pass
         # else do nothing, they'll see this notification in notifications tab
         return
+
+    def mark_as_read(self):
+        self.read = True
+        self.save()
+        
 
 
 
