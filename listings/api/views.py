@@ -42,7 +42,7 @@ from .serializers import (
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
     CompleteOrderSerializer,
-    PurchaseOfferSerializer
+    PurchaseOfferSerializer,
 )
 from ..models import (
     Vehicle,
@@ -51,8 +51,12 @@ from ..models import (
     CarRental,
     PurchaseOffer,
 )
+from accounts.api.serializers import (
+    DealershipSerializer,
+)
 from accounts.models import (
     Customer,
+    Dealership,
 )
 from .filters import (
     CarSaleFilter,
@@ -126,28 +130,80 @@ class ListingSearchView(ListAPIView):
 class MyListingsView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Listing.objects.all()
+    queryset = Listing.objects.filter(verified=True, approved=True) # add publised = true
 
 
     def get(self, request, *args, **kwargs):
-        scope = request.GET.get('scope', 'recents') # defaults to recently viewed
+        scope = request.GET.get('scope')
+        scope = scope.split(';')
         qs = self.get_queryset()
-        listings = None
-        print("Getting your listings", request.user)
 
-
-        if scope == 'recents':
-            listings = self.serializer_class(
-                qs.filter(viewers__in=[self.request.user,]),
-                many=True, context={'request': request}
-            ).data
-        elif scope == 'favorites':
-            pass
         data = {
             'error': False,
-            'data': listings
         }
+
+        if 'recents' in scope:
+            recents = self.serializer_class(
+                qs.filter(viewers__in=[self.request.user,]),
+                many=True, context={'request': request}
+            ).data[::6]
+            data['recents'] = recents
+        
+        if 'favorites' in scope:
+            pass
+
+        if 'top-deals' in scope:
+            rentals = self.serializer_class(
+                qs.filter(listing_type='rental').order_by('-id'),
+                many=True, context={'request': request}
+            ).data[::6]
+
+            sales = self.serializer_class(
+                qs.filter(listing_type='sale').order_by('-id'),
+                many=True, context={'request': request}
+            ).data[::6]
+
+            data['top_deals'] = {
+                'services': [],
+                'sales': sales,
+                'rentals': rentals
+            }
         return Response(data)
+
+
+def typer(obj):
+    if type(obj) == list:
+        for item in obj:
+            typer(obj)
+    elif type(obj) == dict:
+        for key in list(obj.keys()):
+            typer(obj[key])
+    else:
+        print(f"{obj} is a {type(obj)}")
+    
+
+class DealershipView(APIView):
+    allowed_methods = ["GET"]
+
+    # def get(self, request, slug):
+    #     print("Dealer Kwargs:", typer(slug))
+    #     try:
+    #         dealer = Dealership.objects.get(slug=slug)
+    #         data = {
+    #             'error': False,
+    #             'data': DealershipSerializer(dealer, context={'request': request}).data
+    #         }
+    #         return Response(data, 200)
+
+
+    def get(self, request, uuid):
+        dealer = Dealership.objects.get(uuid=uuid)
+        print("Dealer Kwargs:", dealer)    
+        data = {
+            'error': False,
+            'data': DealershipSerializer(dealer, context={'request': request}).data
+        }
+        return Response(data, 200)
 
 
 # Rentals

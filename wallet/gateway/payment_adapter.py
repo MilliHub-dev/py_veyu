@@ -57,15 +57,12 @@ class FlutterwaveAdapter(PaymentGateway):
             'Content-Type': 'application/json'
         }
 
-
         try:
             response = requests.get(f'https://api.flutterwave.com/v3/transactions/{transaction_id}/verify', headers=headers)
             response_data = response.json()
-            # print(response_data)
 
             if response_data['status'] == 'success':
                 return response_data
-                
 
         except requests.exceptions.RequestException as e:
             print(e)

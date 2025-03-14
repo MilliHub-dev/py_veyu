@@ -58,12 +58,12 @@ INSTALLED_APPS = [
 
         # Motaa Apps
         'accounts',
-        'bookings',
         'chat',
-        'utils',
+        'bookings',
         'feedback',
         'listings',
         'wallet',
+        'utils',
         'analytics',
 
 

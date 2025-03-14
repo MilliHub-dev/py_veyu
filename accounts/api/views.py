@@ -104,43 +104,43 @@ class SignUpView(generics.CreateAPIView):
         }, status=400)
 
     def post(self, request:Request):
+        try:
+            with transaction.atomic():
+                data = request.data
+                action = data['action'] or 'create-account'
 
-        with transaction.atomic():
-            data = request.data
-            action = data['action'] or 'create-account'
+                if action == 'create-account':
+                    user_type = data['user_type']
+                    user = Account(
+                        first_name=data['first_name'],
+                        last_name=data['last_name'],
+                        email=data['email'],
+                        provider=data['provider'],
+                        user_type=data['user_type']
+                    )
+                    user.save(using=None)
+                    if data['provider'] == 'motaa':
+                        user.set_password(data['password'])
+                    else:
+                        user.set_unusable_password()
+                    user.save()
 
-            if action == 'create-account':
-                user_type = data['user_type']
-                user = Account(
-                    first_name=data['first_name'],
-                    last_name=data['last_name'],
-                    email=data['email'],
-                    provider=data['provider'],
-                    user_type=data['user_type']
-                )
-                user.save(using=None)
-                if data['provider'] == 'motaa':
-                    user.set_password(data['password'])
-                else:
-                    user.set_unusable_password()
-                user.save()
+                    # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
+                    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealership}.get(user_type)
+                    if profile_model:
+                        profile_model.objects.create(user=user, phone_number=data['phone_number'])
+                        # if not user_type == 'customer':
+                        #     profile_model.business_name = ""
+                        #     profile_model.save()
 
-                # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
-                profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealership}.get(user_type)
-                if profile_model:
-                    profile_model.objects.create(user=user, phone_number=data['phone_number'])
-                    # if not user_type == 'customer':
-                    #     profile_model.business_name = ""
-                    #     profile_model.save()
-
-                    data = {
-                        'access_token': str(AccessToken.for_user(user)),
-                        'refresh_token': str(RefreshToken.for_user(user))
-                    }
-                    data.update(AccountSerializer(user).data)
-                    return Response(data, status=status.HTTP_201_CREATED)
-                else:
-                    return Response({'error' : False, 'message': ""})
+                        data = {
+                            'access_token': str(AccessToken.for_user(user)),
+                            'refresh_token': str(RefreshToken.for_user(user))
+                        }
+                        data.update(AccountSerializer(user).data)
+                        return Response(data, status=status.HTTP_201_CREATED)
+                    else:
+                        return Response({'error' : False, 'message': ""})
         except Exception as error:
             message = str(error.__cause__)
             if message == 'UNIQUE constraint failed: accounts_customer.phone_number':

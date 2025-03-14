@@ -8,6 +8,7 @@ from .views import (
     ListingSearchView,
     BuyListingDetailView,
     RentListingDetailView,
+    DealershipView,
 )
 
 
@@ -20,6 +21,8 @@ urlpatterns = [
     path('buy/', BuyListingView.as_view(), name='buy-listing'),
     path('find/', ListingSearchView.as_view(), name='find-cars'),
     path('rentals/', RentListingView.as_view(), name='rentals'),
+    path('dealer/<uuid>/', DealershipView.as_view(), name='dealer'),
+    path('dealer/<slug>/', DealershipView.as_view(), name='dealer'),
     path('my-listings/', MyListingsView.as_view()),
     path('buy/<uuid>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
     path('rentals/<uuid>/', RentListingDetailView.as_view(), name='rental-detail'),

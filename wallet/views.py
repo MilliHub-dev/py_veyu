@@ -59,13 +59,27 @@ class Balance(APIView):
     @swagger_auto_schema(operation_summary="Endpoint to get user balance")
     def get(self, request:Request):
         user = request.user
-        print("Got User:", user)
         user_wallet = get_object_or_404(Wallet, user= user)
         data = {
             'error': False,
             'data': WalletSerializer(user_wallet).data
         }
         return Response(data)
+
+
+
+class TransactionsView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TransactionSerializer
+
+    def get(self, request):
+        wallet = Wallet.objects.get(user=request.user)
+        transactions = wallet.transactions.all()
+        data = {
+            'error': False,
+            'transactions': TransactionSerializer(transactions, many=True).data
+        }
+        return Response(data, 200)
 
 
 class InitiateDeposit(APIView):
@@ -97,36 +111,49 @@ class InitiateDeposit(APIView):
 
 
 class CompleteWalletDepositFlutterwave(APIView):  
-    permission_classes = [AllowAny]  
+    permission_classes = [IsAuthenticated]  
+    flutterwave = FlutterwaveAdapter()
+    allowed_methods = ["POST"]
 
     @swagger_auto_schema(operation_summary="Endpoint called by flutterwave webhook to complete wallet top up")
     def post(self, request:Request):
         data = request.data
-        hash = request.META.get('HTTP_VERIF_HASH')
         
-        if hash == config('FLW_VERIF_HASH'):
-    
-            deposite_status = data.get('status')
-            reference = data.get('tx_ref')
-            transaction_id = data.get('id')
-            currency = data.get('currency')
-            amount = data.get('amount')
-        
-            if deposite_status == 'successful':
-                flutterwave = FlutterwaveAdapter()
-                response = flutterwave.verify_deposit(transaction_id=transaction_id)
+        deposit_status = data.get('status')
+        reference = data.get('tx_ref')
+        transaction_id = data.get('transaction_id')
+        currency = data.get('currency')
+        amount = data.get('amount')
 
-                user_email = response['data']['customer']['email']
-                verified_amount_int = response['data']['amount']
-                verified_currency = response['data']['currency']
-                if currency == verified_currency and amount == verified_amount_int:
-                    amount = Decimal(verified_amount_int)
-                    user = get_object_or_404(User, email=user_email)
-                    user_wallet = get_object_or_404(Wallet, user=user)
-                    deposit_response = user_wallet.deposit(amount, reference)
-                    print(deposit_response)
-                
-                    return Response(data, status=status.HTTP_200_OK)
+        # confirm the deposit from flutterwave
+        response = self.flutterwave.verify_deposit(transaction_id=transaction_id)
+        print("Confirming Transaction", data['transaction_id'])
+        
+        if response['status'] == 'success':
+            user_wallet = get_object_or_404(Wallet, user=request.user)
+            transaction = Transaction(
+                sender=request.user.name,
+                recipient_wallet=user_wallet,
+                type="deposit",
+                narration=f'Deposit of {amount}',
+                source='bank',
+                amount=Decimal(amount),
+                status='completed'
+            )
+            transaction.save()
+            user_wallet.transactions.add(transaction,)
+            user_wallet.save()
+
+            # # send a notification
+            # Notification.objects.create(
+            # )
+
+            data = {
+                'error': False,
+                'transaction': TransactionSerializer(transaction).data,
+                'message': 'Deposit successfully received!'
+            }
+            return Response(data, status=status.HTTP_200_OK)
         else:
             return Response('Invalid hash', status=status.HTTP_400_BAD_REQUEST)
 

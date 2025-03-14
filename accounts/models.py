@@ -244,6 +244,20 @@ class Dealership(UserProfile):
     def rating(self):
         return '0.0'
 
+    @property
+    def services(self):
+        servs = []
+        if self.offers_purchase:
+            servs.append('Car Sale')
+        if self.offers_rental:
+            servs.append('Car Leasing')
+        if self.offers_drivers:
+            servs.append('Drivers ')
+        if self.offers_trade_in:
+            servs.append('Sell-Your-Car')
+            servs.append('Car Trade-in')
+        return servs
+
 
 class PayoutInformation(DbModel):
     user = models.ForeignKey('Account', on_delete=models.CASCADE)

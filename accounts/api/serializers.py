@@ -136,7 +136,6 @@ class GetDealershipSerializer(ModelSerializer):
 class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = RatingSerializer(many=True)
-    services = MechanicServiceSerializer(many=True)
     location = StringRelatedField()
 
     class Meta:
@@ -144,7 +143,7 @@ class DealershipSerializer(ModelSerializer):
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number", 'listings', "location","reviews", 'logo',
-            'business_name', 'slug', 'headline', 'about', 'rating',
+            'business_name', 'slug', 'headline', 'about', 'rating', 'services'
         )
 
     def get_user(self, obj):
