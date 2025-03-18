@@ -8,6 +8,8 @@ from django.utils.timesince import timeuntil, timesince
 from utils import make_random_otp
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.timezone import now
+
 
 class AccountManager(BaseUserManager):
 
@@ -202,6 +204,27 @@ class Mechanic(UserProfile):
 
     def rating(self):
         return '0.0'
+
+
+class MechanicBoost(DbModel):
+    mechanic = models.OneToOneField('Mechanic', on_delete=models.CASCADE, related_name='boosted')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)  # Tracks payment amount
+    active = models.BooleanField(default=True)  # Auto-updated by cron job
+
+    def is_active(self):
+        return self.start_date <= now().date() <= self.end_date
+
+    def save(self, *args, **kwargs):
+        """Ensure `active` is updated before saving."""
+        self.active = self.is_active()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        status = "Active" if self.is_active() else "Expired"
+        return f"{self.mechanic.business_name} - {status} ({self.start_date} to {self.end_date})"
+
 
 
 class Dealership(UserProfile):

@@ -16,7 +16,7 @@ urlpatterns = [
     path('transactions/', TransactionsView.as_view()),
     path('balance/', Balance.as_view()),
     path('deposit/', CompleteWalletDepositFlutterwave.as_view()),
-    path('withdrawal/', WithdrawalFlutterwave.as_view()),
+    path('withdraw/', WithdrawalFlutterwave.as_view()),
 
     # will do get banks and resolve from frontend
     path('resolve-account/', ResolveAccountNumber.as_view()),

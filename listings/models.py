@@ -1,7 +1,10 @@
 from django.db import models
-from utils.models import DbModel
+from utils.models import DbModel, ArrayField
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
+from django.utils.timezone import now
+from django.db.models import Q
+
 
 PAYMENT_CYCLES = [
     ('day', 'Daily Payments'),
@@ -10,25 +13,16 @@ PAYMENT_CYCLES = [
     ('year', 'Annual Payments'),
 ]
 
-VEHICLE_FEATURES = {
-    'seats': 'Seats',
-    'doors': 'Doors',
-    'drivetrain': 'Drivetrain',
-    'engine': 'Engine',
-    'parking-assistant': 'Parking Assistant',
-    'seats': 'Seats',
-    'seats': 'Seats',
-    'seats': 'Seats',
-    'seats': 'Seats',
-}
-
-class VehicleFeature(models.Model):
-    name = models.CharField(max_length=50, choices=VEHICLE_FEATURES)
-    available = models.BooleanField(default=True)
-    value = models.CharField(max_length=20, blank=True, null=True)
-
-    def __str__(self):
-        return self.name
+VEHICLE_FEATURES = [
+    'Air Conditioning',
+    'Android Auto',
+    'Auto Drive',
+    'Keyless Entry',
+    'Baby Seat',
+    'Lane Assist',
+    'Parking Camera',
+    'Sun Roof',
+]
 
 
 class VehicleImage(DbModel):
@@ -98,9 +92,7 @@ class Vehicle(DbModel):
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
     tags = models.ManyToManyField('VehicleTag', blank=True)
     custom_duty = models.BooleanField(default=False)
-
-    # vehicle features like car seats, driving assistants
-    features = models.ManyToManyField('VehicleFeature', blank=True, related_name="vehicle_features")
+    features = ArrayField(blank=True, null=True, data_type='str')
 
     # rental history
     last_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
@@ -108,11 +100,9 @@ class Vehicle(DbModel):
     rentals = models.ManyToManyField('CarRental', blank=True, related_name='rentals')
 
     # availability
-    available = models.BooleanField(default=True)
+    available = models.BooleanField(default=True) # sold / rented items can't be listed
     for_sale = models.BooleanField(default=False)
     for_rent = models.BooleanField(default=False)
-    sold = models.BooleanField(default=False) # sold items can't be listed
-
 
     def __str__(self):
         return self.name or 'Unnamed Vehicle'
@@ -274,7 +264,6 @@ class Listing(DbModel):
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
     price = models.DecimalField(decimal_places=2, max_digits=10000, blank=True, null=True)
     title = models.CharField(max_length=400, blank=True, null=True)
-    impressions = models.PositiveIntegerField(default=0) # incremented when
     viewers = models.ManyToManyField('accounts.Account', limit_choices_to={'user_type': 'customer'}, blank=True, related_name='viewers')
     offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='offers')
     testdrives = models.ManyToManyField('TestDriveRequest', blank=True, related_name='testdrives')
@@ -283,10 +272,38 @@ class Listing(DbModel):
     def __str__(self):
         return f'{self.title}'
 
+    @property
+    def published(self) -> bool: return self.verified
+
+    def publish(self):
+        self.verified = True
+        self.save()
+
     def save(self, *args, **kwargs):
         if not self.title and self.vehicle:
             self.title = self.vehicle.name
         super().save(*args, **kwargs)
+
+
+class ListingBoost(DbModel):
+    listing = models.OneToOneField('Listing', on_delete=models.CASCADE, related_name='boosted')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)  # Track payment amount
+    active = models.BooleanField(default=True)  # Auto-updated by cron job
+
+    def is_active(self):
+        return self.start_date <= now().date() <= self.end_date
+
+    def save(self, *args, **kwargs):
+        """Ensure `active` is updated before saving."""
+        self.active = self.is_active()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        status = "Active" if self.is_active() else "Expired"
+        return f"{self.listing.title} - {status} ({self.start_date} to {self.end_date})"
+
 
 
 class PurchaseOffer(DbModel):

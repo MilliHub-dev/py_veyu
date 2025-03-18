@@ -71,7 +71,10 @@ from django.contrib.auth import get_user_model
 from wallet.models import Wallet
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from utils import OffsetPaginator
+from utils import (
+    OffsetPaginator,
+    upload_multiple_files,
+)
 from utils.dispatch import (on_listing_created, )
 User = get_user_model()
 
@@ -118,60 +121,73 @@ class CreateListingView(CreateAPIView):
         try:
             dealer = Dealership.objects.get(user=request.user)
             data = request.data
-            images = data.getlist('image')
+            action = data.get('action', 'create-listing')
+            message = 'Successfully created new listing'
+            listing = None
 
-            vehicle = Vehicle(
-                name = data['title'],
-                dealer=dealer,
-                color = data.get('color', 'None'),
-                brand = data['brand'],
-                condition = data['condition'],
-                type = data['vehicle_type'],
-                mileage = data.get('mileage', 0),
-                transmission = data['transmission'],
-                fuel_system = data['fuel_system'],
-                drivetrain = data['drivetrain'],
-                seats = data['seats'],
-                doors = data['doors'],
-                vin = data['vin'],
-            )
-            if data['listing_type'] == 'sale':
-                vehicle.for_sale = True
-            elif data['listing_type'] == 'rental':
-                vehicle.for_rent = True
-            # just create an ID, don't write to db just yet
-            vehicle.save(using=None)
-
-            for img in images:
-                image = VehicleImage(
-                    image=img,
-                    vehicle=vehicle
+            if action == 'create-listing':
+                vehicle = Vehicle(
+                    name = data['title'],
+                    dealer=dealer,
+                    color = data.get('color', 'None'),
+                    brand = data['brand'],
+                    condition = data['condition'],
+                    type = data['vehicle_type'],
+                    mileage = data.get('mileage', 0),
+                    transmission = data['transmission'],
+                    fuel_system = data['fuel_system'],
+                    drivetrain = data['drivetrain'],
+                    seats = data['seats'],
+                    doors = data['doors'],
+                    vin = data['vin'],
                 )
-                image.save()
-                vehicle.images.add(image,)
-            vehicle.save() # save to db
+                if data['listing_type'] == 'sale':
+                    vehicle.for_sale = True
+                elif data['listing_type'] == 'rental':
+                    vehicle.features=data['features']
+                    vehicle.for_rent = True
+                vehicle.save()
 
-            listing = Listing(
-                vehicle=vehicle,
-                created_by=request.user,
-                listing_type=data['listing_type'],
-                price=data['price'],
-                title=data['title'],
-            )
-            listing.save()
+                listing = Listing(
+                    vehicle=vehicle,
+                    created_by=request.user,
+                    listing_type=data['listing_type'],
+                    price=data['price'],
+                    title=data['title'],
+                )
+                if data['listing_type'] == 'rental':
+                    listing.payment_cycle = data['payment_cycle']
+                listing.save()
 
-            dealer.vehicles.add(vehicle,)
-            dealer.listings.add(listing,)
-            dealer.save()
+                dealer.vehicles.add(vehicle,)
+                dealer.listings.add(listing,)
+                dealer.save()
+            elif action == 'upload-images':
+                listing = dealer.listings.get(uuid=data['listing'])
+                images = data.getlist('image')
+                paths = upload_multiple_files(images)
+                for img in paths:
+                    image = VehicleImage(
+                        image=img,
+                        vehicle=vehicle
+                    )
+                    image.save()
+                    vehicle.images.add(image,)
+                vehicle.save() # save to db
+            elif action == 'publish-listing':
+                listing = dealer.listings.get(uuid=data['listing'])
+                listing.publish()
+                message = 'Successfully published your listing'
 
             data = {
                 'error': False,
-                'message': 'Successfully created new listing',
+                'message': message,
                 'data': self.serializer_class(listing, context={'request': request}).data
             }
             on_listing_created.send(dealer, listing=listing)
             return Response(data, 200)
         except Exception as error:
+            raise error
             return Response({'error': True, 'message': str(error)}, 500)
 
 class ListingsView(ListAPIView):
@@ -190,7 +206,6 @@ class ListingsView(ListAPIView):
 
     def post(self, request, *args, **kwargs):
         action = request.data['action']
-
         if action == 'delete':
             pass
         elif action == 'boost':

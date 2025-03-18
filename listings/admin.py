@@ -1,3 +1,4 @@
+from utils.admin import motaa_admin
 from django.contrib import admin
 from .models import (
     CarRental,
@@ -14,9 +15,7 @@ from .models import (
 )
 
 
-
-
-@admin.register(Listing)
+# @motaa_admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
     list_display = ['vehicle', 'listing_type', 'approved', 'verified', 'title']
     list_filter = ['listing_type', 'approved', 'approved_by', 'vehicle__brand']
@@ -29,47 +28,47 @@ class ListingAdmin(admin.ModelAdmin):
         self.message_user(request, f"Successfully approved {queryset.count()} listings")
 
 
-@admin.register(CarRental)
+# @motaa_admin.register(CarRental)
 class CarRentalAdmin(admin.ModelAdmin):
     list_display = ['customer', 'order']
     search_fields = ['customer__account__email', 'order__id']
 
 
 
-@admin.register(Order)
+# @motaa_admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['order_type', 'paid', 'customer']
     list_filter = ['order_type', 'paid']
     search_fields = ['customer__account__email', 'sub_total']
 
 
-@admin.register(TradeInRequest)
+# @motaa_admin.register(TradeInRequest)
 class TradeInRequestAdmin(admin.ModelAdmin):
     list_display = ['customer', 'vehicle', 'estimated_value']
     search_fields = ['customer__account__email', 'vehicle__name']
 
 
-@admin.register(CarPurchase)
+# @motaa_admin.register(CarPurchase)
 class CarPurchaseAdmin(admin.ModelAdmin):
     list_display = ['customer', 'order']
     search_fields = ['customer__account__email', 'order__id']
 
-
-@admin.register(PurchaseOffer)
+# 
+# @motaa_admin.register(PurchaseOffer)
 class PurchaseOfferAdmin(admin.ModelAdmin):
     list_display = ['bidder', 'listing', 'amount']
     list_filter = ['bidder', 'listing']
     search_fields = ['bidder__account__email', 'listing__vehicle__name', 'amount']
 
 
-@admin.register(TestDriveRequest)
+# @motaa_admin.register(TestDriveRequest)
 class TestDriveRequestAdmin(admin.ModelAdmin):
     list_display = ['requested_by', 'requested_to', 'listing', 'granted', 'testdrive_complete']
     list_filter = ['granted', 'testdrive_complete', 'requested_to']
     search_fields = ['requested_by__account__email', 'listing__title']
 
 
-@admin.register(VehicleImage)
+# @motaa_admin.register(VehicleImage)
 class VehicleImageAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'image', 'vehicle']
     list_display_links = ['__str__', 'vehicle']
@@ -77,23 +76,45 @@ class VehicleImageAdmin(admin.ModelAdmin):
     search_fields = ['vehicle__name']
 
 
-@admin.register(VehicleTag)
+# @motaa_admin.register(VehicleTag)
 class VehicleTagAdmin(admin.ModelAdmin):
     list_display = ['name']
     search_fields = ['name']
 
 
-@admin.register(VehicleCategory)
+# @motaa_admin.register(VehicleCategory)
 class VehicleCategoryAdmin(admin.ModelAdmin):
     list_display = ['name']
     search_fields = ['name']
 
 
-@admin.register(Vehicle)
+# @motaa_admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
-    list_display = ['name', 'brand', 'condition', 'available', 'for_sale', 'sold']
-    list_filter = ['brand', 'condition', 'available', 'for_sale', 'sold', 'dealer']
+    list_display = ['name', 'brand', 'condition', 'available',]
+    list_filter = ['brand', 'condition', 'available', 'dealer']
     search_fields = ['name', 'brand', 'dealer__user__email']
-    list_editable = ['available', 'for_sale', 'sold']
+
+
+
+
+
+
+motaa_admin.register(Listing, ListingAdmin)
+motaa_admin.register(CarRental, CarRentalAdmin)
+motaa_admin.register(Order, OrderAdmin)
+motaa_admin.register(TradeInRequest, TradeInRequestAdmin)
+motaa_admin.register(CarPurchase, CarPurchaseAdmin)
+motaa_admin.register(PurchaseOffer, PurchaseOfferAdmin)
+motaa_admin.register(TestDriveRequest, TestDriveRequestAdmin)
+motaa_admin.register(VehicleImage, VehicleImageAdmin)
+motaa_admin.register(VehicleTag, VehicleTagAdmin)
+motaa_admin.register(VehicleCategory, VehicleCategoryAdmin)
+motaa_admin.register(Vehicle, VehicleAdmin)
+
+
+
+
+
+
 
 

@@ -1,31 +1,34 @@
+from utils.models import DbModel
 from django.db import models
 from django.core.validators import MinValueValidator
 
-class AnalyticsData(models.Model):
-    date = models.DateField()
-    customers = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    dealers = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    mechanics = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    orders = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    revenue = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0.00,
-        validators=[MinValueValidator(0)]
-    )
+
+
+
+from django.db import models
+from django.utils.timezone import now
+
+
+class ListingAnalytics(DbModel):
+    listing = models.ForeignKey('listings.Listing', on_delete=models.CASCADE, related_name='analytics')
+    impressions = models.PositiveIntegerField(default=0)
+    boosted = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ['date']
-        verbose_name = 'Analytics Data'
-        verbose_name_plural = 'Analytics Data'
+        unique_together = ('listing', 'date_created')
 
     def __str__(self):
-        return f"Analytics for {self.date}"
+        return f"{self.listing.title} - {self.date_created}: {self.impressions} impressions"
 
-    def clean(self):
-        # Ensure date is a proper date object
-        if isinstance(self.date, str):
-            try:
-                self.date = datetime.strptime(self.date, '%Y-%m-%d').date()
-            except ValueError:
-                raise ValidationError({'date': 'Invalid date format'})
+
+class MechanicAnalytics(DbModel):
+    mechanic = models.ForeignKey('accounts.Mechanic', on_delete=models.CASCADE, related_name='analytics')
+    impressions = models.PositiveIntegerField(default=0)
+    boosted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('mechanic', 'date_created')
+
+    def __str__(self):
+        return f"{self.mechanic.business_name} - {self.date_created}: {self.impressions} impressions"
+

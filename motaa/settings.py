@@ -4,23 +4,8 @@ from environ import Env
 from decouple import config
 from datetime import timedelta
 from dotenv import load_dotenv
-import environ
 
-# env = environ.Env()
-# environ.Env.read_env()
-# load_dotenv(override=True)
-
-
-# Devs can use the production settings for staging by setting the PRODUCTION environment variable to True
-# if os.getenv('PRODUCTION') == 'True':
-#     from production.settings import *
-# else:
-# from development.settings import *
-# load_dotenv(override=True)
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 env = Env()
 Env.read_env(BASE_DIR / '.env')
@@ -108,7 +93,7 @@ ROOT_URLCONF = 'motaa.urls'
 TEMPLATES = [
         {
             'BACKEND': 'django.template.backends.django.DjangoTemplates',
-            'DIRS': [],
+            'DIRS': [ BASE_DIR / 'templates'],
             'APP_DIRS': True,
             'OPTIONS': {
                 'context_processors': [
@@ -116,7 +101,6 @@ TEMPLATES = [
                     'django.template.context_processors.request',
                     'django.contrib.auth.context_processors.auth',
                     'django.contrib.messages.context_processors.messages',
-                    # 'django.template.context_processors.request',
                     ],
                 },
             },
@@ -132,8 +116,8 @@ ASGI_APPLICATION = 'motaa.asgi.application'
 DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            # 'NAME': BASE_DIR / 'local.db.sqlite3',
-            'NAME': BASE_DIR / 'olddb.sqlite3',
+            'NAME': BASE_DIR / 'local.db.sqlite3',
+            # 'NAME': BASE_DIR / 'olddb.sqlite3',
             }
         }
 
@@ -271,6 +255,7 @@ JAZZMIN_SETTINGS = {
     "site_logo": 'motaa/motaa-logo-3.png',
     "site_title": "Motaa Admin",
     "site_header": "Motaa Admin Portal",
+    "index_template": "admin/index.html",
     "welcome_sign": "Welcome to Motaa Admin!",
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
