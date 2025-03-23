@@ -4,9 +4,9 @@ from .models import (
     ChatMessage,    
     ChatRoom,
 )
-
+from utils.admin import motaa_admin
 # Register your models here.
 
-admin.site.register(ChatAttachment)
-admin.site.register(ChatMessage)
-admin.site.register(ChatRoom)
+motaa_admin.register(ChatAttachment)
+motaa_admin.register(ChatMessage)
+motaa_admin.register(ChatRoom)

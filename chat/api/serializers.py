@@ -31,7 +31,7 @@ class ChatMessageSerializer(ModelSerializer):
 	room = StringRelatedField()
 	class Meta:
 		model = ChatMessage
-		fields = '__all__'
+		fields = ['sender', 'attachments', 'text', 'room', 'uuid', 'id', 'sent']
 
 
 class ChatRoomSerializer(ModelSerializer):
@@ -53,10 +53,12 @@ class ChatRoomListSerializer(ModelSerializer):
 
 	def get_last_message(self, obj):
 		message = obj.messages.all().order_by('-id').first()
-		return {
-			'message': message.text,
-			'date': message.date_created
-		}
+		if message:
+			return {
+				'message': message.text,
+				'date': message.sent
+			}
+		return None
 
 	def get_recipient(self, obj):
 		request = self.context.get('request', None)
@@ -73,8 +75,8 @@ class ChatRoomListSerializer(ModelSerializer):
 		if other_person.user_type == 'customer':
 			data['image'] = request.build_absolute_uri(other_person.customer.image.url) or None
 		elif other_person.user_type == 'dealer':
-			data['name'] = other_person.dealer.business_name
-			data['image'] = request.build_absolute_uri(other_person.dealer.logo.url) or None
+			data['name'] = other_person.dealership.business_name
+			data['image'] = request.build_absolute_uri(other_person.dealership.logo.url) or None
 		elif other_person.user_type == 'mechanic':
 			data['name'] = other_person.mechanic.business_name
 			data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url) or None

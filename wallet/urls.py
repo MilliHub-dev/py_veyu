@@ -8,10 +8,12 @@ from .views import (
     ResolveAccountNumber,
     WithdrawalFlutterwave,
     GetBanks,
+    WalletOverview,
     GetTransferFees,
 )
 
 urlpatterns = [
+    path('', WalletOverview.as_view()),
     path('transfer/', Transfer.as_view()),
     path('transactions/', TransactionsView.as_view()),
     path('balance/', Balance.as_view()),

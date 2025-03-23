@@ -26,14 +26,15 @@ VEHICLE_FEATURES = [
 
 
 class VehicleImage(DbModel):
-    image = models.ImageField(upload_to='vehicles/images/')
+    image = models.ImageField(upload_to='vehicles/images/', blank=True, null=True)
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):
-        if not self.id:
-            ext = self.image.name.split('.')[-1]
-            count = self.vehicle.images.count()
-            self.image.name = f'{self.vehicle.slug}_image-{count}.{ext}'
+        # if not self.id:
+            # print("Image saving...", self.image)
+            # ext = self.image.name.split('.')[-1]
+            # count = self.vehicle.images.count()
+            # self.image.name = f'{self.vehicle.slug}_image-{count}.{ext}'
         super().save(*args, **kwargs)
 
 
@@ -78,6 +79,7 @@ class Vehicle(DbModel):
     # car details
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200) # aka make
+    model = models.CharField(max_length=200, blank=True, null=True) # aka make
     condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='used_uk')
     type = models.CharField(max_length=200, choices=VEHICLE_TYPE, default='sedan')
     mileage = models.CharField(max_length=200, blank=True, null=True)
@@ -86,11 +88,11 @@ class Vehicle(DbModel):
     drivetrain = models.CharField(max_length=200, blank=True, null=True, choices=DRIVETRAIN)
     seats = models.PositiveIntegerField(blank=True, null=True, default=5)
     doors = models.PositiveIntegerField(blank=True, null=True, default=4)
-    vin = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
+    vin = models.CharField(max_length=200, blank=True, null=True,)
 
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
-    tags = models.ManyToManyField('VehicleTag', blank=True)
+    tags = ArrayField(blank=True, null=True, data_type='str')
     custom_duty = models.BooleanField(default=False)
     features = ArrayField(blank=True, null=True, data_type='str')
 
@@ -268,6 +270,7 @@ class Listing(DbModel):
     offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='offers')
     testdrives = models.ManyToManyField('TestDriveRequest', blank=True, related_name='testdrives')
     payment_cycle = models.CharField(max_length=20, choices=PAYMENT_CYCLES, default='week', blank=True,)
+    notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.title}'

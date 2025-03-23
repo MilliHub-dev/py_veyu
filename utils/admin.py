@@ -59,6 +59,9 @@ class MotaaAdminSite(AdminSite):
             'monthly_data': chart_data,
         })
 
+        if request.method == 'POST':
+            print("Making Changes...")
+
         return super().index(request, extra_context=extra_context)
 
 # Create an instance of the custom admin site

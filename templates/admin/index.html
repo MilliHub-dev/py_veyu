@@ -1,53 +1,17 @@
-{% extends "admin/base.html" %}
+{% extends "admin/base_site.html" %}
 {% load static %}
 
-
-
-{% block content %}
-<!-- Stats Boxes -->
-<div id="stats" style="display: grid; width: 100%; gap: 20px;">
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>Customers</h4>
-        <h1 style="font-weight: bold; color: #2563eb;">{{ metrics.total_customers|floatformat:0 }}</h1>
-    </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>Dealers</h4>
-        <h1 style="font-weight: bold; color: #16a34a;">{{ metrics.total_dealers|floatformat:0 }}</h1>
-    </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>Orders</h4>
-        <h1 style="font-weight: bold; color: #ea580c;">{{ metrics.total_orders|floatformat:0 }}</h1>
-    </div>
-    <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>Revenue</h4>
-        <h1 style="font-weight: bold; color: #dc2626;">₦{{ metrics.total_revenue|floatformat:2 }}</h1>
-    </div>
-</div>
-
-
-<!-- Charts Section -->
-<div id="charts" style="display: grid; gap: 20px; justify-content: space-between; margin-bottom: 20px;">
-    <div style="flex: 1; min-width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>User Growth</h4>
-        <br />
-        <div style="position: relative; height: 300px; width: 100%;">
-            <canvas id="userChart" ></canvas>
-        </div>
-    </div>
-    <div style="flex: 1; min-width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h4>Orders & Revenue</h4>
-        <br />
-        <div style="position: relative; height: 300px; width: 100%;">
-            <canvas id="revenueChart"></canvas>
-        </div>
-    </div>
-</div>
-
+{% block extrahead %}
 <style>
     #stats{
         grid-template-columns: repeat(auto-fill, minmax(calc(100%/2), 1fr));
         width: 100%;
         margin-bottom: 50px;
+    }
+
+    .block{
+        display: block;
+        width: 100%;
     }
 
 
@@ -72,12 +36,66 @@
     }
 </style>
 
+<script src="{% static 'motaa/chart.js' %}" type="text/javascript"></script>
 {% endblock %}
 
-{% block extrahead %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+
+{% block content %}
+<div class="block">    
+
+    <!-- Stats Boxes -->
+    <div id="stats" style="display: grid; width: 100%; gap: 20px;">
+        <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>Customers</h4>
+            <h1 style="font-weight: bold; color: #2563eb;">{{ metrics.total_customers|floatformat:0 }}</h1>
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>Dealers</h4>
+            <h1 style="font-weight: bold; color: #16a34a;">{{ metrics.total_dealers|floatformat:0 }}</h1>
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>Orders</h4>
+            <h1 style="font-weight: bold; color: #ea580c;">{{ metrics.total_orders|floatformat:0 }}</h1>
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>Revenue</h4>
+            <h1 style="font-weight: bold; color: #dc2626;">₦{{ metrics.total_revenue|floatformat:2 }}</h1>
+        </div>
+    </div>
+
+
+    <!-- Charts Section -->
+    <div id="charts" style="display: grid; gap: 20px; justify-content: space-between; margin-bottom: 20px;">
+        <div style="flex: 1; min-width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>User Growth</h4>
+            <br />
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="userChart" ></canvas>
+            </div>
+        </div>
+        <div style="flex: 1; min-width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4>Orders & Revenue</h4>
+            <br />
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+
+    <div>
+        <h4> Dealerships Pending Approval </h4>
+    </div>
+
+    <div>
+        <h4> Mechanics Pending Approval </h4>
+    </div>
+</div>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
     // Ensure data is available to avoid errors
     const labels = {{ monthly_data.labels|default:"[]"|safe }};
     const customers = {{ monthly_data.customers|default:"[]"|safe }};
@@ -90,58 +108,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const monthlyData = {{ monthly_data|safe }};
 
     // User Growth Bar Chart (with daily increase)
-new Chart(document.getElementById('userChart').getContext('2d'), {
-    type: 'line',  // Change to 'bar' for a bar chart
-    data: {
-        labels: {{ monthly_data.labels|safe }},
-        datasets: [
-            { 
-                label: 'Customers', 
-                data: {{ monthly_data.customer_increase|safe }},
-                backgroundColor: '#2563eb',  // Use backgroundColor for bar color
-                borderColor: '#1d4ed8',  // Optional: border color for the bars
-                borderWidth: 1
-            },
-            { 
-                label: 'Dealers', 
-                data: {{ monthly_data.dealer_increase|safe }},
-                backgroundColor: '#16a34a',
-                borderColor: '#15803d',
-                borderWidth: 1
-            },
-            { 
-                label: 'Mechanics', 
-                data: {{ monthly_data.mechanic_increase|safe }},
-                backgroundColor: '#ea580c',
-                borderColor: '#d97706',
-                borderWidth: 1
-            },
-        ]
-    },
-    options: {
-        responsive: true,
-        aspectRatio: 1.75,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: { mode: 'index', intersect: false }
+    new Chart(document.getElementById('userChart').getContext('2d'), {
+        type: 'line',  // Change to 'bar' for a bar chart
+        data: {
+            labels: {{ monthly_data.labels|safe }},
+            datasets: [
+                { 
+                    label: 'Customers', 
+                    data: {{ monthly_data.customer_increase|safe }},
+                    backgroundColor: '#2563eb',  // Use backgroundColor for bar color
+                    borderColor: '#1d4ed8',  // Optional: border color for the bars
+                    borderWidth: 1
+                },
+                { 
+                    label: 'Dealers', 
+                    data: {{ monthly_data.dealer_increase|safe }},
+                    backgroundColor: '#16a34a',
+                    borderColor: '#15803d',
+                    borderWidth: 1
+                },
+                { 
+                    label: 'Mechanics', 
+                    data: {{ monthly_data.mechanic_increase|safe }},
+                    backgroundColor: '#ea580c',
+                    borderColor: '#d97706',
+                    borderWidth: 1
+                },
+            ]
         },
-        scales: {
-            y: {
-                beginAtZero: true,  // Ensure the y-axis starts from zero
-                title: {
-                    display: true,
-                    text: 'Increase Count'
-                }
+        options: {
+            responsive: true,
+            aspectRatio: 1.75,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: { mode: 'index', intersect: false }
             },
-            x: {
-                title: {
-                    display: true,
-                    text: 'Date'
+            scales: {
+                y: {
+                    beginAtZero: true,  // Ensure the y-axis starts from zero
+                    title: {
+                        display: true,
+                        text: 'Increase Count'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
                 }
             }
         }
-    }
-});
+    });
 
 
 
@@ -166,4 +184,7 @@ new Chart(document.getElementById('userChart').getContext('2d'), {
     });
 });
 </script>
+
 {% endblock %}
+
+

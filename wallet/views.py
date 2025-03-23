@@ -21,6 +21,21 @@ from drf_yasg.utils import swagger_auto_schema
 
 User = get_user_model()
 
+class WalletOverview(APIView):
+    permission_classes = [IsAuthenticated, ]
+    allowed_methods = ["GET"]
+
+    @swagger_auto_schema(operation_summary="Endpoint to get user wallet")
+    def get(self, request:Request):
+        user = request.user
+        user_wallet = get_object_or_404(Wallet, user= user)
+        data = {
+            'error': False,
+            'data': WalletSerializer(user_wallet).data
+        }
+        return Response(data)
+
+
 class Transfer(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -46,7 +61,6 @@ class Transfer(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        
 
 class Balance(APIView):
     permission_classes = [IsAuthenticated]
@@ -59,10 +73,9 @@ class Balance(APIView):
         user_wallet = get_object_or_404(Wallet, user= user)
         data = {
             'error': False,
-            'data': WalletSerializer(user_wallet).data
+            'data': WalletBalanceSerializer(user_wallet).data
         }
         return Response(data)
-
 
 
 class TransactionsView(APIView):
@@ -154,7 +167,6 @@ class CompleteWalletDepositFlutterwave(APIView):
         else:
             return Response('Invalid hash', status=status.HTTP_400_BAD_REQUEST)
 
-
  
 class ResolveAccountNumber(APIView):
 
@@ -177,11 +189,11 @@ class ResolveAccountNumber(APIView):
 class GetBanks(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request:Request):
-        country = request.data.get('country')
+    def get(self, request:Request):
+        country = request.GET.get('country', 'NG')
         gateway = FlutterwaveAdapter()
         response = gateway.get_banks(country=country)
-        return Response('ok', status=status.HTTP_200_OK)
+        return Response({'error': False, 'data': response}, status=status.HTTP_200_OK)
 
 
 class WithdrawalFlutterwave(APIView):

@@ -258,8 +258,8 @@ JAZZMIN_SETTINGS = {
     "index_template": "admin/index.html",
     "welcome_sign": "Welcome to Motaa Admin!",
     "topmenu_links": [
-        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"app": "my_app"},  # Direct link to an app
+        {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},  # Direct link to an app
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
@@ -267,8 +267,16 @@ JAZZMIN_SETTINGS = {
         "auth": "fas fa-users-cog",
         "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",
+        "listings.Listing": "fas fa-car",
     },
-    "order_with_respect_to": ["auth", "my_app"],
+    "hide_models": [
+        'listings.Vehicle',
+        'listings.VehicleImage',
+        'listings.VehicleCategories',
+        'listings.VehicleTags',
+        'listings.PurchaseOffers',
+    ],
+    "order_with_respect_to": ["auth", "listings.Listing"],
     "custom_links": {
         # "my_app": [
         #     {

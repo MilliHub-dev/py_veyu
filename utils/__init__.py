@@ -15,8 +15,9 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from concurrent.futures import ThreadPoolExecutor
 from django.conf import settings
+from django.core.files import File  # Import File for handling Django file objects
 
-def upload_multiple_files(*files) -> list:
+def upload_multiple_files(files) -> list:
     """
     Handles multiple file uploads concurrently and returns a list of uploaded file details.
     
@@ -29,36 +30,35 @@ def upload_multiple_files(*files) -> list:
     uploaded_files = []
 
     with ThreadPoolExecutor() as executor:
-        uploaded_files = list(executor.map(upload_file, *files))
+        futures = [executor.submit(upload_file, file) for file in files]
+        for future in futures:
+            result = future.result()
+            if result:
+                uploaded_files.append(result)
     return uploaded_files
 
 
 def upload_file(file, upload_to=None):
     ext = os.path.splitext(file.name)[-1]
-    upload_dir = os.path.join(
-        settings.BASE_DIR,
-        settings.MEDIA_DIR,
-    )
+    upload_dir = settings.MEDIA_ROOT
 
-    def save_file(file):
-        if ext in ['.png', '.jpg', '.jpeg']:
-            # create an image in e.g 
-            # 'uploads/profiles' or 'uploads/vehicles'
-            if upload_to:
-                upload_dir = os.path.join(upload_dir, upload_to)
-            upload_dir = os.path.join(upload_dir, 'vehicle/images/')
-        elif ext in ['.pdf', '.txt', '.docx', '.csv', '.xlsx']:
-            # create a file in 'uploads/docs'
-            if upload_to:
-                upload_dir = os.path.join(upload_dir, upload_to)
-            upload_dir = os.path.join(upload_dir, 'docs/')
-        
-        file_path = os.path.join(upload_dir, f"{file_uuid}{ext}")
-        file_obj = default_storage.save(file_path, ContentFile(file.read()))
+    if ext in ['.png', '.jpg', '.jpeg']:
+        if upload_to:
+            upload_dir = os.path.join(upload_dir, upload_to)
+        upload_dir = os.path.join(upload_dir, 'vehicle/images/')
+    elif ext in ['.pdf', '.txt', '.docx', '.csv', '.xlsx']:
+        if upload_to:
+            upload_dir = os.path.join(upload_dir, upload_to)
+        upload_dir = os.path.join(upload_dir, 'docs/')
+    
+    file_uuid = str(uuid.uuid4())
+    file_path = os.path.join(upload_dir, f"{file_uuid}{ext}")
 
-        # Return file data
-        return file_path
+    # Save the file using Django's storage system
+    file_obj = default_storage.save(file_path, ContentFile(file.read()))
 
+    # Return a Django File object instead of a raw path
+    return File(default_storage.open(file_obj), name=file_obj)
 
 
 class IsAgentOrStaff(BasePermission):

@@ -49,7 +49,6 @@ class FlutterwaveAdapter(PaymentGateway):
             print(e)
             print(e.response.text if e.response else "No response text available.")
 
-    
     def verify_deposit(self, transaction_id):
        
         headers = {
@@ -67,9 +66,6 @@ class FlutterwaveAdapter(PaymentGateway):
         except requests.exceptions.RequestException as e:
             print(e)
             print(e.response.text if e.response else "No response text available.")
-
-
-
 
     def resolve(self, account_details):
 
@@ -95,7 +91,6 @@ class FlutterwaveAdapter(PaymentGateway):
         except requests.exceptions.RequestException as e:
             print(e)
             print(e.response.text if e.response else "No response text available.")
-
 
     def initiate_withdrawal(self, amount:float, account_details:object, narration,reference):
         
@@ -127,11 +122,8 @@ class FlutterwaveAdapter(PaymentGateway):
             print(e)
             print(e.response.text if e.response else "No response text available.")
 
-
     def get_transfer_fees(self, amount):
-        
         url = f"https://api.flutterwave.com/v3/transfers/fee?amount={amount}&currency=NGN"
-
         headers = {
             'Authorization': f'Bearer {config("FLW_SECRET_KEY")}',
             'Content-Type': 'application/json'
@@ -149,4 +141,22 @@ class FlutterwaveAdapter(PaymentGateway):
             print(e)
             print(e.response.text if e.response else "No response text available.")
 
-    
+    def get_banks(self, country):
+        url = f"https://api.flutterwave.com/v3/banks/{country}"  # Replace NG with the correct country code if needed
+
+        headers = {
+            'Authorization': f'Bearer {config("FLW_SECRET_KEY")}',
+            'Content-Type': 'application/json'
+        }
+
+        try:
+            response = requests.get(url, headers=headers)
+            response_data = response.json()
+            if response_data['status'] == 'success':
+                return response_data['data']  # List of banks
+
+        except requests.exceptions.RequestException as e:
+            print(e)
+            print(e.response.text if e.response else "No response text available.")
+
+        return None

@@ -29,9 +29,17 @@ class TransactionSerializer(serializers.ModelSerializer):
 class WalletSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
     transactions = TransactionSerializer(many=True)
+
     class Meta:
         model = Wallet
-        fields = ['user', 'balance', 'transactions', 'uuid']
+        fields = ['user', 'ledger_balance', 'balance', 'currency', 'transactions', 'uuid']
+
+
+
+class WalletBalanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Wallet
+        fields = ['ledger_balance', 'balance', 'currency', 'id']
 
 
 

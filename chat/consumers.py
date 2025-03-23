@@ -11,7 +11,7 @@ from .models import (
     ChatAttachment,
     ChatRoom,
 )
-
+from rest_framework.authtoken.models import Token
 from .api.serializers import (
     ChatMessageSerializer,
 )
@@ -32,6 +32,17 @@ class LiveEventRelayConsumer(WebsocketConsumer):
 
 class SupportLiveChatConsumer(WebsocketConsumer):
     def connect(self):
+        token = self.scope["query_string"].decode().split("token=")[-1]
+
+        if token:
+            try:
+                # Validate token
+                token_obj = Token.objects.get(key=token)
+                self.scope['user'] = token_obj.user  # Attach the user to the connection
+            except Token.DoesNotExist:
+                self.close()  # Reject connection if token is invalid
+                return
+
         self.room_name = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chat_{self.room_name}"
 
@@ -110,20 +121,25 @@ class LiveChatConsumer(JsonWebsocketConsumer):
 
     # Receive message from WebSocket
     def receive_json(self, content):
-        message = ChatMessage(
-            message_type='user',
-            text=content['message'],
-            room=self.room,
-            sender=self.scope['user']
-        )
-        message.save()
-        self.room.messages.add(message,)
-        self.room.save()
+        user = self.scope['user']
+        print("Request User:", self.scope['user'])
 
-        data = ChatMessageSerializer(message).data
+        if user in self.room.members.all():
+            message = ChatMessage(
+                message_type='user',
+                text=content['message'],
+                room=self.room,
+                sender=self.scope['user']
+            )
+            message.save()
+            self.room.messages.add(message,)
+            self.room.save()
 
-        async_to_sync(self.channel_layer.group_send)(
-            self.room_group_name, {"type": "chat.message", "data": data})
+            data = ChatMessageSerializer(message).data
+            async_to_sync(self.channel_layer.group_send)(
+                self.room_group_name,
+                {"type": "chat.message", "data": data}
+            )
 
     # Receive message from room group
     def chat_message(self, event):

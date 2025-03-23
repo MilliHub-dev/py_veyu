@@ -1,3 +1,4 @@
+import json
 from ..models import (
     CarRental,
     Listing,
@@ -58,12 +59,14 @@ class VehicleImageSerializer(ModelSerializer):
 
     def get_image_url(self, obj):
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.image.url)
-        return obj.image.url
-
+        if obj.image:
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return ""
 
 class VehicleSerializer(serializers.ModelSerializer):
+    features = serializers.StringRelatedField(many=True)
     images = VehicleImageSerializer(many=True)
     dealer = DealerSerializer()
     condition = serializers.SerializerMethodField()
@@ -91,6 +94,9 @@ class VehicleSerializer(serializers.ModelSerializer):
 
     def get_fuel_system(self, obj):
         return obj.get_fuel_system_display()
+
+    # def get_features(self, obj):
+    #     return json.dumps(obj.features)
 
 
 

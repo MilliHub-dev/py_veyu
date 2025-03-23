@@ -9,7 +9,7 @@ from .models import (
 )
 from utils.sms import send_sms
 from utils.mail import send_email
-
+from utils.admin import motaa_admin
 
 
 class AccountsAdmin(admin.ModelAdmin):
@@ -74,9 +74,9 @@ class OTPAdmin(admin.ModelAdmin):
 
 
 # Register your models here.
-admin.site.register(Account, AccountsAdmin)
-admin.site.register(Customer)
-admin.site.register(Mechanic)
-admin.site.register(Location)
-admin.site.register(Dealer)
-admin.site.register(OTP, OTPAdmin)
+motaa_admin.register(Account, AccountsAdmin)
+motaa_admin.register(Customer)
+motaa_admin.register(Mechanic)
+motaa_admin.register(Location)
+motaa_admin.register(Dealer)
+motaa_admin.register(OTP, OTPAdmin)
