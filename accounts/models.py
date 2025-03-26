@@ -194,7 +194,7 @@ class Mechanic(UserProfile):
 
 
     def __str__(self) -> str:
-        return self.business_name
+        return self.business_name or self.user.name
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -228,6 +228,13 @@ class MechanicBoost(DbModel):
 
 
 class Dealership(UserProfile):
+    LEVELS = {
+        'new': 'New Seller',
+        'level-1': 'Trusted Dealer',
+        'star': 'Star Host',
+        'top': 'Top Dealer',
+    }
+    
     about = models.TextField(blank=True, null=True)
     slug = models.SlugField(blank=True, null=True)
     logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
@@ -237,6 +244,8 @@ class Dealership(UserProfile):
     # verifications
     cac_number = models.CharField(max_length=200)
     tin_number = models.CharField(max_length=200)
+
+    level = models.CharField(max_length=20, default='Verified Dealer', choices=LEVELS)
 
     verified_business = models.BooleanField(default=False) # cac / business verification
     verified_tin = models.BooleanField(default=False) # verified tax number

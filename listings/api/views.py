@@ -42,6 +42,7 @@ from .serializers import (
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
     CompleteOrderSerializer,
+    OrderInspectionSerializer,
     PurchaseOfferSerializer,
 )
 from ..models import (
@@ -49,6 +50,7 @@ from ..models import (
     Listing,
     Order,
     CarRental,
+    OrderInspection,
     PurchaseOffer,
 )
 from accounts.api.serializers import (
@@ -76,6 +78,24 @@ from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
 from utils.dispatch import (on_checkout_success,)
 User = get_user_model()
+
+
+
+
+def typer(obj):
+    if type(obj) == list:
+        for item in obj:
+            typer(obj)
+    elif type(obj) == dict:
+        for key in list(obj.keys()):
+            typer(obj[key])
+    else:
+        print(f"{obj} is a {type(obj)}")
+
+def get_inspection_fee(listing):
+    if listing.listing_type == 'sale':
+        return (decimal.Decimal(0.1/100) * listing.price)
+    return (decimal.Decimal(2/100) * listing.price)
 
 
 
@@ -171,17 +191,6 @@ class MyListingsView(ListAPIView):
         return Response(data)
 
 
-def typer(obj):
-    if type(obj) == list:
-        for item in obj:
-            typer(obj)
-    elif type(obj) == dict:
-        for key in list(obj.keys()):
-            typer(obj[key])
-    else:
-        print(f"{obj} is a {type(obj)}")
-    
-
 class DealershipView(APIView):
     allowed_methods = ["GET"]
 
@@ -251,19 +260,36 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
     lookup_field = 'uuid'
 
     def get(self, request, *args, **kwargs):
-        obj = Listing.objects.get(uuid=self.kwargs['uuid'])
+        listing = Listing.objects.get(uuid=self.kwargs['uuid'])
 
-        if not request.user in obj.viewers.all():
-            obj.viewers.add(request.user,)
-            obj.save()
+        if not request.user in listing.viewers.all():
+            listing.viewers.add(request.user,)
+            listing.save()
 
-        serializer = self.serializer_class(obj, context={'request': request})
+        # count impressions here
+
+        small_change = (decimal.Decimal(25/100) * listing.price)
+
+        recommended = self.queryset.filter(
+            Q(price__gte=(listing.price - small_change)) |
+            Q(price__lte=(listing.price + small_change)) |
+            Q(vehicle__brand__iexact=listing.vehicle.brand) |
+            Q(payment_cycle__iexact=listing.payment_cycle)
+            # Q(vehicle__dealer=listing.vehicle.dealer)
+            # Q(price=listing.price) |
+        ).exclude(uuid=listing.uuid).distinct()
+
+        print("Recommended Listings:", recommended)
+
+
+        serializer = self.serializer_class(listing, context={'request': request})
+        recommended = self.serializer_class(recommended, many=True, context={'request': request})
         data = {
             'error': False,
             'message': '',
             'data': {
                 'listing': serializer.data,
-                'recommended': []
+                'recommended': recommended.data
             }
         }
         return Response(data, 200)
@@ -382,7 +408,6 @@ class BuyListingDetailView(RetrieveAPIView):
             Q(vehicle__brand__iexact=listing.vehicle.brand) |
             Q(price__gte=(listing.price - small_change)) |
             Q(price__lte=(listing.price + small_change))
-            # Q(vehicle__brand__iexact=listing.vehicle.brand) |
         ).exclude(uuid=listing.uuid).distinct()
 
         data = {
@@ -437,14 +462,13 @@ class CheckoutView(APIView):
 
     def get(self, request, *args, **kwargs):
         listing = Listing.objects.get(uuid=kwargs['listingId'])
-        # customer = request.user.customer
 
         data = {
             'error': False,
             'total': 0,
             'fees': {
                 'tax': (0.075 * float(listing.price)),
-                'inspection_fee': 0.00,
+                'inspection_fee': get_inspection_fee(listing),
                 'motaa_fee': (0.02 * float(listing.price)),
             },
             'listing': ListingSerializer(listing, context={'request': request}).data,
@@ -470,7 +494,24 @@ class CheckoutView(APIView):
         # create a new order
         # create a notification for both dealer and customer
         # register a sale in dealer's dashboard
-        return Response({'error': False, 'message': 'Your order was created'}, 200)
+        return Response({'error': False, 'message': 'Your order was created', 'data': OrderSerializer(order).data}, 200)
+
+
+class BookInspectionView(APIView):
+    allowed_methods = ['GET', 'POST']
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order = Order.objects.get(uuid=request.data['orderId'])
+        inspection = OrderInspection(
+            order=order,
+            customer=request.user.customer,
+            inspection_date=request.data['date'],
+            inspection_time=request.data['time'],
+        )
+        inspection.save()
+        return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
+
 
 
 class TestDriveRequestView(CreateAPIView):

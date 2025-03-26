@@ -4,11 +4,11 @@ from .models import (
     ServiceOffering,
     ServiceBooking,
 )
-
+from utils.admin import motaa_admin
 
 
 
 # Register your models here.
-admin.site.register(Service)
-admin.site.register(ServiceOffering)
-admin.site.register(ServiceBooking)
+motaa_admin.register(Service)
+motaa_admin.register(ServiceOffering)
+motaa_admin.register(ServiceBooking)

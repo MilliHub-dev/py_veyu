@@ -4,10 +4,8 @@ from ..models import (
     Listing,
     Order,
     Vehicle,
-    VehicleTag,
-    VehicleCategory,
+    OrderInspection,
     VehicleImage,
-    VehicleCategory,
     TestDriveRequest,
     TradeInRequest,
     PurchaseOffer,
@@ -31,7 +29,6 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 
 User = get_user_model()
-
 
 class DealerSerializer(ModelSerializer):
     location = StringRelatedField()
@@ -72,6 +69,7 @@ class VehicleSerializer(serializers.ModelSerializer):
     condition = serializers.SerializerMethodField()
     transmission = serializers.SerializerMethodField()
     fuel_system = serializers.SerializerMethodField()
+    trips = serializers.SerializerMethodField()
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -89,6 +87,9 @@ class VehicleSerializer(serializers.ModelSerializer):
     def get_condition(self, obj):
         return obj.get_condition_display()
 
+    def get_trips(self, obj):
+        return obj.trips()
+
     def get_transmission(self, obj):
         return obj.get_transmission_display()
 
@@ -98,6 +99,11 @@ class VehicleSerializer(serializers.ModelSerializer):
     # def get_features(self, obj):
     #     return json.dumps(obj.features)
 
+
+class OrderInspectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderInspection
+        fields = '__all__'
 
 
 class CreateVehicleSerializer(serializers.ModelSerializer):

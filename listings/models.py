@@ -7,6 +7,7 @@ from django.db.models import Q
 
 
 PAYMENT_CYCLES = [
+    ('single', 'One Time / Single Payment'),
     ('day', 'Daily Payments'),
     ('week', 'Weekly Payments'),
     ('month', 'Monthly Payments'),
@@ -114,22 +115,8 @@ class Vehicle(DbModel):
             self.slug = self.name.replace(' ', '-').replace('.', '').replace("'", '').lower().strip()
         return super().save(*args, **kwargs)
 
-
-class VehicleCategory(DbModel):
-    name = models.CharField(max_length=200)
-
-    class Meta:
-        verbose_name_plural = 'Vehicle Categories'
-
-    def __str__(self):
-        return self.name
-
-
-class VehicleTag(DbModel):
-    name = models.CharField(max_length=200)
-
-    def __str__(self):
-        return self.name or 'Unnamed Vehicle'
+    def trips(self):
+        return self.rentals.count()
 
 
 class CarRental(DbModel):
@@ -166,6 +153,17 @@ def float_decimal(dig, dec_places=2):
     return dec
 
 
+class OrderInspection(DbModel):
+    order = models.ForeignKey('Order', on_delete=models.CASCADE)
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    inspection_date = models.DateField(blank=True, null=True)
+    inspection_time = models.TimeField(blank=True, null=True)
+    completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Scheduled Inspection for {self.order.listing.title}"
+
+
 class Order(DbModel):
     ORDER_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
     ORDER_STATUS  = {
@@ -185,8 +183,6 @@ class Order(DbModel):
 
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
-    # switched from ManyToMany to ForeignKey
-    # because user can only checkout one item at a time
     order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE)
     payment_option = models.CharField(max_length=20, choices=PAYMENT_OPTION, default="Not Available")
     paid = models.BooleanField(default=False)
@@ -199,7 +195,6 @@ class Order(DbModel):
     rent_until = models.DateField(blank=True, null=True)
     last_payment = models.DateField(blank=True, null=True)
     next_payment = models.DateField(blank=True, null=True)
-
 
     @property
     def sub_total(self):

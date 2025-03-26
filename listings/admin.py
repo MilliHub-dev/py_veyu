@@ -5,11 +5,10 @@ from .models import (
     Listing,
     Order,
     Vehicle,
-    VehicleCategory,
-    VehicleTag,
     VehicleImage,
     TestDriveRequest,
     TradeInRequest,
+    OrderInspection,
     PurchaseOffer,
     CarPurchase,
 )
@@ -76,17 +75,6 @@ class VehicleImageAdmin(admin.ModelAdmin):
     search_fields = ['vehicle__name']
 
 
-# @motaa_admin.register(VehicleTag)
-class VehicleTagAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
-
-
-# @motaa_admin.register(VehicleCategory)
-class VehicleCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
-
 
 # @motaa_admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
@@ -107,9 +95,8 @@ motaa_admin.register(CarPurchase, CarPurchaseAdmin)
 motaa_admin.register(PurchaseOffer, PurchaseOfferAdmin)
 motaa_admin.register(TestDriveRequest, TestDriveRequestAdmin)
 motaa_admin.register(VehicleImage, VehicleImageAdmin)
-motaa_admin.register(VehicleTag, VehicleTagAdmin)
-motaa_admin.register(VehicleCategory, VehicleCategoryAdmin)
 motaa_admin.register(Vehicle, VehicleAdmin)
+motaa_admin.register(OrderInspection)
 
 
 

@@ -8,6 +8,7 @@ from ..models import (
 	ChatRoom,
 	ChatAttachment
 )
+from accounts.models import Account
 
 
 class ChatAttachmentSerializer(ModelSerializer):
@@ -34,9 +35,41 @@ class ChatMessageSerializer(ModelSerializer):
 		fields = ['sender', 'attachments', 'text', 'room', 'uuid', 'id', 'sent']
 
 
+class ChatMemberSerializer(ModelSerializer):
+	image = SerializerMethodField()
+	name = SerializerMethodField()
+	class Meta:
+		fields = ['id', 'uuid', 'email', 'name', 'image']
+		model = Account
+
+	def get_name(self, obj):
+		if obj.user_type == 'dealer':
+			if obj.dealership.business_name:
+				return obj.dealership.business_name
+		elif obj.user_type == 'mechanic':
+			if obj.mechanic.business_name:
+				return obj.mechanic.business_name
+		return obj.name
+
+	def get_image(self, obj):
+		url = None
+		request = self.context.get('request', None)
+		if not request: return url
+		if obj.user_type == 'customer':
+			if obj.customer.image:
+				url= request.build_absolute_uri(obj.customer.image.url)
+		elif obj.user_type == 'dealer':
+			if obj.dealership.logo:
+				url= request.build_absolute_uri(obj.dealership.logo.url)
+		elif obj.user_type == 'mechanic':
+			if obj.mechanic.logo:
+				url= request.build_absolute_uri(obj.mechanic.logo.url)
+		return url
+
+
 class ChatRoomSerializer(ModelSerializer):
 	messages = ChatMessageSerializer(many=True)
-	members = StringRelatedField(many=True)
+	members = ChatMemberSerializer(many=True)
 
 	class Meta:
 		model = ChatRoom
@@ -73,13 +106,16 @@ class ChatRoomListSerializer(ModelSerializer):
 		}
 
 		if other_person.user_type == 'customer':
-			data['image'] = request.build_absolute_uri(other_person.customer.image.url) or None
+			if other_person.customer.image:
+				data['image'] = request.build_absolute_uri(other_person.customer.image.url)
 		elif other_person.user_type == 'dealer':
 			data['name'] = other_person.dealership.business_name
-			data['image'] = request.build_absolute_uri(other_person.dealership.logo.url) or None
+			if other_person.dealership.logo:
+				data['image'] = request.build_absolute_uri(other_person.dealership.logo.url)
 		elif other_person.user_type == 'mechanic':
 			data['name'] = other_person.mechanic.business_name
-			data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url) or None
+			if other_person.mechanic.logo:
+				data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url)
 		return data
 
 

@@ -73,7 +73,7 @@ class MechanicListView(ListAPIView):
 
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.serializer_class(queryset, many=True)
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
 
         data = {
             'error': False,
@@ -96,8 +96,7 @@ class MechanicSearchView(ListAPIView):
     pagination_class = OffsetPaginator
     serializer_class = MechanicSerializer
     allowed_methods = ['GET']
-    # permission_classes = [IsAuthenticatedOrReadOnly]
-    # authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     
     # Add both the filter and ordering backends
     filter_backends = [DjangoFilterBackend,]
@@ -122,7 +121,7 @@ class MechanicSearchView(ListAPIView):
 
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.serializer_class(queryset, many=True)
+        serializer = self.serializer_class(queryset, context={'request': request}, many=True)
 
         data = {
             'error': False,
@@ -156,7 +155,7 @@ class MechanicProfileView(APIView):
             return Response({'error': True, 'message': "Required mech_id param missing."}, 400)
 
         try:
-            mech = MechanicSerializer(Mechanic.me(mech_id)).data
+            mech = MechanicSerializer(Mechanic.me(mech_id), context={'request': request}).data
             data = {
                 'error': False,
                 'message': 'Found mechanic',
@@ -169,9 +168,6 @@ class MechanicProfileView(APIView):
                 'message': str(error),
             }
             return Response(data, 404)
-
-        
-    
         
     def post(self, request, *args, **kwargs):
         mech_id = kwargs.get('mech_id', None)
