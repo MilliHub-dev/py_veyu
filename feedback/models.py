@@ -1,36 +1,61 @@
 from django.db import models
 from utils.models import DbModel
 
-
 # Create your models here.
 class Review(DbModel):
     REVIEW_OBJECTS = {
         'vehicle': 'Vehicle Review', # for rentals
-        'dealer': 'Delearship Review',
+        'dealer': 'Dealership Review',
         'mechanic': 'Mechanic',
         'support_ticket': 'Support Ticket',
         'purchase': 'Car Purchase',
         'service': 'Service', # for bookings
     }
 
-    stars = models.ManyToManyField("ReviewArea", blank=True)
+    ratings = models.ManyToManyField("Rating", blank=True)
     comment = models.TextField(max_length=1200, blank=True, null=True)
     reviewer = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
-    object_type = models.CharField(max_length=200, choices=REVIEW_OBJECTS)
+    object_type = models.CharField(max_length=200, choices=REVIEW_OBJECTS.items())
     related_object = models.UUIDField(blank=True, null=True) # e.g related dealership
+    related_order = models.UUIDField(blank=True, null=True) # for order/booking
+
+    @property
+    def avg_rating(self):
+        ratings = self.get_ratings()
+        if not ratings:
+            return 0  # Return 0 if there are no ratings
+        total_stars = sum(ratings[key] for key in ratings.keys())
+        total_count = len(ratings.keys())
+        return round(total_stars / total_count, 1) if total_count > 0 else 0
 
 
-class ReviewArea(DbModel):
-    REVIEW_ARES = {
+    def get_ratings(self):
+        keys = [
+            'communication',
+            'support',
+            'service-delivery',
+            'car-quality',
+            'car-cleanliness',
+        ]
+        categories = {}
+        for key in keys:
+            rating = self.ratings.filter(area=key).first()
+            if rating:
+                categories[key] = rating.stars
+        return categories
+
+
+class Rating(DbModel):
+    REVIEW_AREAS = {
         'communication': 'Communication',
+        'support': 'Support',
         'service-delivery': 'Service Delivery', # for mechs
         'car-quality': 'Car Quality', # for dealers
         'car-cleanliness': 'Car Cleanliness',
     }
     reviewId = models.ForeignKey(Review, on_delete=models.CASCADE)
-    area = models.CharField(max_length=200)
+    area = models.CharField(max_length=200, choices=REVIEW_AREAS.items())
     stars = models.PositiveSmallIntegerField()
-
 
 
 class SupportTicket(DbModel):
@@ -59,6 +84,7 @@ class SupportTicket(DbModel):
 
 
 class Tag(DbModel):
+    # tags e.g Bug, Customer Reported Error
     name = models.CharField(max_length=200)
 
     def __str__(self):return self.name
@@ -107,6 +133,8 @@ class Notification(DbModel):
         self.read = True
         self.save()
         
+
+
 
 
 

@@ -137,22 +137,53 @@ class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = RatingSerializer(many=True)
     location = StringRelatedField()
+    avg_rating = SerializerMethodField()
+    ratings = SerializerMethodField()
 
     class Meta:
         model = Dealer
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
-            "verified_phone_number", 'listings', "location","reviews", 'logo',
-            'business_name', 'slug', 'headline', 'about', 'rating', 'services'
+            "verified_phone_number", 'listings', "location", "reviews", 'logo',
+            'business_name', 'slug', 'headline', 'about', 'ratings', 'services'
         )
 
-    def get_user(self, obj):
-        account = obj.user  # Get the related account instance
+    def get_avg_rating(self, obj):
+        reviews = obj.reviews.all()
+        if not reviews.exists():
+            return 0  # Avoid division by zero
 
-        # Define custom logic to exclude or modify fields
+        total_rating = sum(review.avg_rating for review in reviews)
+        return round(total_rating / reviews.count(), 1)
+
+    def get_ratings(self, obj):
+        reviews = obj.reviews.all()
+        ratings = {}
+        
+        # Aggregate ratings from all reviews
+        for review in reviews:
+            _ratings = review.get_ratings()  # Call method, don't reference directly
+            
+            for key, stars in _ratings.items():
+                if key not in ratings:
+                    ratings[key] = {'total_stars': 0, 'count': 0}
+                
+                ratings[key]['total_stars'] += stars
+                ratings[key]['count'] += 1
+
+        # Compute average ratings per category
+        avg_ratings = {
+            key: round(value['total_stars'] / value['count'], 1)
+            for key, value in ratings.items() if value['count'] > 0
+        }
+
+        return avg_ratings
+
+    def get_user(self, obj):
+        account = obj.user
         return {
-            'uuid': account.uuid,  # Show uuid
-            'email': account.email,  # Show email
+            'uuid': account.uuid,
+            'email': account.email,
             'name': account.name,
             'provider': account.provider,
             'last_seen': account.last_seen
@@ -161,9 +192,7 @@ class DealershipSerializer(ModelSerializer):
     def get_logo(self, obj):
         request = self.context.get('request', None)
         if obj.logo:
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return obj.logo.url
+            return request.build_absolute_uri(obj.logo.url) if request else obj.logo.url
         return ''
 
 

@@ -254,6 +254,7 @@ class Dealership(UserProfile):
     listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
     vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
+    orders = models.ManyToManyField('listings.Order', blank=True,)
 
     # service scope
     offers_rental = models.BooleanField(default=False) # rents?
@@ -274,7 +275,12 @@ class Dealership(UserProfile):
         super().save(*args, **kwargs)
 
     def rating(self):
-        return '0.0'
+        avg = 0
+        for review in self.reviews.all():
+            avg += review.avg_rating
+        if avg > 0:
+            avg = avg/self.reviews.count()
+        return round(avg, 1)
 
     @property
     def services(self):

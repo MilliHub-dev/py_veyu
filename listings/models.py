@@ -93,9 +93,9 @@ class Vehicle(DbModel):
 
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
-    tags = ArrayField(blank=True, null=True, data_type='str')
+    tags = ArrayField(blank=True, null=True, data_type=str)
     custom_duty = models.BooleanField(default=False)
-    features = ArrayField(blank=True, null=True, data_type='str')
+    features = ArrayField(blank=True, null=True, data_type=str)
 
     # rental history
     last_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')

@@ -36,6 +36,7 @@ class ArrayField(models.TextField):
                 raise ValidationError("Invalid JSON format for ArrayField.")
         return []
 
+
     def get_prep_value(self, value):
         """Convert Python list to JSON string for database storage."""
         if value is None:
@@ -44,11 +45,30 @@ class ArrayField(models.TextField):
             raise ValidationError("ArrayField requires a list.")
         return json.dumps(value)
 
+
+    # def validate(self, value, model_instance):
+    #     """Ensure all items in the list match the specified type (if set)."""
+    #     super().validate(value, model_instance)
+    #     if self.data_type:
+    #         if any(not isinstance(item, self.data_type) for item in value):
+    #             raise ValidationError(f"All items must be of type {self.data_type.__name__}.")
+    
     def validate(self, value, model_instance):
         """Ensure all items in the list match the specified type (if set)."""
         super().validate(value, model_instance)
-        if self.data_type and any(not isinstance(item, self.data_type) for item in value):
-            raise ValidationError(f"All items must be of type {self.data_type.__name__}.")
+
+        print("Validating ", self, self.data_type, value)
+
+        if value is None:
+            raise ValidationError("Value cannot be None.")
+
+        if not isinstance(value, (list)):  # Ensure value is iterable
+            raise ValidationError("Value must be a list or tuple.")
+
+        if self.data_type and value:
+            for item in value:
+                if not type(item) == self.data_type:
+                    raise ValidationError(f"All items must be of type {self.data_type}.")
 
     def from_db_value(self, value, expression, connection):
         """Convert database value to Python list when fetching data."""

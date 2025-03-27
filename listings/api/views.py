@@ -255,7 +255,12 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']
     permission_classes = [IsAuthenticatedOrReadOnly]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Listing.objects.filter(verified=True, approved=False, listing_type='rental').distinct()
+    queryset = Listing.objects.filter(
+        verified=True,
+        approved=False,
+        listing_type='rental',
+        vehicle__available=True
+    ).distinct()
     serializer_class = ListingSerializer
     lookup_field = 'uuid'
 
@@ -355,7 +360,12 @@ class BuyListingView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticatedOrReadOnly,]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
+    queryset = Listing.objects.filter(
+        verified=True,
+        approved=True,
+        vehicle__available=True,
+        listing_type='sale'
+    ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarSaleFilter  # Use the filter class
     # ordering = ['']  # Default ordering if none specified by the user
@@ -486,7 +496,8 @@ class CheckoutView(APIView):
             paid= True if data['payment_option'] == 'card' else False
         )
         order.save()
-
+        listing.vehicle.available = False
+        listing.vehicle.save()
         listing.vehicle.dealer.orders.add(order,)
         listing.vehicle.dealer.save()
 

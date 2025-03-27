@@ -27,17 +27,19 @@ from django.db import models
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from feedback.api.serializers import (ReviewSerializer,)
 
 User = get_user_model()
 
 class DealerSerializer(ModelSerializer):
     location = StringRelatedField()
     logo = SerializerMethodField()
+    reviews = ReviewSerializer(many=True)
 
     class Meta:
         from accounts.models import Dealer
         model = Dealer
-        fields = ['location', 'business_name', 'uuid', 'logo']
+        fields = ['location', 'business_name', 'uuid', 'logo', 'rating', 'reviews']
 
     def get_logo(self, obj, *args, **kwargs):
         request = self.context.get('request')
