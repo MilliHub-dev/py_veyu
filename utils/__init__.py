@@ -7,15 +7,17 @@ import requests, typing, json
 from django.conf import settings
 from typing import Any, List
 from concurrent.futures import ThreadPoolExecutor
+from django.core.files import File  
+from datetime import datetime
 
-
-import uuid
-import os
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
-from concurrent.futures import ThreadPoolExecutor
-from django.conf import settings
-from django.core.files import File  # Import File for handling Django file objects
+def convert_js_date_to_django(js_date: str) -> str:
+    """Converts a JavaScript locale date (MM/DD/YYYY) to Django date format (YYYY-MM-DD)."""
+    try:
+        parsed_date = datetime.strptime(js_date, "%m/%d/%Y")
+        return parsed_date.strftime("%Y-%m-%d")
+    except ValueError:
+        raise ValueError("Invalid date format. Expected MM/DD/YYYY.")
+        
 
 def upload_multiple_files(files) -> list:
     """

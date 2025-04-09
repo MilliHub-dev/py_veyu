@@ -9,9 +9,11 @@ import threading
 
 otp_requested = Signal()
 on_booking_requested = Signal()
-on_checkout_success = Signal()
+on_checkout_success = Signal(['listing', 'customer'])
+on_inspection_created = Signal()
 on_listing_created = Signal()
 user_just_registered = Signal(['otp'])
+
 
 @receiver(on_listing_created)
 def notify_motaa_staff_of_listing_creation(sender, **kwargs):
@@ -31,24 +33,37 @@ def notify_motaa_staff_of_listing_creation(sender, **kwargs):
         print("Couldn't notify staff of listing.")
 
 
+
+@receiver(on_inspection_created)
+def handle_inspection_created(sender, **kwargs):
+    customer = sender
+    notification = Notification(
+        user=customer.user,
+        subject="Inspection Scheduled!",
+        message=f"You've Scheduled an inpection for your car on {kwargs['date']} by {kwargs['time']}",
+        level='success',
+    )
+    notification.save()
+
+
 @receiver(otp_requested)
 def handle_otp_requested(sender, user, otp, **kwargs):
     if sender == 'email':
-        # threading.Thread(
-        #     target=send_email,
-        #     kwargs={
-        #         'template':'utils/templates/email-confirmation.html',
-        #         'recipients':[user.email],
-        #         'context':{'code': otp.code, 'user': user},
-        #         'subject':"Motaa Verification",
-        #     }
-        # ).start()
-        send_email(
-            template='utils/templates/email-confirmation.html',
-            recipients=[user.email],
-            context={'code': otp.code, 'user': user},
-            subject="Motaa Verification",
-        )
+        threading.Thread(
+            target=send_email,
+            kwargs={
+                'template':'utils/templates/email-confirmation.html',
+                'recipients':[user.email],
+                'context':{'code': otp.code, 'user': user},
+                'subject':"Motaa Verification",
+            }
+        ).start()
+        # send_email(
+        #     template='utils/templates/email-confirmation.html',
+        #     recipients=[user.email],
+        #     context={'code': otp.code, 'user': user},
+        #     subject="Motaa Verification",
+        # )
     elif sender == 'sms':
         profile = None
         if user.user_type == 'customer':
@@ -78,8 +93,6 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
             level='success',
         )
         notification.save()
-        # customer.notifications.add(notification,)
-        # customer.save()
     send_customer_notification()
 
 

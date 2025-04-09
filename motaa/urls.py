@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/v1/listings/', include('listings.api.urls', namespace='listings_api')),
     path('api/v1/chat/', include('chat.api.urls', namespace="chat_api")),
     path('api/v1/wallet/', include('wallet.urls')),
+    path('api/v1/admin/mechanics/', include('bookings.api.mechanic_urls', namespace='mechanics_api')),
     path('api/v1/admin/dealership/', include('listings.api.dealership_urls', namespace='dealership_api')),
     
     # JWT Token Views

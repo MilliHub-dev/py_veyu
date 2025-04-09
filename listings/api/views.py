@@ -6,6 +6,7 @@ from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
     IsDealerOrStaff,
+    convert_js_date_to_django,
 )
 from rest_framework.parsers import (
     MultiPartParser,
@@ -76,7 +77,7 @@ from wallet.models import Wallet
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
-from utils.dispatch import (on_checkout_success,)
+from utils.dispatch import (on_checkout_success, on_inspection_created)
 User = get_user_model()
 
 
@@ -498,10 +499,12 @@ class CheckoutView(APIView):
         order.save()
         listing.vehicle.available = False
         listing.vehicle.save()
+        request.user.customer.orders.add(order,)
         listing.vehicle.dealer.orders.add(order,)
+        request.user.customer.save()
         listing.vehicle.dealer.save()
 
-        on_checkout_success.send(order, listing, request.user.customer,)
+        on_checkout_success.send(order, listing=listing, customer=request.user.customer,)
         # create a new order
         # create a notification for both dealer and customer
         # register a sale in dealer's dashboard
@@ -513,16 +516,27 @@ class BookInspectionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        order = Order.objects.get(uuid=request.data['orderId'])
-        inspection = OrderInspection(
-            order=order,
-            customer=request.user.customer,
-            inspection_date=request.data['date'],
-            inspection_time=request.data['time'],
-        )
-        inspection.save()
-        return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
+        try:
+            data = request.data
+            listing = Listing.objects.get(uuid=request.data['listing_id'])
+            order = Order.objects.get(order_item=listing)
+            order.order_status = 'awaiting-inspection'
+            order.save()
+            date = convert_js_date_to_django(data['date'])
+            time = data['time']
 
+            inspection = OrderInspection(
+                order=order,
+                customer=request.user.customer,
+                inspection_date=date,
+                inspection_time=time,
+            )
+            inspection.save()
+            on_inspection_created.send(request.user.customer, date=date, time=time)
+            return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
+        except Exception as error:
+            # raise error
+            return Response({'error': True, 'message': str(error)}, 500)
 
 
 class TestDriveRequestView(CreateAPIView):

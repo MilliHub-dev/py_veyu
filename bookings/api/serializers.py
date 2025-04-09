@@ -12,7 +12,6 @@ from ..models import (
     ServiceBooking,
 )
 
-
 class ServiceSerializer(ModelSerializer):
     class Meta:
         model = Service
@@ -89,21 +88,36 @@ class ViewBookingSerializer(ModelSerializer):
     started = SerializerMethodField('get_started')
     review = SerializerMethodField('get_review')
     mechanic = StringRelatedField()
-    customer = StringRelatedField()
+    customer = SerializerMethodField()
     services = StringRelatedField(many=True)
 
     class Meta:
         model = ServiceBooking
-        fields = ['started', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status', 'date_created', 'services']
+        fields = [
+            'uuid', 'started', 'ended', 'review', 'rating',
+            'customer', 'mechanic', 'status', 'date_created', 'services',
+        ]
 
     def get_started(self, obj):
         if obj.started_on:
-            return obj.started_on.date
+            return obj.started_on.date()
         return None
+
+    def get_customer(self, obj):
+        data = {
+            'name': obj.customer.user.name,
+            'image': '',
+        }
+        request = self.context.get('request', None)
+        if obj.customer.image:
+            if request:
+                data ['image'] = request.build_absolute_uri(obj.customer.image.url)
+            data ['image'] = obj.customer.image.url
+        return data
 
     def get_ended(self, obj):
         if obj.ended_on:
-            return obj.ended_on.date
+            return obj.ended_on.date()
         return None
 
     def get_review(self, obj):

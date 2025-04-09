@@ -54,7 +54,7 @@ class ServiceBooking(DbModel):
         return '%s - %s for %s' % (
             self.booking_status,
             self.type,
-            self.customer.account.name
+            self.customer.user.name
         )
     
     @property

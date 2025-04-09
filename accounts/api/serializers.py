@@ -7,6 +7,7 @@ from ..models import (
 )
 from feedback.api.serializers import (
     RatingSerializer,
+    ReviewSerializer,
 )
 
 from listings.api.serializers import (
@@ -84,7 +85,7 @@ def get_user_serializer(user_type):
 
 class MechanicSerializer(ModelSerializer):
     user = SerializerMethodField()
-    reviews = RatingSerializer(many=True)
+    reviews = ReviewSerializer(many=True)
     services = MechanicServiceSerializer(many=True)
     location = StringRelatedField()
     logo = SerializerMethodField()
@@ -135,7 +136,7 @@ class GetDealershipSerializer(ModelSerializer):
 
 class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
-    reviews = RatingSerializer(many=True)
+    reviews = ReviewSerializer(many=True)
     location = StringRelatedField()
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
@@ -145,7 +146,8 @@ class DealershipSerializer(ModelSerializer):
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number", 'listings', "location", "reviews", 'logo',
-            'business_name', 'slug', 'headline', 'about', 'ratings', 'services'
+            'business_name', 'slug', 'headline', 'about', 'ratings', 'services',
+            'avg_rating',
         )
 
     def get_avg_rating(self, obj):

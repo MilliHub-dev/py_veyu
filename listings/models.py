@@ -161,7 +161,7 @@ class OrderInspection(DbModel):
     completed = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Scheduled Inspection for {self.order.listing.title}"
+        return f"Scheduled Inspection for {self.order.order_item.title}"
 
 
 class Order(DbModel):
