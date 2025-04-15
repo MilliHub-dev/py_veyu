@@ -153,7 +153,6 @@ class MyListingsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Listing.objects.filter(verified=True, approved=True) # add publised = true
 
-
     def get(self, request, *args, **kwargs):
         scope = request.GET.get('scope')
         scope = scope.split(';')
@@ -519,7 +518,7 @@ class BookInspectionView(APIView):
         try:
             data = request.data
             listing = Listing.objects.get(uuid=request.data['listing_id'])
-            order = Order.objects.get(order_item=listing)
+            order = Order.objects.get(customer=request.user.customer, order_item=listing)
             order.order_status = 'awaiting-inspection'
             order.save()
             date = convert_js_date_to_django(data['date'])

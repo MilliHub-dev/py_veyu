@@ -144,10 +144,14 @@ class OrderItemSerializer(ModelSerializer):
 
 class OrderSerializer(ModelSerializer):
     order_item = ListingSerializer()
+    customer = SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
+
+    def get_customer(self, obj):
+        return obj.customer.user.name
 
 # English or Spanish 😊
 class VehicleUpdateSerializer(ModelSerializer):

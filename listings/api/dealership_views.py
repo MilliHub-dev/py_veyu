@@ -99,12 +99,25 @@ class DashboardView(APIView):
     allowed_methods = ['GET']
 
     def get(self, request):
+        dealer = Dealership.objects.get(user=request.user)
+        purchases = dealer.orders.all().filter(paid=True)
+
+        revenue = 0
+        impressions = 0
+
+        for listing in dealer.listings.all():
+            impressions += listing.viewers.count()
+
+        for order in purchases:
+            revenue += order.total
+        
+
         data = {
             'error': False,
             'data': {
-                'total_deals' : 0,
-                'impressions' : '200',
-                'total_revenue' : 0,
+                'total_deals' : dealer.orders.filter(paid=True).count(),
+                'impressions' : impressions,
+                'total_revenue' : revenue,
             }
         }
         return Response(data, 200)
@@ -321,11 +334,14 @@ class OrderListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
-    def get_queryset(self):
-        return PurchaseOffer.objects.filter(listing__created_by=self.request.user)
-
     def get(self, request):
-        return Response()
+        dealer = Dealership.objects.get(user=request.user)
+        orders = dealer.orders.all()
+        data = {
+            'error': False,
+            'data': OrderSerializer(orders, many=True, context={'request': request}).data
+        }
+        return Response(data, status=200)
 
     def post(self, request):
         return Response()
