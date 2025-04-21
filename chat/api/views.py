@@ -51,7 +51,7 @@ def send_message_view(request, room_id=None):
 		# create a new conversation
 		try:
 			room = ChatRoom.objects.filter(members__in=[request.user]).get(members=other_member.id)
-			print("Rooms:", rooms)
+			print("Room:", room)
 		except ChatRoom.DoesNotExist:
 			room = ChatRoom.objects.create(room_type='sales-chat')
 			room.members.add(*members)

@@ -1,5 +1,6 @@
+import requests, os
 from .payment_gateway import PaymentGateway
-import requests
+from paystackapi.paystack import Paystack
 from decimal import Decimal
 from decouple import config
 
@@ -160,3 +161,33 @@ class FlutterwaveAdapter(PaymentGateway):
             print(e.response.text if e.response else "No response text available.")
 
         return None
+
+
+class PaystackAdapter(PaymentGateway):
+    secret_key=os.environ['PAYSTACK_LIVE_SECRET_KEY']
+    public_key=os.environ['PAYSTACK_LIVE_PUBLIC_KEY']
+
+    client = Paystack(secret_key=secret_key)
+    countries = [
+        'nigeria',
+        'ghana',
+        'kenya',
+        'south africa',
+    ]
+
+    def initiate_deposit(self, amount, currency, customer_details, notes):pass
+
+    def get_banks(self, country="nigeria"):
+        headers = {
+            'Authorization': f"Bearer {secret_key}"
+        }
+        url = "https://api.paystack.co/bank"
+
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        if data['status'] == True:
+            return data['data']
+        else:
+            return data
+
+

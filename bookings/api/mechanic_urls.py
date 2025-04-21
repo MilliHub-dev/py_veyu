@@ -5,6 +5,7 @@ from .mechanic_views import (
     BookingUpdateView,
     MechanicSearchView,
     BookingsView,
+    MechanicSettingsView,
 )
 
 
@@ -13,6 +14,7 @@ app_name = 'mechanics_api'
 urlpatterns = [
     path('', MechanicOverview.as_view()),
     path('bookings/', BookingsView.as_view()),
+    path('settings/', MechanicSettingsView.as_view()),
     path('bookings/<booking_id>/', BookingUpdateView.as_view()),
 
 

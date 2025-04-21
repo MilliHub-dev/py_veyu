@@ -41,7 +41,8 @@ from .serializers import (
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
     CompleteOrderSerializer,
-    PurchaseOfferSerializer
+    PurchaseOfferSerializer,
+    DealerSerializer,
 )
 from ..models import (
     Vehicle,
@@ -51,7 +52,9 @@ from ..models import (
     PurchaseOffer,
     VehicleImage,
 )
-from accounts.api.serializers import GetDealershipSerializer
+from accounts.api.serializers import (
+    GetDealershipSerializer,
+)
 from accounts.models import (
     Customer,
     Dealership,
@@ -98,19 +101,38 @@ class DashboardView(APIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     allowed_methods = ['GET']
 
+    def get_chart_data(self, period="monthly"):
+        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        chart_data = {
+            'labels': labels,
+            'datasets': [
+                {
+                    'key': 'revenue',
+                    'data': []
+                }
+            ]
+        }
+
+        return chart_data
+
     def get(self, request):
         dealer = Dealership.objects.get(user=request.user)
-        purchases = dealer.orders.all().filter(paid=True)
+        purchases = dealer.orders.all()
+        listings = dealer.listings.all()
 
         revenue = 0
         impressions = 0
+        orders = dealer.orders.order_by('-id')[:10]
 
-        for listing in dealer.listings.all():
-            impressions += listing.viewers.count()
+        for listing in listings:
+            print("Impressions:", listing.viewers.all().count())
+            impressions += listing.viewers.all().count()
 
         for order in purchases:
             revenue += order.total
-        
+
+        chart_data = self.get_chart_data()
 
         data = {
             'error': False,
@@ -118,6 +140,8 @@ class DashboardView(APIView):
                 'total_deals' : dealer.orders.filter(paid=True).count(),
                 'impressions' : impressions,
                 'total_revenue' : revenue,
+                'recent_orders': OrderSerializer(orders, many=True, context={'request': request}).data,
+                'chart_data': chart_data
             }
         }
         return Response(data, 200)
@@ -139,12 +163,24 @@ class ListingsView(ListAPIView):
 
     def post(self, request, *args, **kwargs):
         action = request.data['action']
+        dealer = Dealership.objects.get(user=request.user)
+        listing = dealer.listings.get(uuid=request.data['listing'])
+        data = {
+            'error': False,
+            'message': '',
+        }
         if action == 'delete':
-            pass
-        elif action == 'boost':
-            pass
-        elif action == 'make-available':pass
-        return
+            listing.delete()
+            data['message'] = "Successfully Deleted Listing"
+        elif action == 'unpublish':
+            listing.verified = False
+            listing.save()
+            data['message'] = "Successfully Unpublished Listing"
+        elif action == 'publish':
+            listing.verified = True
+            listing.save()
+            data['message'] = "Successfully Published Listing"
+        return Response(data, 200)
 
 
 class CreateListingView(CreateAPIView):
@@ -192,7 +228,7 @@ class CreateListingView(CreateAPIView):
                     listing_type=data['listing_type'],
                     price=data['price'],
                     title=data['title'],
-                    notes=data['notes'],
+                    notes=data.get('notes', ''),
                 )
                 if data['listing_type'] == 'rental':
                     listing.payment_cycle = data['payment_cycle']
@@ -351,11 +387,35 @@ class OrderListView(ListAPIView):
 class SettingsView(APIView):
     allowed_methods = ['POST', 'GET']
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    parser_classes = [MultiPartParser, JSONParser]
 
     def get(self, request):
-        return Response()
+        dealer = Dealership.objects.get(user=request.user)
+        data = {
+            'error': False,
+            'data': DealerSerializer(dealer, context={'request': request}).data
+        }
+        return Response(data, status=200)
 
     def post(self, request):
-        return Response()
+        data = request.data
+        dealer = Dealership.objects.get(user=request.user)
+        
+        if data.get('new-logo', None):
+            dealer.logo = data['new-logo']
+        dealer.business_name = data['business_name']
+        dealer.about = data['about']
+        dealer.slug = data.get('slug', None)
+        dealer.headline = data['headline']
+        dealer.offers_purchase = 'Car Sale' in data['services']
+        dealer.offers_rental = 'Car Leasing' in data['services']
+        dealer.offers_drivers = 'Drivers' in data['services']
+        dealer.save()
+        
+        data = {
+            'error': False,
+            'data': DealerSerializer(dealer, context={'request': request}).data
+        }
+        return Response(data, 200)
 
 

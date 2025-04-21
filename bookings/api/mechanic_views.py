@@ -6,6 +6,10 @@ from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
 from utils.sms import send_sms
 from utils.mail import send_email
+from rest_framework.parsers import (
+    MultiPartParser,
+    JSONParser,
+)
 from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
 from rest_framework.permissions import (
@@ -275,5 +279,41 @@ class BookingUpdateView(APIView):
         }
         return Response(data, 200)
 
+
+
+class MechanicSettingsView(APIView):
+    parser_classes = [MultiPartParser, JSONParser]
+    permission_classes = [IsAuthenticated, IsMechanicOnly,]
+    allowed_methods = ['GET', 'POST']
+
+    def get(self, request):
+        mechanic = Mechanic.objects.get(user=request.user)
+        data = {
+            'error': False,
+            'data': MechanicSerializer(mechanic, context={'request': request}).data
+        }
+        return Response(data, 200)
+
+    def post(self, request):
+        mechanic = Mechanic.objects.get(user=request.user)
+        data = request.data
+        print("DATA:", data)
+
+        mechanic.business_name = data['business_name']
+        mechanic.about = data.get('about', "")
+        mechanic.headline = data.get('headline', "")
+        mechanic.cac_number = data.get('cac_number', "")
+        mechanic.tin_number = data.get('tin_number', "")
+        mechanic.slug = None
+
+        if data.get('new-logo', None):
+            mechanic.logo = data['new-logo']
+
+        mechanic.save()
+        data = {
+            'error': False,
+            'data': MechanicSerializer(mechanic, context={'request': request}).data
+        }
+        return Response(data, 200)
 
 

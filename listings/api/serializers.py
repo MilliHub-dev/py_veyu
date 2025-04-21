@@ -35,11 +35,29 @@ class DealerSerializer(ModelSerializer):
     location = StringRelatedField()
     logo = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
+    owner = SerializerMethodField()
 
     class Meta:
         from accounts.models import Dealer
         model = Dealer
-        fields = ['location', 'business_name', 'uuid', 'logo', 'rating', 'reviews']
+        fields = [
+            'location',
+            'business_name',
+            'uuid',
+            'logo',
+            'owner',
+            'rating',
+            'about',
+            'reviews',
+            'headline',
+            'cac_number',
+            'tin_number',
+            'services',
+            'offers_drivers',
+            'offers_trade_in',
+            'offers_rental',
+            'offers_purchase',
+        ]
 
     def get_logo(self, obj, *args, **kwargs):
         request = self.context.get('request')
@@ -48,6 +66,17 @@ class DealerSerializer(ModelSerializer):
                 return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return None
+
+    def get_owner(self, obj):
+        user = obj.user
+        return {
+            'user_id': user.uuid,
+            'email': user.email,
+            'name': user.name,
+            'phone_number': obj.phone_number,
+        }
+
+
 
 class VehicleImageSerializer(ModelSerializer):
     url = serializers.SerializerMethodField(method_name='get_image_url')

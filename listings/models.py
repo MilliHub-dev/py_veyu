@@ -198,28 +198,29 @@ class Order(DbModel):
 
     @property
     def sub_total(self):
-        amt = 0
+        amt = to_decimal(0.00)
         if self.is_recurring:
             cycle = 1
             days = 30 # count days
-            amt += (self.order_item.listing.price/30) * days
+            amt += (self.order_item.price/30) * days
         else:
-            amt += self.order_item.listing.price
+            amt += self.order_item.price
 
         # 0.5% added fees
-        amt += ((0.5/100) * amt)
+        amt += (to_decimal(0.5/100) * amt)
+        return amt
 
     @property
     def total(self):
         amt = self.sub_total
         # add discounts from coupons
-        for coupon in self.coupons.all():
+        for coupon in self.applied_coupons.all():
             val = coupon.discount_value
             if coupon.discount_type == 'percentage':
-                val = ((coupon.discount_value/100) * amt)
+                val = (to_decimal(coupon.discount_value/100) * amt)
             amt -= val
         # add 0.5% commission
-        amt += ((0.5 / 100) * amt)
+        amt += to_decimal(0.5 / 100) * amt
         return amt
 
     def __str__(self):
