@@ -141,6 +141,7 @@ class CompleteWalletDepositFlutterwave(APIView):
         
         if response['status'] == 'success':
             user_wallet = get_object_or_404(Wallet, user=request.user)
+            user_wallet.ledger_balance += Decimal(amount)
             transaction = Transaction(
                 sender=request.user.name,
                 recipient_wallet=user_wallet,
