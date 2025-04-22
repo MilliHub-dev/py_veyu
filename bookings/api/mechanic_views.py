@@ -77,6 +77,38 @@ class MechanicOverview(ListAPIView):
         return Response(data, 200)
 
 
+class MechanicDashboardView(ListAPIView):
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        mechanic = request.user.mechanic
+        booking_history = mechanic.job_history.filter(
+            Q(completed=True) |
+            Q(booking_status='accepted') |
+            Q(booking_status='declined') 
+        )
+        pending_requests = mechanic.job_history.filter(booking_status='pending')
+        current_job = mechanic.current_job
+        impressions = 0
+        revenue = 0
+
+        data = {
+            'error': False,
+            'message': 'Got Data',
+            'data': {
+                'total_revenue': revenue,
+                'total_bookings': booking_history.count(),
+                'total_impressions': impressions,
+                'current_job': ViewBookingSerializer(current_job, context={'request': request}).data,
+                'booking_history': ViewBookingSerializer(booking_history, many=True, context={'request': request}).data,
+                'pending_requests': ViewBookingSerializer(pending_requests, many=True, context={'request': request}).data,
+            }
+        }
+        return Response(data, 200)
+
+
 class BookingsView(APIView):
     view_name = "Bookings View"
     allowed_methods = ['GET', 'POST']
@@ -304,6 +336,8 @@ class MechanicSettingsView(APIView):
         mechanic.headline = data.get('headline', "")
         mechanic.cac_number = data.get('cac_number', "")
         mechanic.tin_number = data.get('tin_number', "")
+        mechanic.contact_email = data.get('contact_email', "")
+        mechanic.contact_phone = data.get('contact_phone', "")
         mechanic.slug = None
 
         if data.get('new-logo', None):

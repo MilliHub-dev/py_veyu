@@ -180,17 +180,26 @@ class Mechanic(UserProfile):
         'business': 'Registered Business',
         'individual': 'Individual Mechanic',
     }
+    LEVELS = {
+        'new': 'New Seller',
+        'level-1': 'Trusted Mechanic',
+        'top': 'Top Rated',
+    }
+    
     about = models.TextField(blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
+    slug = models.SlugField(blank=True, null=True)
     headline = models.CharField(max_length=200, blank=True, null=True)
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
     current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
-    mechanic_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
+    business_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
     logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
-    slug = models.SlugField(blank=True, null=True)
+    level = models.CharField(max_length=20, default='new', choices=LEVELS)
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
 
 
     def __str__(self) -> str:
@@ -240,12 +249,14 @@ class Dealership(UserProfile):
     logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     headline = models.CharField(max_length=200, blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
 
     # verifications
     cac_number = models.CharField(max_length=200)
     tin_number = models.CharField(max_length=200)
 
-    level = models.CharField(max_length=20, default='Verified Dealer', choices=LEVELS)
+    level = models.CharField(max_length=20, default='new', choices=LEVELS)
 
     verified_business = models.BooleanField(default=False) # cac / business verification
     verified_tin = models.BooleanField(default=False) # verified tax number
@@ -326,9 +337,12 @@ class Location(DbModel):
     user = models.ForeignKey('Account', on_delete=models.CASCADE)
     country = models.CharField(max_length=2, default='NG')
     state = models.CharField(max_length=200)
-    city = models.CharField(max_length=200)
+    city = models.CharField(max_length=200, blank=True, null=True)
     address = models.CharField(max_length=300)
     zip_code = models.CharField(max_length=6, blank=True, null=True)
+    lat = models.CharField(max_length=20, blank=True, null=True)
+    lng = models.CharField(max_length=20, blank=True, null=True)
+    google_place_id = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return f'{self.country}' +', '+ f'{self.state}'
@@ -348,20 +362,16 @@ class OTP(DbModel):
     def verify(self, code, user=None):
         if self.code == code:
             if user and user == self.valid_for: # for verifying user_profiles
-                user_profile = self.get_user_profile()
-                if user_profile is not None: # if None ie user/valid_for is an agent/staff account
-                    if self.channel == 'email':
-                        user_profile.verify_email()
-                    elif self.channel == 'sms':
-                        user_profile.verify_phone_number()
-                    self.delete()
-                    return True
-                else:
-                    self.valid_for.verify_email()
-                    self.delete()
-                    return True
-            return False
+                if self.channel == 'email':
+                    user.verified_email = True
+                    user.save()
+                elif self.channel == 'sms':
+                    user.user_profile.verified_phone_number = True
+                    user.user_profile.save()
+                self.delete()
+                return True    
         return False
+
 
     def get_user_profile(self):
         if self.valid_for.user_type == 'customer':

@@ -13,7 +13,9 @@ from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 from decimal import Decimal
-
+from utils.dispatch import (
+    on_wallet_deposit,
+)
 from .gateway.payment_factory import get_payment_gateway
 from .gateway.payment_adapter import FlutterwaveAdapter
 import uuid
@@ -137,7 +139,7 @@ class CompleteWalletDepositFlutterwave(APIView):
 
         # confirm the deposit from flutterwave
         response = self.flutterwave.verify_deposit(transaction_id=transaction_id)
-        print("Confirming Transaction", data['transaction_id'])
+        print("Verifying transaction:", transaction_id)
         
         if response['status'] == 'success':
             user_wallet = get_object_or_404(Wallet, user=request.user)
@@ -156,8 +158,7 @@ class CompleteWalletDepositFlutterwave(APIView):
             user_wallet.save()
 
             # # send a notification
-            # Notification.objects.create(
-            # )
+            on_wallet_deposit.send(request.user, wallet=user_wallet, amount=amount)
 
             data = {
                 'error': False,

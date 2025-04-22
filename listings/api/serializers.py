@@ -55,6 +55,8 @@ class DealerSerializer(ModelSerializer):
             'services',
             'offers_drivers',
             'offers_trade_in',
+            'contact_email',
+            'contact_phone',
             'offers_rental',
             'offers_purchase',
         ]

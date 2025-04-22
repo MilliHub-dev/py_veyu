@@ -1,4 +1,4 @@
-
+import json
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
 from django.db import transaction
@@ -50,6 +50,7 @@ from ..models import (
     Dealership,
     Dealer,
     UserProfile,
+    Location,
 )
 from .serializers import (
     AccountSerializer,
@@ -75,12 +76,16 @@ from feedback.models import Notification
 from feedback.api.serializers import NotificationSerializer
 from bookings.api.serializers import (BookingSerializer, )
 from dj_rest_auth.jwt_auth import JWTAuthentication
-
+from rest_framework.parsers import (
+    MultiPartParser,
+    JSONParser,
+)
 
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SignupSerializer
+    parser_classes = [MultiPartParser, JSONParser]
 
     def get(self, request:Request):
         # check if user with email exists only
@@ -105,44 +110,92 @@ class SignUpView(generics.CreateAPIView):
 
     def post(self, request:Request):
         try:
-            with transaction.atomic():
-                data = request.data
-                action = data['action'] or 'create-account'
+            data = request.data
+            print("Signup data:", data)
+            action = data['action'] or 'create-account'
 
-                if action == 'create-account':
-                    user_type = data['user_type']
-                    user = Account(
-                        first_name=data['first_name'],
-                        last_name=data['last_name'],
-                        email=data['email'],
-                        provider=data['provider'],
-                        user_type=data['user_type']
+            if action == 'create-account':
+                user_type = data['user_type']
+                user = Account(
+                    first_name=data['first_name'],
+                    last_name=data['last_name'],
+                    email=data['email'],
+                    provider=data['provider'],
+                    user_type=data['user_type']
+                )
+                user.save(using=None)
+                if data['provider'] == 'motaa':
+                    user.set_password(data['password'])
+                else:
+                    user.set_unusable_password()
+                user.save()
+
+                if user_type == 'customer':
+                    Customer.objects.create(user=user, phone_number=data['phone_number'])
+                # else:
+                #     business = {'dealer': Dealership, 'mechanic': Mechanic}.get(user_type)
+                #     business.objects.create(user=user)
+                user_data = {
+                    "token": str(user.api_token),
+                }
+                user_data.update(AccountSerializer(user).data)
+                return Response({ 'error': False, 'data': user_data }, 201)
+            elif action == 'setup-business-profile':
+                user = request.user
+                if not user:
+                    return Response({'error': True, 'message': "Unauthorized access"}, 401)
+
+                user_type = data['user_type']
+                profile_model = {'mechanic': Mechanic, 'dealer': Dealership}.get(user_type)
+                serializer = {'mechanic': MechanicSerializer, 'dealer': GetDealershipSerializer}.get(user_type)
+                if profile_model:
+                    business = profile_model(
+                        user=user,
+                        logo = data['logo'],
+                        about=data['about'],
+                        headline=data['headline'],
+                        phone_number=data['contact_phone'],
+                        business_name=data['business_name'],
+                        contact_email = data['contact_email'],
+                        contact_phone = data['contact_phone'],
                     )
-                    user.save(using=None)
-                    if data['provider'] == 'motaa':
-                        user.set_password(data['password'])
-                    else:
-                        user.set_unusable_password()
-                    user.save()
 
-                    # can't use Agent in profile model, because Agents are basically ordinary users with is_staff=True
-                    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealership}.get(user_type)
-                    if profile_model:
-                        profile_model.objects.create(user=user, phone_number=data['phone_number'])
-                        # if not user_type == 'customer':
-                        #     profile_model.business_name = ""
-                        #     profile_model.save()
+                    if user_type == 'mechanic':
+                        business.business_type = data['business_type']
+                    elif user_type == 'dealer':
+                        business.offers_purchase = ('Car Sale' in data['services'])
+                        business.offers_rentals = ('Car Leasing' in data['services'])
+                        business.offers_drivers = ('Drivers' in data['services'])
 
-                        data = {
-                            'access_token': str(AccessToken.for_user(user)),
-                            'refresh_token': str(RefreshToken.for_user(user))
-                        }
-                        data.update(AccountSerializer(user).data)
-                        return Response(data, status=status.HTTP_201_CREATED)
-                    else:
-                        return Response({'error' : False, 'message': ""})
+                    if data.get('location', None):
+                        if type(data['location']) == str:
+                            place = json.loads(data['location'])
+                            business_location = Location(
+                                user=user,
+                                lat=place.get('lat', None),
+                                lng=place.get('lng', None),
+                                country=place['country'],
+                                state=place['state'],
+                                city=place['city'],
+                                address=place['street_address'],
+                                zip_code=place.get('zip_code', None),
+                                google_place_id=place.get('place_id', None),
+                            )
+                            business_location.save()
+                            business.location = business_location
+                    business.save()
+
+
+                    data = {
+                        'error': False,
+                        'data': serializer(business, context={'request': request}).data
+                    }
+                    return Response(data, status=200)
+                else:
+                    return Response({'error' : False, 'message': "Invalid or missing user_type param"})
         except Exception as error:
-            message = str(error.__cause__)
+            message = str(error)
+            raise error
             if message == 'UNIQUE constraint failed: accounts_customer.phone_number':
                 message = "User with this phone number already exists"
             return Response({'error' : True, 'message': message}, 500)
@@ -305,6 +358,7 @@ class VerifyEmailView(APIView):
                             }, status=status.HTTP_200_OK)
                         raise Exception('Invalid OTP')
                 except Exception as error:
+                    raise error
                     return Response({
                         'error': True,
                         'message': 'Invalid OTP'

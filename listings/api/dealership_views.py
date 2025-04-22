@@ -244,11 +244,11 @@ class CreateListingView(CreateAPIView):
                 for img in paths:
                     image = VehicleImage(
                         image=img,
-                        vehicle=vehicle
+                        vehicle=listing.vehicle
                     )
                     image.save()
-                    vehicle.images.add(image,)
-                vehicle.save() # save to db
+                    listing.vehicle.images.add(image,)
+                listing.vehicle.save() # save to db
             elif action == 'publish-listing':
                 listing = dealer.listings.get(uuid=data['listing'])
                 listing.publish()

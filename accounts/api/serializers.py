@@ -94,8 +94,8 @@ class MechanicSerializer(ModelSerializer):
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number","available", "location","current_job", "services",
-            "job_history","reviews", 'logo', 'business_name', 'slug', 'mechanic_type',
-            'headline', 'about', 'rating'
+            "job_history","reviews", 'logo', 'business_name', 'slug', 'headline',
+            'about', 'rating', 'contact_email', 'contact_phone', 'business_type',
         )
 
     def get_logo(self, obj):
@@ -147,7 +147,7 @@ class DealershipSerializer(ModelSerializer):
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number", 'listings', "location", "reviews", 'logo',
             'business_name', 'slug', 'headline', 'about', 'ratings', 'services',
-            'avg_rating',
+            'avg_rating', 'contact_email', 'contact_phone'
         )
 
     def get_avg_rating(self, obj):

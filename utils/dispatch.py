@@ -12,7 +12,22 @@ on_booking_requested = Signal()
 on_checkout_success = Signal(['listing', 'customer'])
 on_inspection_created = Signal()
 on_listing_created = Signal()
+on_wallet_deposit = Signal()
 user_just_registered = Signal(['otp'])
+
+
+@receiver(on_wallet_deposit)
+def create_notification(sender, **kwargs):
+    # create a notification
+    # send an email of the receipt from motaa
+    user = sender
+    notification = Notification(
+        user=user,
+        subject="Deposit Received!",
+        message=f"You've added {kwargs['wallet'].currency} {kwargs['amount']} to your wallet.",
+        level='success',
+    )
+    notification.save()
 
 
 @receiver(on_listing_created)

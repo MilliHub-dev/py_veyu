@@ -48,7 +48,6 @@ def send_message_view(request, room_id=None):
 	member_ids = [member.id for member in members]
 	print("Members:", members)
 	if room_id is None:
-		# create a new conversation
 		try:
 			room = ChatRoom.objects.filter(members__in=[request.user]).get(members=other_member.id)
 			print("Room:", room)
