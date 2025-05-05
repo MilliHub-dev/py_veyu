@@ -1,0 +1,89 @@
+{% load static tz %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --primary-color: #2e5cb8;
+      --tertiary-color: #ffd700;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f7f7;
+      color: #333;
+      margin: 0;
+    }
+    .email-container {
+      margin: auto;
+      border: 1px solid #ddd;
+      position: fixed;
+      align-items: center;
+      justify-content: center;
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      overflow-y: auto;
+      left: 0px;
+      top: 0px;
+    }
+
+    .header {
+      background-color: white;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .content {
+      background-color: white;
+      padding: 20px;
+    }
+    .title{
+      background-color: #2e5cb8;
+      text-align: center;
+      font-weight: bold;
+      color: #fff;
+      padding: 20px;
+    }
+    .footer {
+      background-color: var(--primary-color);
+      text-align: center;
+      font-size: 15px;
+      font-weight: bold;
+      color: #fff;
+      padding: 20px;
+    }
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    .highlight {
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+    .email-body{
+      width: 100%;
+      max-width: 900px;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-body">
+      <div class="header">
+        <div> <img src="https://server.motaa.net/static/motaa/motaa-logo-3.png" alt="Motaa Logo"> </div>
+      </div>
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
+      <div class="footer">
+        &copy; {% now "Y" %} Motaa. All rights reserved.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

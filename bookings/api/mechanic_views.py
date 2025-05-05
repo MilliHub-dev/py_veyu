@@ -32,7 +32,6 @@ from accounts.api.serializers import (
 )
 from utils.dispatch import (
     user_just_registered,
-    handle_new_signup,
 )
 from utils import (
     IsMechanicOnly,
@@ -89,7 +88,12 @@ class MechanicDashboardView(ListAPIView):
             Q(booking_status='accepted') |
             Q(booking_status='declined') 
         )
-        pending_requests = mechanic.job_history.filter(booking_status='pending')
+        pending_requests = ServiceBooking.objects.filter(
+            Q(mechanic=mechanic) &
+            Q(booking_status='pending') |
+            Q(booking_status='requested')
+        )
+        
         current_job = mechanic.current_job
         impressions = 0
         revenue = 0
@@ -121,7 +125,6 @@ class BookingsView(APIView):
         history = mechanic.job_history.all().exclude(booking_status='requested')
         requests = ServiceBooking.objects.filter(mechanic=mechanic, booking_status='requested')
 
-        print("Bookings", history, requests)
         data = {
             'error': False,
             'message': 'Successfully got bookings',

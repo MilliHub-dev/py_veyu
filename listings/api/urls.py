@@ -4,7 +4,6 @@ from .views import (
     MyListingsView,
     BuyListingView,
     RentListingView,
-    BookCarRentalView,
     ListingSearchView,
     BuyListingDetailView,
     RentListingDetailView,

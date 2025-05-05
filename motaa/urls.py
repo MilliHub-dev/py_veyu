@@ -24,7 +24,7 @@ schema_view = get_schema_view(
     ),
     public=True,
     authentication_classes=[BasicAuthentication, SessionAuthentication],
-    # permission_classes=(permissions.IsAuthenticated),
+    permission_classes=(permissions.AllowAny, permissions.IsAuthenticated),
 )
 
 
@@ -33,9 +33,11 @@ urlpatterns = [
     # Admin
     path('admin/', motaa_admin.urls),
     path('old-admin/', admin.site.urls),
+    
     # Api Documetation
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI
+    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # Redoc UI
+    
     # API Endpoints
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
     path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>New Rental Confirmed</h2>
+  <p>Hello {{ recipient_name }},</p>
+  <p>A new rental has been scheduled.</p>
+  <ul>
+    <li>Car: {{ car_name }}</li>
+    <li>Renter: {{ customer_name }}</li>
+    <li>Rental Period: {{ start_date }} to {{ end_date }}</li>
+  </ul>
+{% endblock %}

@@ -13,11 +13,51 @@ on_checkout_success = Signal(['listing', 'customer'])
 on_inspection_created = Signal()
 on_listing_created = Signal()
 on_wallet_deposit = Signal()
-user_just_registered = Signal(['otp'])
+user_just_registered = Signal()
+
+
+@receiver(on_booking_requested)
+def handle_booking_request(sender, **kwargs):
+    # create a notification for mechanics and customers
+    user_notification = Notification(
+        user=kwargs['customer'].user,
+        subject="Booking Requested!",
+        message=f"You booked {str(kwargs['mechanic'])}. A message has been sent to notify them.",
+        level='success',
+    )
+    user_notification.save()
+
+    mech_notification = Notification(
+        user=kwargs['mechanic'].user,
+        subject="Booking Requested!",
+        message=f"{str(kwargs['customer'])} has booked you for '{', '.join(service for service in kwargs['services'])}'.",
+        level='info',
+    )
+    mech_notification.save()
+
+    threading.Thread(
+        target=send_email,
+        kwargs={
+            'subject':"Booking Request Sent!",
+            'template':'utils/templates/new_booking.html',
+            'context': {
+                'booking': sender,
+                'customer': kwargs['customer'],
+                'mechanic': kwargs['mechanic'],
+                'services': kwargs['services']
+            },
+            'recipients':[
+                kwargs['customer'].user.email,
+                kwargs['mechanic'].user.email,
+                '7thogofe@gmail.com',
+            ],
+        }
+    ).start()
+
 
 
 @receiver(on_wallet_deposit)
-def create_notification(sender, **kwargs):
+def handle_wallet_deposit(sender, **kwargs):
     # create a notification
     # send an email of the receipt from motaa
     user = sender
@@ -62,7 +102,10 @@ def handle_inspection_created(sender, **kwargs):
 
 
 @receiver(otp_requested)
-def handle_otp_requested(sender, user, otp, **kwargs):
+def handle_otp_requested(sender, **kwargs):
+    user = kwargs['user']
+    otp = kwargs['otp']
+
     if sender == 'email':
         threading.Thread(
             target=send_email,
@@ -110,13 +153,13 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
         notification.save()
     send_customer_notification()
 
-
-def handle_new_signup(sender:Account, otp, **kwargs):
+@receiver(user_just_registered)
+def handle_welcome_new_signup(sender:Account, **kwargs):
     send_email(
-        subject="Motaa Verification: Confirm your Email address",
+        subject="Welcome To Motaa",
         recipients=[sender.email],
-        context={'user': sender, 'code': otp.code},
-        template='utils/templates/email-confirmation.html'
+        context={'user': sender},
+        template='utils/templates/welcome.html'
     )
 
 

@@ -3,7 +3,7 @@ from .payment_gateway import PaymentGateway
 from paystackapi.paystack import Paystack
 from decimal import Decimal
 from decouple import config
-
+from django.conf import settings
 
 class FlutterwaveAdapter(PaymentGateway):
     def initiate_deposit(self, amount:float, currency:str, customer_details:object, reference):
@@ -166,6 +166,9 @@ class FlutterwaveAdapter(PaymentGateway):
 class PaystackAdapter(PaymentGateway):
     secret_key=os.environ['PAYSTACK_LIVE_SECRET_KEY']
     public_key=os.environ['PAYSTACK_LIVE_PUBLIC_KEY']
+    if settings.DEBUG:
+        public_key=os.environ['PAYSTACK_TEST_PUBLIC_KEY']
+        secret_key=os.environ['PAYSTACK_TEST_SECRET_KEY']
 
     client = Paystack(secret_key=secret_key)
     countries = [
@@ -176,6 +179,14 @@ class PaystackAdapter(PaymentGateway):
     ]
 
     def initiate_deposit(self, amount, currency, customer_details, notes):pass
+
+    def verify_transaction(self, reference):
+        try:
+            verified_data = self.client.transaction.verify(reference)
+            return verified_data
+        except Exception as error:
+            return {'status': 'error', 'message': str(error)}
+
 
     def get_banks(self, country="nigeria"):
         headers = {

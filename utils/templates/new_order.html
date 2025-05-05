@@ -1,0 +1,11 @@
+{% extends "emails/base.html" %}
+{% block content %}
+  <h2>New Order Notification</h2>
+  <p>Hello {{ recipient_name }},</p>
+  <p>You have a new order (Order ID: {{ order_id }}) placed on Motaa.</p>
+  <ul>
+    <li>Car: {{ car_name }}</li>
+    <li>Customer: {{ customer_name }}</li>
+    <li>Price: {{ price }}</li>
+  </ul>
+{% endblock %}

@@ -93,6 +93,7 @@ def typer(obj):
     else:
         print(f"{obj} is a {type(obj)}")
 
+
 def get_inspection_fee(listing):
     if listing.listing_type == 'sale':
         return (decimal.Decimal(0.1/100) * listing.price)
@@ -106,7 +107,13 @@ class ListingSearchView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticatedOrReadOnly,]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Listing.objects.filter(approved=True, verified=True,).distinct() # serach all listings sale & rent
+    queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        vehicle__available=True,
+        vehicle__dealer__verified_business=True,
+        vehicle__dealer__verified_id=True,
+    ).distinct() # serach all listings sale & rent
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter # Use the filter class
     pagination_class = OffsetPaginator
@@ -151,7 +158,13 @@ class ListingSearchView(ListAPIView):
 class MyListingsView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Listing.objects.filter(verified=True, approved=True) # add publised = true
+    queryset = queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        vehicle__available=True,
+        vehicle__dealer__verified_business=True,
+        vehicle__dealer__verified_id=True,
+    ).distinct() # serach all listings sale & rent
 
     def get(self, request, *args, **kwargs):
         scope = request.GET.get('scope')
@@ -193,21 +206,10 @@ class MyListingsView(ListAPIView):
 
 class DealershipView(APIView):
     allowed_methods = ["GET"]
-
-    # def get(self, request, slug):
-    #     print("Dealer Kwargs:", typer(slug))
-    #     try:
-    #         dealer = Dealership.objects.get(slug=slug)
-    #         data = {
-    #             'error': False,
-    #             'data': DealershipSerializer(dealer, context={'request': request}).data
-    #         }
-    #         return Response(data, 200)
-
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, uuid):
         dealer = Dealership.objects.get(uuid=uuid)
-        print("Dealer Kwargs:", dealer)    
         data = {
             'error': False,
             'data': DealershipSerializer(dealer, context={'request': request}).data
@@ -221,7 +223,14 @@ class RentListingView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticatedOrReadOnly,]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Listing.objects.filter(approved=True, verified=True, listing_type='rental').distinct()
+    queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        listing_type='rental',
+        vehicle__available=True,
+        vehicle__dealer__verified_id=True,
+        vehicle__dealer__verified_business=True,
+    ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter # Use the filter class
     pagination_class = OffsetPaginator
@@ -300,60 +309,6 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
         return Response(data, 200)
 
 
-class BookCarRentalView(CreateAPIView):
-    allowed_methods = ['POST']
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = BookCarRentalSerializer
-    queryset = Order.objects.all()
-
-    def perform_create(self, serializer):
-        # order_items = serializer.validated_data.get('order_items', [])
-        # print("Order items:", order_items)  # Debug log
-        # print("serializer: ", serializer)
-
-        try:
-            print('self.request.user')
-            customer_main = Customer.objects.get(user=self.request.user)
-            print(f"Customer: {customer_main}")
-        except Customer.DoesNotExist:
-            # Return error response if customer profile doesn't exist
-            raise ValidationError({'error': 'Customer profile does not exist for this account.'})
-
-        # Save the order with the associated customer
-        try:
-            serializer.save(customer=customer_main)
-            print('serializer Saved')
-
-            order_instance = serializer.instance
-            print(f"Order Items: {list(order_instance.order_items.all())}")
-        except Exception as e:
-            print(f"Error saving order: {e}")
-            raise ValidationError({'error': {e}})
-
-    def create(self, request, *args, **kwargs):
-        # Call the original create method to handle POST
-        response = super().create(request, *args, **kwargs)
-
-        # Customize the response
-        return Response({
-            'message': 'Car rental successfully booked',
-            'order': response.data
-        }, status=response.status_code)
-
-
-class BookCarRentalViewDetailView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    serializer_class = BookCarRentalSerializer
-    lookup_field = 'uuid'
-
-    def get_queryset(self):
-        user = Customer.objects.get(user = self.request.user)
-        return Order.objects.filter(customer=user)
-
-
 # Buying
 class BuyListingView(ListAPIView):
     allowed_methods = ['GET']
@@ -364,6 +319,8 @@ class BuyListingView(ListAPIView):
         verified=True,
         approved=True,
         vehicle__available=True,
+        vehicle__dealer__verified_id=True,
+        vehicle__dealer__verified_business=True,
         listing_type='sale'
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
@@ -371,7 +328,10 @@ class BuyListingView(ListAPIView):
     # ordering = ['']  # Default ordering if none specified by the user
     pagination_class = OffsetPaginator
 
-
+    @swagger_auto_schema(
+        operation_summary="Get Car Listings for Sale",
+        responses={'200': ListingSerializer(many=True)}
+    )
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(
             self.filter_queryset(

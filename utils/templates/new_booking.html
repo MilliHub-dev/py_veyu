@@ -1,0 +1,11 @@
+{% extends "base.html" %} {% load static %}
+{% block content %}
+  <h2 class="title">Service Booking Received</h2>
+  <p>Hello {{ customer.user.name }},</p>
+  <p>You've requested a booking for <b>{{ mechanic.business_name }}</b> with the following details.</p>
+  <ul>
+    <li>Service Date: {{ booking.date_created }}</li>
+    <li>Problem Description: {{ booking.problem_description }}</li>
+    <li>Services: {% for service in services %} {{ service }} {% endfor %}</li>
+  </ul>
+{% endblock %}

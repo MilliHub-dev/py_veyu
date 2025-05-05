@@ -45,14 +45,6 @@ class ArrayField(models.TextField):
             raise ValidationError("ArrayField requires a list.")
         return json.dumps(value)
 
-
-    # def validate(self, value, model_instance):
-    #     """Ensure all items in the list match the specified type (if set)."""
-    #     super().validate(value, model_instance)
-    #     if self.data_type:
-    #         if any(not isinstance(item, self.data_type) for item in value):
-    #             raise ValidationError(f"All items must be of type {self.data_type.__name__}.")
-    
     def validate(self, value, model_instance):
         """Ensure all items in the list match the specified type (if set)."""
         super().validate(value, model_instance)

@@ -1,0 +1,12 @@
+{% extends "emails/base.html" %}
+{% block content %}
+  <h2>Wallet Transaction Alert</h2>
+  <p>Hello {{ user_name }},</p>
+  <p>A new wallet transaction was recorded:</p>
+  <ul>
+    <li>Type: {{ transaction_type }}</li>
+    <li>Amount: {{ amount }}</li>
+    <li>Details: {{ details }}</li>
+    <li>Date: {{ timestamp }}</li>
+  </ul>
+{% endblock %}

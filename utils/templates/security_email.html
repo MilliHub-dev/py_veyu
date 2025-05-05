@@ -1,0 +1,7 @@
+{% extends "emails/base.html" %}
+{% block content %}
+  <h2>Security Alert</h2>
+  <p>Hello {{ user_name }},</p>
+  <p>We detected a {{ action }} on your account from IP {{ ip_address }} at {{ timestamp }}.</p>
+  <p>If this was not you, please <a href="{{ support_link }}">contact support</a> immediately.</p>
+{% endblock %}

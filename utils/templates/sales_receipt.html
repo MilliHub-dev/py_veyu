@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Sales Receipt</h2>
+  <p>Thank you for your purchase, {{ customer_name }}.</p>
+  <p><strong>Order ID:</strong> {{ order_id }}</p>
+  <ul>
+    {% for item in items %}
+      <li>{{ item.name }} - {{ item.price }}</li>
+    {% endfor %}
+  </ul>
+  <p class="highlight">Total: {{ total }}</p>
+{% endblock %}

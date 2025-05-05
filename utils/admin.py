@@ -1,4 +1,5 @@
 from django.contrib.admin import AdminSite
+from django.contrib.admin.sites import DefaultAdminSite
 from django.utils.timezone import now, timedelta
 from django.db.models import Count, Sum
 from django.shortcuts import render
@@ -9,6 +10,7 @@ class MotaaAdminSite(AdminSite):
     site_header = "My Custom Admin"
     site_title = "Analytics Dashboard"
     index_title = "Dashboard"
+    name = 'motaa_admin'
 
     def index(self, request, extra_context=None):
         # Get the date 30 days ago
@@ -65,4 +67,5 @@ class MotaaAdminSite(AdminSite):
         return super().index(request, extra_context=extra_context)
 
 # Create an instance of the custom admin site
-motaa_admin = MotaaAdminSite(name='motaa_admin')
+# motaa_admin = MotaaAdminSite(name='motaa_admin')
+motaa_admin = MotaaAdminSite()

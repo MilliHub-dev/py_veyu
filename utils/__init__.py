@@ -46,8 +46,10 @@ def upload_file(file, upload_to=None):
 
     if ext in ['.png', '.jpg', '.jpeg']:
         if upload_to:
-            upload_dir = os.path.join(upload_dir, upload_to)
-        upload_dir = os.path.join(upload_dir, 'vehicle/images/')
+            # upload_dir = os.path.join(upload_dir, upload_to)
+            upload_dir = upload_to
+        # upload_dir = os.path.join(upload_dir, 'vehicle/images/')
+        upload_dir = 'vehicle/images/'
     elif ext in ['.pdf', '.txt', '.docx', '.csv', '.xlsx']:
         if upload_to:
             upload_dir = os.path.join(upload_dir, upload_to)
@@ -59,8 +61,38 @@ def upload_file(file, upload_to=None):
     # Save the file using Django's storage system
     file_obj = default_storage.save(file_path, ContentFile(file.read()))
 
+    # Save using relative path
+    # relative_path = os.path.join(upload_dir, f"{file_uuid}{ext}")  # RELATIVE to MEDIA_ROOT
+    # file_obj = default_storage.save(relative_path, ContentFile(file.read()))
+
     # Return a Django File object instead of a raw path
     return File(default_storage.open(file_obj), name=file_obj)
+
+
+# def upload_file(file, upload_to=None):
+#     ext = os.path.splitext(file.name)[-1]
+#     upload_dir = ''
+
+#     if ext in ['.png', '.jpg', '.jpeg']:
+#         base_dir = 'vehicles/images/'
+#         if upload_to:
+#             upload_dir = upload_to.strip('/').strip()
+#         upload_dir = os.path.join(upload_to, base_dir)
+#         else:
+#             upload_dir = base_dir
+#     elif ext in ['.pdf', '.txt', '.docx', '.csv', '.xlsx']:
+#         base_dir = 'docs/'
+
+
+#     file_uuid = str(uuid.uuid4())
+#     relative_path = os.path.join(upload_dir, f"{file_uuid}{ext}")  # RELATIVE to MEDIA_ROOT
+
+#     # Save using relative path
+#     file_obj = default_storage.save(relative_path, ContentFile(file.read()))
+
+#     # Return Django File object
+#     return File(default_storage.open(file_obj), name=file_obj)
+
 
 
 class IsAgentOrStaff(BasePermission):

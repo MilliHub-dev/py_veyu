@@ -49,6 +49,7 @@ class Vehicle(DbModel):
         ('used_uk', 'Used (UK)'),
         ('used_ng', 'Used (Nigerian)'),
         ('used_be', 'Used (Belgium)'),
+        ('used_local', 'Used (Local)'),
     ]
     TRANSMISSION = [
         ('auto', 'Automatic'),
@@ -80,7 +81,7 @@ class Vehicle(DbModel):
     # car details
     color = models.CharField(max_length=200)
     brand = models.CharField(max_length=200) # aka make
-    model = models.CharField(max_length=200, blank=True, null=True) # aka make
+    model = models.CharField(max_length=200, blank=True, null=True)
     condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='used_uk')
     type = models.CharField(max_length=200, choices=VEHICLE_TYPE, default='sedan')
     mileage = models.CharField(max_length=200, blank=True, null=True)

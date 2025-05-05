@@ -89,13 +89,15 @@ class MechanicSerializer(ModelSerializer):
     services = MechanicServiceSerializer(many=True)
     location = StringRelatedField()
     logo = SerializerMethodField()
+    level = SerializerMethodField()
+    price_start = SerializerMethodField()
     class Meta:
         model = Mechanic
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number","available", "location","current_job", "services",
-            "job_history","reviews", 'logo', 'business_name', 'slug', 'headline',
-            'about', 'rating', 'contact_email', 'contact_phone', 'business_type',
+            "job_history","reviews", 'logo', 'level', 'business_name', 'slug', 'headline',
+            'about', 'rating', 'contact_email', 'contact_phone', 'business_type', 'price_start',
         )
 
     def get_logo(self, obj):
@@ -105,6 +107,13 @@ class MechanicSerializer(ModelSerializer):
                 return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return ''
+
+    def get_level(self, obj):
+        return obj.get_level_display()
+
+    def get_price_start(self, obj):
+        amt = obj.services.all().order_by('charge').first().charge
+        return amt
 
     def get_user(self, obj):
         account = obj.user  # Get the related account instance

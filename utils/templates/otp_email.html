@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+  <h4>Your OTP Code</h4>
+  <p>Use the following One-Time Password to complete your login:</p>
+  <h3 class="highlight">{{ otp|default:"405982" }}</h3>
+  <p>This code is valid for {{ validity_minutes }} minutes.</p>
+{% endblock %}

@@ -29,41 +29,41 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-        'daphne',
-        # 'unfold',
-        'jazzmin',
-        'django.contrib.admin',
-        'django.contrib.auth',
-        'django.contrib.contenttypes',
-        'django.contrib.sessions',
-        'django.contrib.messages',
-        'django.contrib.staticfiles',
-        # 'jet',
+    'daphne',
+    # 'unfold',
+    'jazzmin',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    # 'jet',
 
 
-        # Motaa Apps
-        'accounts',
-        'chat',
-        'bookings',
-        'feedback',
-        'listings',
-        'wallet',
-        'utils',
-        'analytics',
+    # Motaa Apps
+    'accounts',
+    'chat',
+    'bookings',
+    'feedback',
+    'listings',
+    'wallet',
+    'utils',
+    'analytics',
 
 
-        # Third Party Apps
-        'rest_framework',
-        'rest_framework.authtoken',
-        'dj_rest_auth',
-        'django_filters',
-        'corsheaders',
-        'channels',
-        'drf_yasg',
-        'allauth',
-        'allauth.account',
-        'allauth.socialaccount',
-        ]
+    # Third Party Apps
+    'rest_framework',
+    'rest_framework.authtoken',
+    'dj_rest_auth',
+    'django_filters',
+    'corsheaders',
+    'channels',
+    'drf_yasg',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+]
 
 SITE_ID = 1
 
@@ -165,7 +165,11 @@ else:
     STATIC_ROOT = BASE_DIR / 'static'
 
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'uploads'
+
+if DEBUG:
+    MEDIA_ROOT = BASE_DIR / 'uploads'
+else:
+    MEDIA_ROOT = '/var/www/motaa/uploads/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -191,40 +195,40 @@ OLD_PASSWORD_FIELD_ENABLED = True
 
 REST_AUTH = {
 
-        'USE_JWT': True,
-        'JWT_AUTH_COOKIE': 'my-app-auth',
-        'JWT_AUTH_REFRESH_COOKIE': 'my-refresh-token',
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'my-app-auth',
+    'JWT_AUTH_REFRESH_COOKIE': 'my-refresh-token',
 
-        }
+}
 
 SIMPLE_JWT = {
-        'ACCESS_TOKEN_LIFETIME': timedelta(days=5),
-        'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-        'ROTATE_REFRESH_TOKENS': True,
-        'BLACKLIST_AFTER_ROTATION': True,
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 
-        'ALGORITHM': 'HS256',
-        'SIGNING_KEY': config('DJANGO_SECRET_KEY'),
-        'VERIFYING_KEY': None,
-        'AUDIENCE': None,
-        'ISSUER': None,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': config('DJANGO_SECRET_KEY'),
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
 
-        'AUTH_HEADER_TYPES': ('Bearer',),
-        'AUTH_HEADER_NAME': 'Authorization',
-        # 'AUTH_HEADER_NAME': 'Authorization',
-
-
-        # copied
-        'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
-
-        'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-        'TOKEN_TYPE_CLAIM': 'token_type',
-        'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'Authorization',
+    # 'AUTH_HEADER_NAME': 'Authorization',
 
 
-        'USER_ID_FIELD': 'id',
-        'USER_ID_CLAIM': 'user_id',
-        }
+    # copied
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
 
 # from corsheaders.conf import
 

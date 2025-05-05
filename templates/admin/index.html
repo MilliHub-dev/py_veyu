@@ -116,8 +116,8 @@
                 { 
                     label: 'Customers', 
                     data: {{ monthly_data.customer_increase|safe }},
-                    backgroundColor: '#2563eb',  // Use backgroundColor for bar color
-                    borderColor: '#1d4ed8',  // Optional: border color for the bars
+                    backgroundColor: '#2563eb',
+                    borderColor: '#1d4ed8',
                     borderWidth: 1
                 },
                 { 
@@ -151,12 +151,17 @@
                         text: 'Increase Count'
                     }
                 },
-                x: {
+                xAxes: [{
+                    type: 'time',
+                    time: {unit: 'day'},
+                }],
+                x:{
                     title: {
                         display: true,
                         text: 'Date'
                     }
-                }
+                }   
+
             }
         }
     });

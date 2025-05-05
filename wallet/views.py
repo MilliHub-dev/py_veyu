@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from .models import Wallet, Transaction
 from accounts.models import Mechanic, Dealer, Customer
 from decouple import config
-
+from drf_yasg import openapi
 from .serializers import *
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -17,7 +17,10 @@ from utils.dispatch import (
     on_wallet_deposit,
 )
 from .gateway.payment_factory import get_payment_gateway
-from .gateway.payment_adapter import FlutterwaveAdapter
+from .gateway.payment_adapter import (
+    FlutterwaveAdapter,
+    PaystackAdapter
+)
 import uuid
 from drf_yasg.utils import swagger_auto_schema
 
@@ -94,53 +97,48 @@ class TransactionsView(APIView):
         return Response(data, 200)
 
 
-class InitiateDeposit(APIView):
-    @swagger_auto_schema(operation_summary="Endpoint to initiate wallet top up. It returns a payment link")
-    def post(self, request:Request):
 
-        serializer = InitiateDepositSerializer(data=request.data)
-        if serializer.is_valid():
+deposit_schema = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=["reference"],
+    properties={
+        "reference": openapi.Schema(type=openapi.TYPE_STRING, description="flutterwave/paystack reference"),
+    },
+    responses={
+        '200': {
+            'transaction_id': str,
+            'status': bool
+        }
+    }
+)
 
-            amount_decimal = serializer._validated_data['amount']
-            amount = str(amount_decimal)
-            currency = serializer._validated_data['currency']
-            customer_details = request.user
-            gateway_name = serializer._validated_data['gateway_name']
-
-            id = str(uuid.uuid4())
-            parts = id.split('-')
-            reference = 'motta-' + ''.join(parts[1:])
-
-            try:
-                gateway_to_use = get_payment_gateway(gateway_name)
-                response = gateway_to_use.initiate_deposit(amount=amount, currency=currency, customer_details=customer_details, reference=reference)
-            except ValueError as e:
-                return Response({'error': str(e)}, status=400) 
-
-            return Response(response)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CompleteWalletDepositFlutterwave(APIView):  
+class Deposit(APIView):  
     permission_classes = [IsAuthenticated]  
-    flutterwave = FlutterwaveAdapter()
+    # gateway = FlutterwaveAdapter()
+    gateway = PaystackAdapter()
     allowed_methods = ["POST"]
 
-    @swagger_auto_schema(operation_summary="Endpoint called by flutterwave webhook to complete wallet top up")
+    @swagger_auto_schema(
+        operation_summary="Endpoint to deposit funds to wallet",
+        request_body=deposit_schema
+    )
     def post(self, request:Request):
         data = request.data
         
+        # raise Exception
         deposit_status = data.get('status')
         reference = data.get('tx_ref')
-        transaction_id = data.get('transaction_id')
+        transaction_id = data.get('reference')
         currency = data.get('currency')
         amount = data.get('amount')
 
         # confirm the deposit from flutterwave
-        response = self.flutterwave.verify_deposit(transaction_id=transaction_id)
+        response = self.gateway.verify_transaction()
         print("Verifying transaction:", transaction_id)
+
+        print("Response:", response)
         
+        response = {'status': 'success'}        
         if response['status'] == 'success':
             user_wallet = get_object_or_404(Wallet, user=request.user)
             user_wallet.ledger_balance += Decimal(amount)
@@ -198,7 +196,7 @@ class GetBanks(APIView):
         return Response({'error': False, 'data': response}, status=status.HTTP_200_OK)
 
 
-class WithdrawalFlutterwave(APIView):
+class Withdrawal(APIView):
 
     permission_classes = [IsAuthenticated]
 

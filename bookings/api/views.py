@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
 from utils.sms import send_sms
+from wallet.gateway.payment_adapter import PaystackAdapter
 from utils.mail import send_email
 from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
@@ -27,8 +28,7 @@ from accounts.api.serializers import (
     MechanicSerializer,
 )
 from utils.dispatch import (
-    user_just_registered,
-    handle_new_signup,
+    on_booking_requested,
 )
 from utils import (
     IsMechanicOnly,
@@ -142,7 +142,9 @@ class MechanicSearchView(ListAPIView):
 
 class MechanicProfileView(APIView):
     allowed_methods = ['GET', 'POST']
-    # serializer_class = CreateBookingSerializer
+    permission_classes = [IsAuthenticated]
+    serializer_class = CreateBookingSerializer
+    paystack = PaystackAdapter()
     kwargs = ['mech_id']
 
     def get_view_name(self):
@@ -168,7 +170,8 @@ class MechanicProfileView(APIView):
                 'message': str(error),
             }
             return Response(data, 404)
-        
+    
+
     def post(self, request, *args, **kwargs):
         mech_id = kwargs.get('mech_id', None)
         data = request.data
@@ -176,34 +179,52 @@ class MechanicProfileView(APIView):
         if not mech_id:
             return Response({'error': True, 'message': "Required mech_id param missing."}, 400)
         
-        customer = Customer.me(data['customer'])
+        customer = Customer.objects.get(user=request.user)
         mech = Mechanic.me(mech_id)
+        transaction = self.paystack.verify_transaction(data['transaction_id'])
+        if transaction['status'] and transaction['data']['status'] == 'success':
 
-        # create the booking request
-        booking = ServiceBooking.objects.create(
-            customer=customer,
-            mechanic=mech,
-        )
+            # create the booking request
+            booking = ServiceBooking.objects.create(
+                customer=customer,
+                mechanic=mech,
+                problem_description=data['problem_description'],
+            )
+            booking.save(using=None)
 
-        for srvc in data['services']:
-            service = mech.services.get(service__name=srvc)
-            booking.services.add(service,)
-        booking.save()
+            for srvc in data['services']:
+                service = mech.services.get(service__title=srvc)
+                booking.services.add(service,)
+            booking.save()
 
-        # TODO : create and send a notification to the mech on the new request
-        # NOTE : add the booking_request to mech status defaults to 'requested'
-        mech.job_history.add(booking,)
-        customer.service_history.add(booking,)
+            # TODO : create and send a notification to the mech on the new request
+            # NOTE : add the booking_request to mech status defaults to 'requested'
+            # mech.job_history.add(booking,)
+            # customer.service_history.add(booking,)
+            
+            # # save changes
+            # mech.save()
+            # customer.save()
+
+            on_booking_requested.send(
+                booking,
+                customer=customer,
+                services=data['services'],
+                mechanic=mech
+            )
+            
+            response = {
+                'error': False,
+                'message': 'Successfully sent a booking request',
+                'data': self.serializer_class(booking).data
+            }
+            return Response(response, 200)
         
-        # save changes
-        mech.save()
-        customer.save()
         response = {
-            'error': False,
-            'message': 'Successfully sent a booking request',
-            'data': self.serializer_class(booking).data
+            'error': True,
+            'message': f'Payment failed: {transaction["message"]}',
         }
-        return Response(response, 200)
+        return Response(response, 500)
 
 
 class MechanicServiceHistory(ListAPIView):

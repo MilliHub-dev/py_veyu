@@ -240,8 +240,8 @@ class CreateListingView(CreateAPIView):
             elif action == 'upload-images':
                 listing = dealer.listings.get(uuid=data['listing'])
                 images = data.getlist('image')
-                paths = upload_multiple_files(images)
-                for img in paths:
+                # paths = upload_multiple_files(images)
+                for img in images:
                     image = VehicleImage(
                         image=img,
                         vehicle=listing.vehicle
@@ -249,6 +249,8 @@ class CreateListingView(CreateAPIView):
                     image.save()
                     listing.vehicle.images.add(image,)
                 listing.vehicle.save() # save to db
+                message = "Image added"
+                # return Response({'error': False, 'message': })
             elif action == 'publish-listing':
                 listing = dealer.listings.get(uuid=data['listing'])
                 listing.publish()
@@ -326,9 +328,9 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 vehicle.save()
             elif action == 'upload-images':
                 images = data.getlist('image')
-                paths = upload_multiple_files(images)
-                print("Images", paths)
-                for img in paths:
+                # paths = upload_multiple_files(images)
+                # print("Images", paths)
+                for img in images:
                     image = VehicleImage(
                         image=img,
                         vehicle=vehicle
@@ -336,6 +338,8 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                     image.save()
                     vehicle.images.add(image,)
                 vehicle.save() # save to db
+                message = "Image added"
+                # return Response({'error': False, 'message': })
             elif action == 'remove-image':
                 image = vehicle.images.get(uuid=data['image_id'])
                 image.delete()
@@ -410,6 +414,8 @@ class SettingsView(APIView):
         dealer.offers_purchase = 'Car Sale' in data['services']
         dealer.offers_rental = 'Car Leasing' in data['services']
         dealer.offers_drivers = 'Drivers' in data['services']
+        dealer.contact_phone = data['contact_phone']
+        dealer.contact_email = data['contact_email']
         dealer.save()
         
         data = {

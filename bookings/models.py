@@ -37,13 +37,15 @@ class ServiceBooking(DbModel):
         'expired': 'Expired',
         'requested': 'Requested',
     }
-    mechanic = models.ForeignKey('accounts.Mechanic', on_delete=models.CASCADE)
-    client_feedback = models.ForeignKey('feedback.Review', blank=True, null=True, on_delete=models.SET_NULL)
-    completed = models.BooleanField(default=False)
     type = models.CharField(max_length=20, default='routine', choices=SERVICE_DELIVERY)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    booking_status = models.CharField(max_length=20, default='requested', choices=BOOKING_STATUS)
+    mechanic = models.ForeignKey('accounts.Mechanic', on_delete=models.CASCADE)
+    client_feedback = models.ForeignKey('feedback.Review', blank=True, null=True, on_delete=models.SET_NULL)
     services = models.ManyToManyField('ServiceOffering', blank=True)
+    problem_description = models.TextField(blank=True, null=True)
+
+    completed = models.BooleanField(default=False)
+    booking_status = models.CharField(max_length=20, default='requested', choices=BOOKING_STATUS)
     started_on = models.DateTimeField(blank=True, null=True) # date of contract start
     responded_on = models.DateTimeField(blank=True, null=True) # accept/decline request date
     ended_on = models.DateTimeField(blank=True, null=True) # propsed date of contract end
@@ -60,10 +62,6 @@ class ServiceBooking(DbModel):
     @property
     def status(self):
         return self.booking_status
-    
-    # @property
-    # def type(self):
-    #     return self.get_service_delivery_display()
 
     @property
     def messages(self):
