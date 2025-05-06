@@ -13,7 +13,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from django.core.mail import EmailMessage
 from django.views.decorators.csrf import csrf_exempt
-
+from reportlab.lib.utils import ImageReader
 
 def index_view(request, **kwargs):
     try:
@@ -139,10 +139,12 @@ def draw_overlay(data: dict, include_signature: bool) -> BytesIO:
     
     # signature
     if include_signature and data.get('signature'):
-        sig_b64 = data['signature'].split(',',1)[1]
+        sig_b64 = data['signature'].split('data:image/png;base64,')[1]
         sig_img = base64.b64decode(sig_b64)
         sig_buf = BytesIO(sig_img)
-        c.drawImage(sig_buf, 100, 200, width=200, height=100, mask='auto')
+        sig_reader = ImageReader(sig_buf)  # Wrap in ImageReader
+        c.drawImage(sig_reader, 100, 200, width=200, height=100, mask='auto')
+        # c.drawImage(sig_buf, 100, 200, width=200, height=100, mask='auto')
     c.showPage()
     c.save()
     packet.seek(0)
@@ -174,6 +176,7 @@ def inspection_slip(request):
         data = request.GET.dict()
         include_sig = False
     else:
+        print("Data:", request.body)
         data = json.loads(request.body)
         include_sig = bool(data.get('signature'))
 

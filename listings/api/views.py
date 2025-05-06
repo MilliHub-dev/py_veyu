@@ -78,10 +78,21 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
 from utils.dispatch import (on_checkout_success, on_inspection_created)
+from datetime import datetime
+
+def django_date(date_str: str) -> str:
+    """
+    Converts a date string from 'DD/MM/YYYY' to 'YYYY-MM-DD'
+    """
+    try:
+        dt = datetime.strptime(date_str, '%d/%m/%Y')
+        return dt.strftime('%Y-%m-%d')
+    except ValueError:
+        raise ValueError('Invalid date format. Expected DD/MM/YYYY.')
+
+
+
 User = get_user_model()
-
-
-
 
 def typer(obj):
     if type(obj) == list:
@@ -477,11 +488,12 @@ class BookInspectionView(APIView):
     def post(self, request):
         try:
             data = request.data
+            print("Inspection Data:", data)
             listing = Listing.objects.get(uuid=request.data['listing_id'])
             order = Order.objects.get(customer=request.user.customer, order_item=listing)
             order.order_status = 'awaiting-inspection'
             order.save()
-            date = convert_js_date_to_django(data['date'])
+            date = django_date(data['date'])
             time = data['time']
 
             inspection = OrderInspection(

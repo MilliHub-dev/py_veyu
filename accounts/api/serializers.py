@@ -112,7 +112,7 @@ class MechanicSerializer(ModelSerializer):
         return obj.get_level_display()
 
     def get_price_start(self, obj):
-        amt = obj.services.all().order_by('charge').first().charge
+        amt = obj.services.filter(charge__gt=0).order_by('charge').first().charge
         return amt
 
     def get_user(self, obj):

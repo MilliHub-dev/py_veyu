@@ -158,8 +158,6 @@ class MechanicSearchView(ListAPIView):
                 Q(user__last_name__icontains=find) |
                 Q(services__service__title__icontains=find)
             ).distinct()
-        
-        print("Matches:", qs)
         return qs
 
             
