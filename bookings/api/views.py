@@ -72,25 +72,27 @@ class MechanicListView(ListAPIView):
         return Mechanic.objects.all()
 
     def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        try:
+            queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+            serializer = self.serializer_class(queryset, many=True, context={'request': request})
 
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link()
-                },
-                'results': serializer.data
+            data = {
+                'error': False,
+                'message': '',
+                'data': {
+                    'pagination': {
+                        'offset': self.paginator.offset,
+                        'limit': self.paginator.limit,
+                        'count': self.paginator.count,
+                        'next': self.paginator.get_next_link(),
+                        'previous': self.paginator.get_previous_link()
+                    },
+                    'results': serializer.data
+                }
             }
-        }
-        return Response(data, 200)
-
+            return Response(data, 200)
+        except Exception as error:
+            return Response({'error': True, 'message': str(error)}, 500)
 
 class MechanicSearchView(ListAPIView):
     pagination_class = OffsetPaginator
