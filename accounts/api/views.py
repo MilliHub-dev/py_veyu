@@ -243,30 +243,37 @@ class LoginView(views.APIView):
 
         # **Login the user and generate tokens**
         login(request, user)
-        access_token = AccessToken.for_user(user)
-        refresh_token = RefreshToken.for_user(user)
+        # access_token = AccessToken.for_user(user)
+        # refresh_token = RefreshToken.for_user(user)
 
         data = {
-            "access_token": str(access_token),
-            "refresh_token": str(refresh_token),
-            "token": str(user.api_token),
+            # "access_token": str(access_token),
+            # "refresh_token": str(refresh_token),
             "id": user.id,
+            "email": user.email,
+            "token": str(user.api_token),
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "email": user.email,
             "user_type": user.user_type,
-            "is_active": user.is_active,
             "provider": user.provider,
+            "is_active": user.is_active,
         }
+
 
         # signing into dashboard
         if user.user_type == 'dealer':
-            data.update({ "dealerId": str(user.dealership.uuid) })
+            data.update({
+             "dealerId": str(user.dealership.uuid),
+             "verified_id": user.dealership.verified_id,
+             "verified_business": user.dealership.verified_business,
+            })
         elif user.user_type == 'mechanic':
-            data.update({ "mechanicId": str(user.mechanic.uuid) })
-
-        print("Sign in data:", data)
-        return Response(data)
+            data.update({
+             "mechanicId": str(user.mechanic.uuid),
+             "verified_id": user.mechanic.verified_id,
+             "verified_business": user.mechanic.verified_business,
+            })
+        return Response(data, 200)
 
 
 class CartView(views.APIView):
@@ -293,7 +300,7 @@ class CartView(views.APIView):
         return Response(data, 200)
 
     def post(self, request, *args, **kwargs):
-        action = request.data['action']
+        action = request.data.get('action', None)
         customer = Customer.objects.get(user=request.user)
         cart = customer.cart
 
@@ -325,8 +332,41 @@ class UpdateProfileView(views.APIView):
             return Response(serializer.data)
 
 
-class VerifyEmailView(APIView):
+class BusinessVerificationView(views.APIView):
+    allowed_methods = ['POST']
 
+    def post(self, request):
+        try:
+            data = request.data
+            objects = {'dealership': Dealership, 'mechanic': Mechanic}
+            obj = objects.get(data['object'])
+
+            # get dealership / mechanic
+            business = obj.objects.get(uuid=data['object_id'])
+            business.verification_ref = data['verification_ref']
+
+            if 'user.verified_email' in data['scope']:
+                business.user.verified_email = True
+                business.user.save()
+            if 'verified_id' in data['scope']:
+                business.user.verified_id = True
+            if 'verified_business' in data['scope']:
+                business.verified_business = True
+            if 'verified_tin' in data['scope']:
+                business.verified_tin = True
+            business.save()
+            
+            response = {
+                'error': False,
+                'message': 'Verification Successful'
+            }
+            return Response(response, 200)
+        except Exception as error:
+            raise error
+
+
+
+class VerifyEmailView(APIView):
     allowed_methods = ['POST']
     serializer_class = VerifyEmailSerializer
     permission_classes = [IsAuthenticated]

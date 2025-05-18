@@ -129,10 +129,17 @@ class MechanicSerializer(ModelSerializer):
 
 class GetDealershipSerializer(ModelSerializer):
     logo = SerializerMethodField()
+    verification_status = SerializerMethodField()
+    account_status = SerializerMethodField()
 
     class Meta:
         model = Dealer
-        fields = ['business_name', 'slug', 'logo']
+        fields = [
+            'uuid', 'id', 'business_name', 'slug', 'logo',
+            'verified_phone_number', 'account_status',
+            'verified_business', 'verified_tin', 'verification_status',
+            
+        ]
 
     def get_logo(self, obj):
         request = self.context.get('request', None)
@@ -141,6 +148,12 @@ class GetDealershipSerializer(ModelSerializer):
                 return request.build_absolute_uri(obj.logo.url)
             return obj.logo.url
         return ''
+
+    def get_account_status(self, obj):
+        return obj.get_account_status_display()
+
+    def get_verification_status(self, obj):
+        return obj.get_verification_status_display()
 
 
 class DealershipSerializer(ModelSerializer):

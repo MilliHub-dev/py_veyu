@@ -6,6 +6,7 @@ from .views import (
     LoginView,
     UpdateProfileView,
     VerifyEmailView,
+    BusinessVerificationView,
     VerifyPhoneNumberView,
     CartView,
     NotificationView,
@@ -17,6 +18,7 @@ app_name = 'accounts_api'
 urlpatterns = [
     path('login/', LoginView.as_view()),
     path('register/', SignUpView.as_view()),
+    path('verify-business/', BusinessVerificationView.as_view()),
     path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
     path('verify-email/', VerifyEmailView.as_view()),
     path('update-profile/',  UpdateProfileView.as_view()),

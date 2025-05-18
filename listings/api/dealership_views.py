@@ -74,13 +74,14 @@ from django.contrib.auth import get_user_model
 from wallet.models import Wallet
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils.timezone import now, timedelta
+from django.db.models import Count, Sum
 from utils import (
     OffsetPaginator,
     upload_multiple_files,
 )
 from utils.dispatch import (on_listing_created, )
 User = get_user_model()
-
 # Dealership Views
 
 class DealershipView(APIView):
@@ -99,21 +100,51 @@ class DealershipView(APIView):
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    allowed_methods = ['GET']
+    allowed_methods = ['GET', 'POST']
 
-    def get_chart_data(self, period="monthly"):
-        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        
+    def get_daily_counts(self, queryset, dates):
+        return [
+            next(
+                (item.order_item.price for item in queryset if item.date_created.date() == date), 0
+            ) for date in dates
+        ]
+    
+
+    def get_chart_data(self, data, period="monthly"):
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        dates = sorted(set([item.date_created.date() for item in data]))
+        this_month = now().month
+        span = months[:this_month]
+
+        if period == 'daily':
+            span = [date.strftime('%m-%d') for date in dates]
+        elif period == 'yearly':
+            span = [date.strftime('%y-%m') for date in dates]
+
+        dataset = self.get_daily_counts(data, dates)
+
+        if len(dataset) < 1:
+            if this_month < 6:
+                span = months[:6]
+
+        if len(dataset) < len(span):
+            rem = len(span) - len(dataset)
+            for i in range(0, rem, 1):
+                dataset.append(0)
+
         chart_data = {
-            'labels': labels,
+            'labels': span,
             'datasets': [
                 {
-                    'key': 'revenue',
-                    'data': []
-                }
-            ]
+                    'label': 'Revenue',
+                    'data': dataset,
+                    'borderColor': '#38A169',
+                    'borderWidth': 2,
+                    'tension': 0.4,
+                    'pointRadius': 0,
+                },
+            ]   
         }
-
         return chart_data
 
     def get(self, request):
@@ -126,13 +157,12 @@ class DashboardView(APIView):
         orders = dealer.orders.order_by('-id')[:10]
 
         for listing in listings:
-            print("Impressions:", listing.viewers.all().count())
             impressions += listing.viewers.all().count()
 
         for order in purchases:
-            revenue += order.total
+            revenue += order.order_item.price
 
-        chart_data = self.get_chart_data()
+        chart_data = self.get_chart_data(data=purchases)
 
         data = {
             'error': False,
@@ -144,6 +174,142 @@ class DashboardView(APIView):
                 'chart_data': chart_data
             }
         }
+        return Response(data, 200)
+
+
+
+class AnalyticsView(APIView):
+    allowed_methods = ["GET", "POST"]
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    dealer: Dealership = None
+
+
+    def make_revenue_chart(self, data, period="monthly"):
+        def get_counts(queryset, dates):
+            return [
+                next(
+                    (item.order_item.price for item in queryset if item.date_created.date() == date), 0
+                ) for date in dates
+            ]
+        
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        dates = sorted(set([item.date_created.date() for item in data]))
+        this_month = now().month
+        span = months[:this_month]
+
+        if period == 'daily':
+            span = [date.strftime('%m-%d') for date in dates]
+        elif period == 'yearly':
+            span = [date.strftime('%y-%m') for date in dates]
+
+        dataset = get_counts(data, dates)
+
+        if len(dataset) < 1:
+            if this_month < 6:
+                span = months[:6]
+
+        if len(dataset) < len(span):
+            rem = len(span) - len(dataset)
+            for i in range(0, rem, 1):
+                dataset.append(0)
+
+        chart_data = {
+            'labels': span,
+            'datasets': [
+                {
+                    'label': 'Revenue',
+                    'data': dataset,
+                    'borderColor': '#3182CE',
+                    'borderWidth': 2,
+                    'tension': 0.4,
+                    'pointRadius': 0,
+                },
+            ]   
+        }
+        return chart_data
+    
+
+    def make_sales_chart(self, data, period="monthly"):
+        def get_counts(queryset, dates):
+            return [
+                next(
+                    (1 for item in queryset if item.date_created.date() == date), 0
+                ) for date in dates
+            ]
+
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        dates = sorted(set([item.date_created.date() for item in data]))
+        print(set([item.date_created.date() for item in data]))
+        this_month = now().month
+        span = months[:this_month]
+
+        if period == 'daily':
+            span = [date.strftime('%m-%d') for date in dates]
+        elif period == 'yearly':
+            span = [date.strftime('%y-%m') for date in dates]
+
+        dataset = get_counts(data, dates)
+
+        if len(dataset) < 1:
+            if this_month < 6:
+                span = months[:6]
+
+        if len(dataset) < len(span):
+            rem = len(span) - len(dataset)
+            for i in range(0, rem, 1):
+                dataset.append(0)
+
+        chart_data = {
+            'labels': span,
+            'datasets': [
+                {
+                    'label': 'Sales',
+                    'data': dataset,
+                    'borderColor': '#E53E3E',
+                    'borderWidth': 2,
+                    'tension': 0.4,
+                    'pointRadius': 0,
+                },
+            ]   
+        }
+        return chart_data
+
+
+    def get(self, request):
+        dealer = Dealership.objects.get(user=request.user)
+        purchases = dealer.orders.all()
+
+        total_revenue = 0
+        for purchase in purchases:
+            total_revenue += purchase.order_item.price
+
+
+        data = {
+            'error': False,
+            'data': {
+                'revenue': {
+                    'chart_data': self.make_revenue_chart(purchases),
+                    'amount': total_revenue,
+                    # 'change': total_revenue_change,
+                },
+                'sales': {
+                    'chart_data': self.make_sales_chart(purchases),
+                    'amount': purchases.count(),
+                    # 'change': total_revenue_change,
+                },
+                'orders': {
+                    'fulfilled': purchases.filter(order_status='completed').count(),
+                    'pending': purchases.filter(
+                        Q(order_status='pending') |
+                        Q(order_status='awaiting-inspection') |
+                        Q(order_status='inspecting')
+                    ).count(),
+                    'cancelled': purchases.filter(order_status='cancelled').count(),
+                }
+            }
+        }
+
+
         return Response(data, 200)
 
 
@@ -404,6 +570,9 @@ class SettingsView(APIView):
     def post(self, request):
         data = request.data
         dealer = Dealership.objects.get(user=request.user)
+
+        print("New Services:", data['services'])
+        print("Old Services:", dealer.services)
         
         if data.get('new-logo', None):
             dealer.logo = data['new-logo']

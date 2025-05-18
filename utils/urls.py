@@ -16,7 +16,7 @@ app_name = 'utils'
 urlpatterns = [
     path('', index_view, name='home'),
     path('hooks/payment-webhook/', payment_webhook),
-    path('hooks/verifcation/', verification_webhook),
+    path('hooks/verification/', verification_webhook),
     path('order-slip/', order_agreement),
     path('inspection-slip/', inspection_slip),
     path('rental-slip/', inspection_slip),

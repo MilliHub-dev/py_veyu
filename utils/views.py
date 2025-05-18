@@ -32,6 +32,7 @@ def chat_view(request, room_name):
 
 
 @csrf_exempt
+@api_view(['POST'])
 def email_webhook_receiver(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
@@ -118,6 +119,9 @@ def payment_webhook(request, **kwargs):
 def verification_webhook(request, **kwargs):
     # webhook that receives event after verification
     # from dojah
+
+    data = request.data
+    print("Got Verification Data:", data)
     return Response(status=200)
 
 

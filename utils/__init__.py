@@ -111,7 +111,7 @@ class IsAgentOrStaff(BasePermission):
 
 class IsDealerOrStaff(BasePermission):
     def has_permission(self, request, view):
-        if request.user.user_type in ['dealer', 'staff',] or request.user.is_admin:
+        if request.user.user_type in ['dealer', 'staff', 'dealership'] or request.user.is_staff:
             return True
             # dealer = Dealer.objects.get(request.kwargs)
             # if request.user.user_profile:

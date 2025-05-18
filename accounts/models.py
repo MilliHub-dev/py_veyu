@@ -117,12 +117,27 @@ class UserProfile(DbModel):
         ('voters-card', 'National Identification'),
         ('passport', 'National Identification'),
     ]
+    APPROVAL_STATUS = {
+        'pending': 'Pending Approval',
+        'approved': 'Account Approved',
+        'disabled': 'Account Disabled',
+    }
+    VERIFICATION_STATUS = {
+        'unverified': 'Requires Verification',
+        'pending': 'Pending Verification',
+        'completed': 'Account Approved',
+    }
+    
     user = models.OneToOneField(Account, on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     id_type = models.CharField(max_length=200, default='nin', choices=ID_TYPES, blank=True, null=True)
     verified_phone_number = models.BooleanField(default=False)
     verified_id = models.BooleanField(default=False)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
+    verification_ref = models.CharField(max_length=50, blank=True, null=True)
+    verification_status = models.CharField(max_length=20, default='unverified', choices=VERIFICATION_STATUS)
+    account_status = models.CharField(max_length=20, default='pending', choices=APPROVAL_STATUS)
+
     location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
     documents = models.ManyToManyField('Document', blank=True)
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
@@ -189,6 +204,8 @@ class Mechanic(UserProfile):
     about = models.TextField(blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     slug = models.SlugField(blank=True, null=True)
+    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    level = models.CharField(max_length=20, default='new', choices=LEVELS)
     headline = models.CharField(max_length=200, blank=True, null=True)
     available = models.BooleanField(default=True)
     services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
@@ -196,8 +213,7 @@ class Mechanic(UserProfile):
     reviews = models.ManyToManyField('feedback.Review', blank=True,)
     job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
     business_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
-    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
-    level = models.CharField(max_length=20, default='new', choices=LEVELS)
+    verified_business = models.BooleanField(default=False) # cac / business verification
     contact_email = models.EmailField(blank=True, null=True)
     contact_phone = models.CharField(max_length=20, blank=True, null=True)
 
@@ -253,8 +269,8 @@ class Dealership(UserProfile):
     contact_phone = models.CharField(max_length=20, blank=True, null=True)
 
     # verifications
-    cac_number = models.CharField(max_length=200)
-    tin_number = models.CharField(max_length=200)
+    cac_number = models.CharField(max_length=200, blank=True, null=True)
+    tin_number = models.CharField(max_length=200, blank=True, null=True)
 
     level = models.CharField(max_length=20, default='new', choices=LEVELS)
 
@@ -301,7 +317,7 @@ class Dealership(UserProfile):
         if self.offers_rental:
             servs.append('Car Leasing')
         if self.offers_drivers:
-            servs.append('Drivers ')
+            servs.append('Drivers')
         if self.offers_trade_in:
             servs.append('Sell-Your-Car')
             servs.append('Car Trade-in')
