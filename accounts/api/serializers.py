@@ -97,6 +97,7 @@ class MechanicSerializer(ModelSerializer):
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number","available", "location","current_job", "services",
             "job_history","reviews", 'logo', 'level', 'business_name', 'slug', 'headline',
+            'verified_business', 'verification_status', 'account_status',
             'about', 'rating', 'contact_email', 'contact_phone', 'business_type', 'price_start',
         )
 

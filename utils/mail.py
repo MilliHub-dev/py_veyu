@@ -7,6 +7,7 @@ from django.conf import settings
 
 def send_email(subject, recipients: list, message=None, template=None, context={}):
     content = message
+    
     if template:
         html_message = render_to_string(
             settings.BASE_DIR / template,

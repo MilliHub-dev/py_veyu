@@ -28,7 +28,7 @@ from rest_framework.generics import (
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 
 # Utility imports
 from utils.sms import send_sms
@@ -74,6 +74,7 @@ from .filters import (
 )
 from feedback.models import Notification
 from feedback.api.serializers import NotificationSerializer
+from bookings.models import (ServiceBooking, )
 from bookings.api.serializers import (BookingSerializer, )
 from dj_rest_auth.jwt_auth import JWTAuthentication
 from rest_framework.parsers import (
@@ -284,7 +285,7 @@ class CartView(views.APIView):
         customer = Customer.objects.get(user=request.user)
         cars = customer.cart.filter(listing_type='sale')
         rentals = customer.cart.filter(listing_type='rental')
-        services = customer.service_history.all()
+        bookings = ServiceBooking.objects.filter(customer=customer)
         orders = customer.orders.all()
 
         data = {
@@ -294,7 +295,7 @@ class CartView(views.APIView):
                 'cars': ListingSerializer(cars, context={'request': request}, many=True).data,
                 'orders': OrderSerializer(orders, context={'request': request}, many=True).data,
                 'rentals': ListingSerializer(rentals, context={'request': request}, many=True).data,
-                'services': BookingSerializer(services, context={'request': request}, many=True).data,
+                'bookings': BookingSerializer(bookings, context={'request': request}, many=True).data,
             }
         }
         return Response(data, 200)

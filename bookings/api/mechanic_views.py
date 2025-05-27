@@ -25,7 +25,8 @@ from .serializers import(
     CreateBookingSerializer,
     ViewBookingSerializer,
     UpdateBookingSerializer,
-    MechanicServiceHistorySerializer
+    MechanicServiceHistorySerializer,
+    MechanicServiceSerializer,
 )
 from accounts.api.serializers import (
     MechanicSerializer,
@@ -53,6 +54,7 @@ from accounts.models import (
 from ..models import(
     Service,
     ServiceBooking,
+    ServiceOffering,
 )
 from accounts.api.filters import (
     MechanicFilter,
@@ -83,11 +85,15 @@ class MechanicDashboardView(ListAPIView):
 
     def get(self, request, *args, **kwargs):
         mechanic = request.user.mechanic
-        booking_history = mechanic.job_history.filter(
-            Q(completed=True) |
+        booking_history = ServiceBooking.objects.filter(
+            Q(mechanic=mechanic) &
             Q(booking_status='accepted') |
+            Q(booking_status='working') |
+            Q(booking_status='canceled') |
+            Q(booking_status='expired') |
+            Q(booking_status='completed') |
             Q(booking_status='declined') 
-        )
+        ).order_by('started_on').order_by('booking_status')
         pending_requests = ServiceBooking.objects.filter(
             Q(mechanic=mechanic) &
             Q(booking_status='pending') |
@@ -95,7 +101,7 @@ class MechanicDashboardView(ListAPIView):
         )
         
         current_job = mechanic.current_job
-        impressions = 0
+        hires = booking_history.exclude(booking_status__in=['canceled', 'expired', 'declined',]).count()
         revenue = 0
 
         data = {
@@ -104,10 +110,87 @@ class MechanicDashboardView(ListAPIView):
             'data': {
                 'total_revenue': revenue,
                 'total_bookings': booking_history.count(),
-                'total_impressions': impressions,
+                'total_hires': hires,
                 'current_job': ViewBookingSerializer(current_job, context={'request': request}).data,
                 'booking_history': ViewBookingSerializer(booking_history, many=True, context={'request': request}).data,
                 'pending_requests': ViewBookingSerializer(pending_requests, many=True, context={'request': request}).data,
+            }
+        }
+        return Response(data, 200)
+
+
+class MechanicAnalyticsView(APIView):
+    allowed_methods = ['GET']
+
+
+    def make_revenue_chart(self, data, period="monthly"):
+        def get_counts(queryset, dates):
+            return [
+                next(
+                    (job.sub_total for job in queryset if job.date_created.date() == date), 0
+                ) for date in dates
+            ]
+        
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        dates = sorted(set([item.date_created.date() for item in data]))
+        this_month = now().month
+        span = months[:this_month]
+
+        if period == 'daily':
+            span = [date.strftime('%m-%d') for date in dates]
+        elif period == 'yearly':
+            span = [date.strftime('%y-%m') for date in dates]
+
+        dataset = get_counts(data, dates)
+
+        if len(dataset) < 1:
+            if this_month < 6:
+                span = months[:6]
+
+        if len(dataset) < len(span):
+            rem = len(span) - len(dataset)
+            for i in range(0, rem, 1):
+                dataset.append(0)
+
+        chart_data = {
+            'labels': span,
+            'datasets': [
+                {
+                    'label': 'Revenue',
+                    'data': dataset,
+                    'borderColor': '#3182CE',
+                    'borderWidth': 2,
+                    'tension': 0.4,
+                    'pointRadius': 0,
+                },
+            ]   
+        }
+        return chart_data
+    
+    def get(self, request):
+        mechanic = Mechanic.objects.get(user=request.user)
+        jobs = mechanic.job_history.all()
+        total_revenue = 0
+        total_hires = jobs.filter(booking_status__in=['working', 'accepted', 'completed']).count()
+        total_pending = jobs.filter(booking_status__in=['requested', 'pending']).count()
+        total_canceled = jobs.filter(booking_status__in=['canceled', 'expired', 'declined']).count()
+
+        for job in jobs.filter(booking_status__in=['working', 'completed', 'accepted']):
+            total_revenue += job.sub_total
+
+        data = {
+            'error': False,
+            'message': "Successfully got analytics data",
+            'data': {
+                'revenue': {
+                    'amount': total_revenue,
+                    'chart_data': self.make_revenue_chart(jobs, ),
+                },
+                'jobs': {
+                    'hires': total_hires,
+                    'pending': total_pending,
+                    'canceled': total_canceled,
+                }
             }
         }
         return Response(data, 200)
@@ -122,9 +205,19 @@ class BookingsView(APIView):
     
     def get(self, request, *args, **kwargs):
         mechanic:Mechanic = request.user.mechanic
-        history = mechanic.job_history.all().exclude(booking_status='requested')
-        requests = ServiceBooking.objects.filter(mechanic=mechanic, booking_status='requested')
-
+        history = ServiceBooking.objects.filter(mechanic=mechanic).filter( 
+            Q(booking_status='accepted') |
+            Q(booking_status='working') |
+            Q(booking_status='canceled') |
+            Q(booking_status='expired') |
+            Q(booking_status='completed') |
+            Q(booking_status='declined') 
+        ).order_by('started_on').order_by('booking_status')
+        requests = ServiceBooking.objects.filter(
+            Q(mechanic=mechanic) &
+            Q(booking_status='pending') |
+            Q(booking_status='requested')
+        )
         data = {
             'error': False,
             'message': 'Successfully got bookings',
@@ -135,6 +228,26 @@ class BookingsView(APIView):
         }
         return Response(data, 200)
 
+
+    def post(self, request, *args, **kwargs):
+        mech = Mechanic.me(kwargs['mech_id']); data = request.data
+        history = mech.job_history.filter(completed=True).distinct()
+
+        action = data.get('action', None)
+
+        if action == 'start-job':
+            pass
+        elif action == 'complete-job':
+            pass
+        elif action == 'cancel-job':
+            pass
+
+        data = {
+            'error': False,
+            'message': 'Successfully got %s\' service history' % mech.account.first_name,
+            'data': MechanicServiceSerializer(history).data
+        }
+        return Response(data, 200)
 
 
 class MechanicSearchView(ListAPIView):
@@ -249,20 +362,89 @@ class MechanicProfileView(APIView):
         return Response(response, 200)
 
 
-class MechanicServiceHistory(ListAPIView):
-    allowed_methods = ['GET']
-    permission_classes = [IsAuthenticated]
-    kwargs = ['mech_id']
+class MechanicServicesView(ListAPIView):
+    allowed_methods = ['GET', 'POST']
+    permission_classes = [IsAuthenticated, IsMechanicOnly]
     serializer_class = MechanicServiceHistorySerializer
 
     def get(self, request, *args, **kwargs):
-        mech = Mechanic.me(kwargs['mech_id'])
-        history = mech.job_history.filter(completed=True).distinct()
+        # mech = Mechanic.me(kwargs['mech_id'])
+        mech = Mechanic.objects.get(user=request.user)
+        services = mech.services.all()
         data = {
             'error': False,
-            'message': 'Successfully got %s\' service history' % mech.account.first_name,
-            'data': CreateBookingSerializer(history).data
+            'message': 'Successfully got %s\' services' % mech.business_name,
+            'data': MechanicServiceSerializer(services, many=True).data
         }
+        return Response(data, 200)
+
+    def post(self, request, *args, **kwargs):
+        mech = Mechanic.me(kwargs['mech_id']); data = request.data
+        services = mech.services.all()
+
+        action = data.get('action', None)
+
+        if action == 'make-active':
+            pass
+        elif action == 'make-inactive':
+            pass
+        else:
+            return Response({'error': True, 'message': "Invalid action parameter"}, 400)
+
+        data = {
+            'error': False,
+            'message': "Successfully changed service",
+            'data': MechanicServiceSerializer(services, many=True).data
+        }
+        return Response(data, 200)
+
+
+class CreateServiceOfferingView(CreateAPIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated, IsMechanicOnly]
+
+    def get(self, request):
+        services = Service.objects.all()
+        data = {
+            'error': False,
+            'data': [
+                {'uuid': service.uuid, 'title': service.title, 'description': service.description} for service in services
+            ]
+        }
+        return Response(data, 200)
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        mechanic = request.user.mechanic
+        service = Service.objects.get_or_create(title=data['title'])[0]
+        # if not service.description
+
+        service_offering = ServiceOffering(
+            service=service,
+            offered_by=mechanic,
+            charge=data['charge'],
+            charge_rate=data['charge_rate'],
+        )
+        service_offering.save()
+        mechanic.services.add(service_offering,)
+        mechanic.save()
+        data = {
+            'error': False,
+            'data': {
+                'uuid': service_offering.uuid,
+                'service': service.title,
+                'charge': service_offering.charge,
+                'charge_rate': service_offering.charge_rate
+            }
+        }
+        return Response(data, 201)
+
+
+class ServiceOfferingUpdateView(APIView):
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated, IsMechanicOnly]
+
+    def post(self, request, *args, **kwargs):
         return Response()
 
 
@@ -284,8 +466,7 @@ class BookingUpdateView(APIView):
         return Response(data, 200)
 
     def post(self, request, booking_id, *args, **kwargs):
-        mechanic:Mechanic = request.mechanic
-        print('Booking Id:', booking_id)
+        mechanic:Mechanic = request.user.mechanic
         booking:ServiceBooking = ServiceBooking.objects.get(uuid=booking_id)
 
         action = request.data.get('action', 'respond')
@@ -296,6 +477,9 @@ class BookingUpdateView(APIView):
 
         if action == 'accept':
             booking.booking_status = 'accepted'
+            if not booking in mechanic.job_history.all():
+                mechanic.job_history.add(booking,)
+                mechanic.save()
         elif action == 'complete':
             booking.booking_status = 'completed'
             booking.ended_on = today
@@ -303,6 +487,12 @@ class BookingUpdateView(APIView):
             booking.booking_status = 'declined'
         elif action == 'respond':
             booking.responded_on = today
+        elif action == 'start-job':
+            mechanic.current_job = booking
+            booking.started_on = today
+            booking.booking_status = 'working'
+            mechanic.available = False
+            mechanic.save()
         booking.save()
 
         data = {
@@ -311,7 +501,6 @@ class BookingUpdateView(APIView):
             'data': self.serializer_class(booking, context={'request': request}).data
         }
         return Response(data, 200)
-
 
 
 class MechanicSettingsView(APIView):

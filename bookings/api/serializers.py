@@ -24,7 +24,7 @@ class MechanicServiceSerializer(ModelSerializer):
 
     class Meta:
         model = ServiceOffering
-        fields = ('service', 'charge_rate', 'charge', 'uuid',)
+        fields = ('service', 'charge_rate', 'charge', 'uuid', 'hires')
 
 
 class MechanicServiceHistorySerializer(ModelSerializer):
@@ -56,25 +56,34 @@ class BookingSerializer(ModelSerializer):
     mechanic = StringRelatedField()
     customer = StringRelatedField()
     services = StringRelatedField(many=True)
+    review = SerializerMethodField()
+    rating = SerializerMethodField()
+    sub_total = SerializerMethodField()
 
     class Meta:
         model = ServiceBooking
-        fields = ['started', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status', 'date_created', 'services']
+        fields = ['started', 'sub_total', 'ended', 'review', 'rating', 'customer', 'mechanic', 'status', 'date_created', 'services']
 
     def get_started(self, obj):
         if obj.started_on:
-            return obj.started_on.date
+            return obj.started_on.date()
         return None
 
     def get_ended(self, obj):
         if obj.ended_on:
-            return obj.ended_on.date
+            return obj.ended_on.date()
         return None
 
     def get_review(self, obj):
         if obj.client_feedback:
             return obj.client_feedback.review
         return "No feedback given"
+
+    def get_sub_total(self, obj):
+        amt = 0
+        for service in obj.services.all():
+            amt += service.charge if service.charge else 0
+        return amt
 
     def get_rating(self, obj):
         if obj.client_feedback:

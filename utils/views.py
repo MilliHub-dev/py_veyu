@@ -14,6 +14,35 @@ from reportlab.lib.pagesizes import letter
 from django.core.mail import EmailMessage
 from django.views.decorators.csrf import csrf_exempt
 from reportlab.lib.utils import ImageReader
+from utils.mail import send_email
+
+
+@csrf_exempt
+@api_view(['POST'])
+def email_relay(request):
+    data = request.data
+    template_name = data['template_name']
+    recepients = data['recipients']
+    context=data['context']
+    subject=data['subject']
+
+
+    try:
+        send_email(
+            subject=subject,
+            recipients=recipients,
+            template=template_name,
+            context=context
+        )
+    except Exception as error:
+        print("Error Sending email", error)
+        # send an email delivery error report log
+        # to the main server
+
+
+
+    return Response(200)
+
 
 def index_view(request, **kwargs):
     try:

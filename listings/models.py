@@ -46,10 +46,8 @@ class VehicleImage(DbModel):
 class Vehicle(DbModel):
     CONDITION_CHOICES = [
         ('new', 'New'),
-        ('used_uk', 'Used (UK)'),
-        ('used_ng', 'Used (Nigerian)'),
-        ('used_be', 'Used (Belgium)'),
-        ('used_local', 'Used (Local)'),
+        ('used-foreign', 'Foreign Used'),
+        ('used-local', 'Local Used'),
     ]
     TRANSMISSION = [
         ('auto', 'Automatic'),
