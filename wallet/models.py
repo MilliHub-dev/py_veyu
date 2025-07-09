@@ -22,15 +22,18 @@ class Wallet(DbModel):
         # do not allow the user withdraw funds from those transactions
         # return ledger balance for now
         amt = self.ledger_balance
-        locked_trans = self.transactions.filter(status='locked')
-        # for trans in locked_trans:
-        #     if trans.wallet
+        locked_trans = self.transactions.filter(status__in=['locked', 'pending', ])
+        for trans in locked_trans:
+            amt -= trans.amount
         return amt
 
-    def deposit(self, amount, type='deposit', reference=None):
-        self.balance = F('balance') + amount
+    def apply_transaction(self, trans):
+        if trans.type in ['payment', 'charge', 'transfer_out', 'withdraw']:
+            self.ledger_balance -= trans.amount7
+        elif trans.type in ['transfer_in', 'deposit']:
+            self.ledger_balance += trans.amount
+        self.transactions.add(trans,)
         self.save()
-        Transaction.objects.create(wallet=self, type=type, amount=amount, reference=reference)
         return f'{amount} deposited to {self.user} wallet'
 
 
@@ -75,41 +78,19 @@ class Wallet(DbModel):
             raise ValidationError("Insufficient funds to complete this transaction.")
         return False
 
-    
-    def complete_order(self, amount, recipient_wallet):
-        if self.balance >= amount:
-            new_transaction = Transaction.objects.create(wallet=self, type='Order', amount=amount, recipient=recipient_wallet.user.email, status='Pending')
-            with transaction.atomic():
-                try:
-                    self.balance = F('balance') - amount
-                    recipient_wallet.deposit(amount, type='Payment for order')
-                    self.save()
-                    recipient_wallet.save()
-                    new_transaction.status = 'Completed'
-                    new_transaction.save()
-                    return True
-                except Exception as e:
-                    new_transaction.status = 'Failed'
-                    new_transaction.save()
-                    raise ValidationError(f"Failed to complete transaction: {str(e)}")
-        else:
-            raise ValidationError("Insufficient funds to complete this transaction.")
-        
-        return False
-
 
     def withdraw(self, amount, payout_info, narration=None):
         if not narration:
             narration = f"Withdrwal to {payout_info.account_number}"
-            Transaction.objects.create(
-                sender='Me',
-                wallet=self,
-                type='transfer_out',
-                amount=amount,
-                status=transaction_status,
-                recipient=account_details,
-                narration=narration
-            )
+        Transaction.objects.create(
+            sender='Me',
+            wallet=self,
+            type='transfer_out',
+            amount=amount,
+            status=transaction_status,
+            recipient=account_details,
+            narration=narration
+        )
 
     
     def __str__(self):

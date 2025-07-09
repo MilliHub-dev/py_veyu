@@ -156,20 +156,42 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-if DEBUG:
-    STATICFILES_DIRS = [
-            BASE_DIR / 'static'
-            ]
-else:
-    STATIC_ROOT = BASE_DIR / 'static'
+
+# STORAGE SETTINGS
+
+AWS_ACCESS_KEY_ID = 'your-spaces-access-key'
+AWS_SECRET_ACCESS_KEY = 'your-spaces-secret-access-key'
+AWS_STORAGE_BUCKET_NAME = 'your-storage-bucket-name'
+AWS_S3_ENDPOINT_URL = 'https://nyc3.digitaloceanspaces.com'
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+AWS_LOCATION = 'assets'
+
+
+AWS_S3_SIGNATURE_VERSION = 's3v4'
 
 MEDIA_URL = 'media/'
+STATIC_URL = 'static/'
 
 if DEBUG:
-    MEDIA_ROOT = BASE_DIR / 'uploads'
+    MEDIA_URL = f'uploads/'
+    STATICFILES_DIRS = [
+        BASE_DIR / 'static'
+    ]
 else:
-    MEDIA_ROOT = '/var/www/motaa/uploads/'
+    STATIC_ROOT = BASE_DIR / 'static'
+    STATIC_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_LOCATION}/'
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+    PUBLIC_MEDIA_LOCATION = 'uploads'
+    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{PUBLIC_MEDIA_LOCATION}/'
+MEDIA_ROOT = BASE_DIR / 'uploads'
+
+DEFAULT_STORAGE_BACKEND = 'motaa.storage.UploadedFileStorage'
+
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -291,3 +313,4 @@ JAZZMIN_SETTINGS = {
         # ]
     },
 }
+

@@ -285,7 +285,7 @@ class CartView(views.APIView):
         customer = Customer.objects.get(user=request.user)
         cars = customer.cart.filter(listing_type='sale')
         rentals = customer.cart.filter(listing_type='rental')
-        bookings = ServiceBooking.objects.filter(customer=customer)
+        bookings = ServiceBooking.objects.filter(customer=customer, booking_status__in=['pending', 'requested'])
         orders = customer.orders.all()
 
         data = {

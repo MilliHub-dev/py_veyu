@@ -35,7 +35,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
-
+from utils.location import haversine
 
 class SignupSerializer(Serializer):
     email = EmailField(required=True)
@@ -51,6 +51,7 @@ class SignupSerializer(Serializer):
         except Excation as error:
             return None
 
+
 class AccountSerializer(ModelSerializer):
     class Meta:
         model = Account
@@ -62,7 +63,6 @@ class CustomerSerializer(ModelSerializer):
     class Meta:
         model = Customer
         fields = '__all__'
-
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -91,13 +91,14 @@ class MechanicSerializer(ModelSerializer):
     logo = SerializerMethodField()
     level = SerializerMethodField()
     price_start = SerializerMethodField()
+    distance = SerializerMethodField()
     class Meta:
         model = Mechanic
         fields = (
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number","available", "location","current_job", "services",
             "job_history","reviews", 'logo', 'level', 'business_name', 'slug', 'headline',
-            'verified_business', 'verification_status', 'account_status',
+            'verified_business', 'verification_status', 'account_status', 'distance',
             'about', 'rating', 'contact_email', 'contact_phone', 'business_type', 'price_start',
         )
 
@@ -126,6 +127,22 @@ class MechanicSerializer(ModelSerializer):
             'name': account.name,
             'last_seen': account.last_seen
         }
+
+    def get_distance(self, obj):
+        coords = self.context.get('coords', None)
+        if coords and obj.location:
+            # if user coords is present in context and mech has set location
+            # coords should be a tuple (lat, lng)
+            # e.g MechanicSerializer(qs, context={'request': request, 'coords': (lat, lng)})
+            dist = haversine(
+                float(coords[0]),
+                float(coords[1]),
+                float(obj.location.lat),
+                float(obj.location.lng),
+            )
+            return f"{dist}km"
+        return None
+
 
 
 class GetDealershipSerializer(ModelSerializer):

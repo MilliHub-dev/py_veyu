@@ -1,9 +1,81 @@
 import requests, os
-from .payment_gateway import PaymentGateway
 from paystackapi.paystack import Paystack
-from decimal import Decimal
+from .payment_gateway import PaymentGateway
 from decouple import config
+from decimal import Decimal
 from django.conf import settings
+
+
+class WalletPaymentAdapter(PaymentGateway):
+    # Do not move import to top 
+    from wallet.models import Wallet, Transaction
+    def w2w_transfer(self, amount, src_wallet:Wallet, dst_wallet:Wallet, **kwargs) -> tuple:
+        """
+            Example usage:
+            wallet_provider = WalletPaymentAdapter()
+            message, status = wallet_provider.w2w_transfer(25000) 
+        """
+
+        # check balance
+        if amount <= (src_wallet.balance + self.get_transfer_fees(amount)):
+            transfer_out = Transaction(
+                recipient=dst_wallet.user.name,
+                sender=src_wallet.user.name,
+                sender_wallet=src_wallet,
+                source='wallet',
+                type='transfer_out',
+                recipient_wallet=dst_wallet,
+                tx_ref='',
+                status='completed',
+                amount=amount,
+            )
+            transfer_in = Transaction(
+                recipient=dst_wallet.user.name,
+                sender=src_wallet.user.name,
+                sender_wallet=src_wallet,
+                source='wallet',
+                type='transfer_in',
+                recipient_wallet=dst_wallet,
+                tx_ref='',
+                status='completed',
+                amount=amount,
+            )
+            if kwargs.get('related_order', False):
+                transfer_in.related_order = kwargs['related_order']
+                transfer_out.related_order = kwargs['related_order']
+                transfer_in.save()
+                transfer_out.save()
+                
+            dst_wallet.apply_transaction(transfer_in)
+            src_wallet.apply_transaction(transfer_out)
+
+        else:
+            return ("Error", False)
+
+    def get_conv_rate(self, pair:tuple) -> tuple:
+        """
+            returns (buy, sell) rate between two currency pairs
+            @arg: pair => ('USD', 'NGN')
+
+            For example a user is paying for a car in Kenya, to be shipped from Nigeria,
+            they will be charged an unfair amount without checking the conversion rate
+
+            This will ensure that if @ 1 KYN to 15 NGN and the charge is NGN 3.2M 
+            the amount charged from the kenyan is charged only KYN 213,333.333
+        """
+        response = requests.get('')
+        data = response.json()
+        
+        
+        return ()
+    
+    def get_wallet_currency(self):
+        # return the wallet currency
+        return
+
+    def get_transfer_fees(self, amount):
+        return 0 
+
 
 class FlutterwaveAdapter(PaymentGateway):
     def initiate_deposit(self, amount:float, currency:str, customer_details:object, reference):

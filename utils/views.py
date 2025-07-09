@@ -4,16 +4,10 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.views.decorators.csrf import csrf_exempt
-from io import BytesIO
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
-from PyPDF2 import PdfReader, PdfWriter
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 from django.core.mail import EmailMessage
-from django.views.decorators.csrf import csrf_exempt
-from reportlab.lib.utils import ImageReader
 from utils.mail import send_email
 
 
@@ -152,107 +146,6 @@ def verification_webhook(request, **kwargs):
     data = request.data
     print("Got Verification Data:", data)
     return Response(status=200)
-
-
-LETTERHEAD_PATH = os.path.join(settings.BASE_DIR, 'static', 'motaa/letterhead.pdf')
-MEDIA_SIGNED_DIR = os.path.join(settings.MEDIA_ROOT, 'signed_docs')
-
-def draw_overlay(data: dict, include_signature: bool) -> BytesIO:
-    packet = BytesIO()
-    c = canvas.Canvas(packet, pagesize=letter)
-    # Draw your fields (tweak coordinates as needed)
-    c.drawString(65, 700, f"Client Name: {data.get('client_name','')}")
-    c.drawString(65, 680, f"Date: {data.get('date','')}")
-    if 'vehicle_id' in data:
-        c.drawString(65, 660, f"Vehicle ID: {data['vehicle_id']}")
-        c.drawString(65, 640, f"Inspector: {data.get('inspector','')}")
-    if 'order_ref' in data:
-        c.drawString(65, 660, f"Order Ref: {data['order_ref']}")
-        c.drawString(65, 640, f"Amount: {data.get('amount','')}")
-    
-    # signature
-    if include_signature and data.get('signature'):
-        sig_b64 = data['signature'].split('data:image/png;base64,')[1]
-        sig_img = base64.b64decode(sig_b64)
-        sig_buf = BytesIO(sig_img)
-        sig_reader = ImageReader(sig_buf)  # Wrap in ImageReader
-        c.drawImage(sig_reader, 100, 200, width=200, height=100, mask='auto')
-        # c.drawImage(sig_buf, 100, 200, width=200, height=100, mask='auto')
-    c.showPage()
-    c.save()
-    packet.seek(0)
-    return packet
-
-def merge_letterhead(overlay_buf: BytesIO) -> BytesIO:
-    overlay = PdfReader(overlay_buf)
-    base = PdfReader(open(LETTERHEAD_PATH, 'rb'))
-    writer = PdfWriter()
-    page = base.pages[0]
-    page.merge_page(overlay.pages[0])
-    writer.add_page(page)
-    out = BytesIO()
-    writer.write(out)
-    out.seek(0)
-    return out
-
-
-@api_view(['GET','POST'])
-def inspection_slip(request):
-    """
-    GET:  /api/inspection-slip/?client_name=…&date=…&vehicle_id=…&inspector=…
-      → returns unsigned PDF
-    POST: JSON body + optional "signature" (data-URL)
-      → returns PDF, saves signed copy if signature provided
-    """
-    # pick up data from GET or JSON POST
-    if request.method == 'GET':
-        data = request.GET.dict()
-        include_sig = False
-    else:
-        print("Data:", request.body)
-        data = json.loads(request.body)
-        include_sig = bool(data.get('signature'))
-
-    overlay = draw_overlay(data, include_sig)
-    final_pdf = merge_letterhead(overlay)
-
-    # save signed
-    if include_sig:
-        os.makedirs(MEDIA_SIGNED_DIR, exist_ok=True)
-        fn = f"inspection_{uuid.uuid4().hex}.pdf"
-        with open(os.path.join(MEDIA_SIGNED_DIR, fn), 'wb') as f:
-            f.write(final_pdf.getvalue())
-
-    resp = HttpResponse(final_pdf.getvalue(), content_type='application/pdf')
-    resp['Content-Disposition'] = 'attachment; filename="inspection_slip.pdf"'
-    return resp
-
-
-@api_view(['GET','POST'])
-def order_agreement(request):
-    """
-    GET:  /api/order-agreement/?client_name=…&date=…&order_ref=…&amount=…
-    POST: JSON body + optional "signature"
-    """
-    if request.method == 'GET':
-        data = request.GET.dict()
-        include_sig = False
-    else:
-        data = json.loads(request.body)
-        include_sig = bool(data.get('signature'))
-
-    overlay = draw_overlay(data, include_sig)
-    final_pdf = merge_letterhead(overlay)
-
-    if include_sig:
-        os.makedirs(MEDIA_SIGNED_DIR, exist_ok=True)
-        fn = f"order_{uuid.uuid4().hex}.pdf"
-        with open(os.path.join(MEDIA_SIGNED_DIR, fn), 'wb') as f:
-            f.write(final_pdf.getvalue())
-
-    resp = HttpResponse(final_pdf.getvalue(), content_type='application/pdf')
-    resp['Content-Disposition'] = 'attachment; filename="order_agreement.pdf"'
-    return resp
 
 
 

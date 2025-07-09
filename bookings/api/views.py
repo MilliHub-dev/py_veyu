@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
 from utils.sms import send_sms
+from utils.location import haversine
 from wallet.gateway.payment_adapter import PaystackAdapter
 from utils.mail import send_email
 from django_filters.rest_framework import DjangoFilterBackend
@@ -68,14 +69,55 @@ class MechanicListView(ListAPIView):
     
     ordering = ['account__first_name']  # Default ordering if none specified by the user
 
-    def get_queryset(self):
-        return Mechanic.objects.all()
+    def get_queryset(self, request=None):
+        if not request:
+            return Mechanic.objects.all()
+
+        user_lat = float(request.GET.get('lat'))
+        user_lng = float(request.GET.get('lng'))
+
+        print("Getting Mechanics closest to", (user_lat, user_lng))
+
+        mechanics = Mechanic.objects.all()
+        results = [] # results that are farther than 10km
+
+        for mech in mechanics:
+            print("Mech", mech)
+            if mech.location:
+                dist = haversine(
+                    float(user_lat),
+                    float(user_lng),
+                    float(mech.location.lat),
+                    float(mech.location.lng),
+                )
+                print(f"Distance of {mech.business_name} is {dist}km")
+
+                if dist > 30:  # 10km radius
+                    results.append(mech.uuid)
+            else:
+                results.append(mech.uuid)
+
+        mechanics = mechanics.exclude(uuid__in=results)
+                # results.append({
+                #     "id": m.id,
+                #     "name": m.name,
+                #     "distance_km": round(dist, 2)
+                # })
+
+        # results.sort(key=lambda x: x["distance_km"])
+        return mechanics
 
     def get(self, request, *args, **kwargs):
         try:
-            queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
-            serializer = self.serializer_class(queryset, many=True, context={'request': request})
+            lat = float(request.GET.get('lat', None))
+            lng = float(request.GET.get('lng', None))
+            
+            ctx = {'request': request}
+            if lat and lng:
+                ctx['coords'] = (lat, lng)
 
+            queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset(request)))
+            serializer = self.serializer_class(queryset, many=True, context=ctx)
             data = {
                 'error': False,
                 'message': '',
@@ -92,6 +134,7 @@ class MechanicListView(ListAPIView):
             }
             return Response(data, 200)
         except Exception as error:
+            raise error
             return Response({'error': True, 'message': str(error)}, 500)
 
 class MechanicSearchView(ListAPIView):

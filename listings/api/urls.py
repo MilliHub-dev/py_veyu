@@ -9,6 +9,7 @@ from .views import (
     RentListingDetailView,
     DealershipView,
     BookInspectionView,
+    CheckoutDocumentView,
 )
 
 
@@ -26,7 +27,7 @@ urlpatterns = [
     path('my-listings/', MyListingsView.as_view()),
     path('buy/<uuid>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
     path('rentals/<uuid>/', RentListingDetailView.as_view(), name='rental-detail'),
-    # path('checkout/complete-order/', CompleteOrderView.as_view()),
+    path('checkout/documents/', CheckoutDocumentView.as_view()),
     path('checkout/inspection/', BookInspectionView.as_view(), name='checkout-inspection'),
     path('checkout/<uuid:listingId>/', CheckoutView.as_view(), name='checkout'),
     # path('rentals/<uuid:uuid>/modify/', BookCarRentalViewDetailView.as_view(), name='rental-modify'), #for user

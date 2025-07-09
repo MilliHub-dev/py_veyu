@@ -1,3 +1,4 @@
+import os, json, base64
 from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
 import decimal
@@ -58,6 +59,7 @@ from accounts.api.serializers import (
     DealershipSerializer,
 )
 from accounts.models import (
+    File,
     Customer,
     Dealership,
 )
@@ -79,6 +81,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from utils import OffsetPaginator
 from utils.dispatch import (on_checkout_success, on_inspection_created)
 from datetime import datetime
+from django.conf import settings
+from io import BytesIO
+from PyPDF2 import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
+from django.views.decorators.csrf import csrf_exempt
+from django.core.files import File as DjangoFile
+from django.http import Http404
+from django.core.files.storage import default_storage
 
 def django_date(date_str: str) -> str:
     """
@@ -510,33 +522,6 @@ class BookInspectionView(APIView):
             return Response({'error': True, 'message': str(error)}, 500)
 
 
-class TestDriveRequestView(CreateAPIView):
-    allowed_methods = ['POST']
-    serializer_class = TestDriveRequestSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class TradeInRequestViewSet(CreateAPIView):
-    allowed_methods = ['POST']
-    serializer_class = TradeInRequestSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        customer_main = Customer.objects.get(user=self.request.user)
-        serializer.save(customer=customer_main)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
 class CompleteOrderView(APIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticatedOrReadOnly,]
@@ -568,3 +553,158 @@ class CompleteOrderView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+LETTERHEAD_PATH = os.path.join(settings.BASE_DIR, 'static', 'motaa/letterhead.pdf')
+MEDIA_SIGNED_DIR = os.path.join(settings.MEDIA_ROOT, 'docs')
+
+class CheckoutDocumentView(APIView):
+    parser_classes = [JSONParser, MultiPartParser]
+
+    def get(self, request):
+        doc_type = request.GET.get('doc_type', 'order-slip')
+        params = request.GET.dict()
+
+        # Check if file exists already
+        fname = f"{doc_type}_{params.get('order_id')}.pdf"
+        file_path = os.path.join(MEDIA_SIGNED_DIR, fname)
+        file_obj = None
+
+        order = Order.objects.filter(order_item__uuid=params['order_id'])[0]
+        if not os.path.exists(file_path):
+            print("Creating new file...")
+            text_lines = self.write_contract(doc_type=doc_type, order=order)
+            final_pdf = self.build_document(text_lines)
+            # os.makedirs(MEDIA_SIGNED_DIR, exist_ok=True)
+            with open(file_path, 'wb') as file:
+                file.write(final_pdf.getvalue())
+
+            file_obj = File(name=fname, file=DjangoFile(default_storage.open(file_path)))
+            file_obj.save()
+        else:
+            file_obj = File.objects.filter(file=f"docs/{fname}").first()
+            print("Found Existing file...", file_obj.name)
+
+        # if not file_obj:
+        #     raise Http404("File record not found")
+
+        return Response({
+            'error': False,
+            'message': 'Successfully generated your document',
+            'data': {
+                'file_id': str(file_obj.uuid),
+                'url': request.build_absolute_uri(file_obj.file.url)
+            }
+        }, 200)
+
+    def post(self, request):
+        data = request.data
+        file_id = data.get('file_id')
+        signature = data.get('signature')
+
+        try:
+            pdf_file = File.objects.get(uuid=file_id)
+        except File.DoesNotExist:
+            raise Http404("Document not found")
+
+        existing_path = pdf_file.file.path
+        overlay = self.build_signature_overlay(signature)
+        signed_pdf = self.append_signature(existing_path, overlay)
+
+        with open(existing_path, 'wb') as f:
+            f.write(signed_pdf.getvalue())
+
+        return Response({
+            'error': False,
+            'message': 'Document signed successfully!',
+            'data': {
+                'file_id': str(pdf_file.uuid),
+                'url': request.build_absolute_uri(pdf_file.file.url)
+            }
+        }, 200)
+
+    def build_document(self, text_lines: list) -> BytesIO:
+        content = BytesIO()
+        pdf_canvas = canvas.Canvas(content, pagesize=letter)
+        x_coord, y_coord = 65, 700
+
+        for line in text_lines:
+            pdf_canvas.drawString(x_coord, y_coord, line)
+            y_coord -= 20
+
+        pdf_canvas.showPage()
+        pdf_canvas.save()
+        content.seek(0)
+        return self.append_signature(LETTERHEAD_PATH, content)
+
+    def build_signature_overlay(self, signature_data: str) -> BytesIO:
+        overlay = BytesIO()
+        c = canvas.Canvas(overlay, pagesize=letter)
+        if signature_data:
+            sig_b64 = signature_data.split('data:image/png;base64,')[1]
+            sig_img = base64.b64decode(sig_b64)
+            sig_buf = BytesIO(sig_img)
+            sig_reader = ImageReader(sig_buf)
+            c.drawImage(sig_reader, 100, 200, width=200, height=100, mask='auto')
+        c.showPage()
+        c.save()
+        overlay.seek(0)
+        return overlay
+
+    def append_signature(self, base_pdf_path: str, overlay_buf: BytesIO) -> BytesIO:
+        base_pdf = PdfReader(open(base_pdf_path, 'rb'))
+        overlay_pdf = PdfReader(overlay_buf)
+        writer = PdfWriter()
+
+        base_page = base_pdf.pages[0]
+        overlay_page = overlay_pdf.pages[0]
+        base_page.merge_page(overlay_page)
+        writer.add_page(base_page)
+
+        result = BytesIO()
+        writer.write(result)
+        result.seek(0)
+        return result
+
+    def write_contract(self, doc_type, order) -> list:
+        if doc_type == 'order-slip':
+            return self.write_order_contract(order)
+        elif doc_type == 'inspection-slip':
+            return self.write_inspection_contract(order)
+        else:
+            return ["Invalid document type"]
+
+    def write_order_contract(self, order) -> list:
+        return [
+            f"ORDER AGREEMENT",
+            "",
+            f"This agreement is made between Motaa and {order.customer.user.name}.",
+            f"Vehicle: {order.order_item.vehicle.name}",
+            f"Amount: {order.sub_total}",
+            f"Vehicle ID: {order.order_item.vehicle.uuid}",
+            f"Dealership: {order.order_item.vehicle.dealer.business_name}",
+            "",
+            "1. The seller agrees to supply the goods as outlined in the order summary.",
+            "2. The buyer agrees to remit payment as agreed upon.",
+            "3. This contract is binding and subject to Motaa's terms of service.",
+            "4. All disputes will be resolved under applicable local laws.",
+            "",
+            "Signed and agreed by both parties on the date above."
+        ]
+
+    def write_inspection_contract(self, order) -> list:
+        return [
+            f"VEHICLE INSPECTION AGREEMENT",
+            "",
+            f"This agreement confirms that {order.customer.user.name} has requested a vehicle inspection on {order.date_created}.",
+            f"Vehicle: {order.order_item.vehicle.name}",
+            f"Vehicle ID: {order.order_item.vehicle.uuid}",
+            f"Dealership: {order.order_item.vehicle.dealer.business_name}",
+            "",
+            "1. The inspector will perform a comprehensive assessment of the vehicle.",
+            "2. The client understands the inspection is non-invasive and based on visible/mechanical checks.",
+            "3. This document does not constitute a warranty or certification of the vehicle's future condition.",
+            "4. The client accepts the findings as-is at the date of inspection.",
+            "",
+            "Signed and agreed by both parties on the date above."
+        ]
