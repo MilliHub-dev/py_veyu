@@ -1,7 +1,7 @@
-# Motaa - Django Project Analysis
+# Veyu - Django Project Analysis
 
 ## Project Overview
-**Motaa** is a comprehensive Django-based mobility platform described as "Redefining Mobility". This is a full-stack marketplace and service platform for automotive services, vehicle rentals, and mechanic bookings.
+**Veyu** is a comprehensive Django-based mobility platform described as "Redefining Mobility". This is a full-stack marketplace and service platform for automotive services, vehicle rentals, and mechanic bookings.
 
 🌟 **Current Status**: ✅ Successfully Running on http://localhost:8000
 
@@ -109,7 +109,7 @@
 - **Payment Security**: Escrow system with locked transactions
 
 ## Business Model
-Motaa appears to be a **mobility-as-a-service platform** that:
+Veyu appears to be a **mobility-as-a-service platform** that:
 1. Connects customers with automotive service providers (mechanics)
 2. Facilitates vehicle sales and rentals through dealerships
 3. Provides a digital wallet system for seamless transactions

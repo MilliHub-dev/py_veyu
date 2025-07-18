@@ -1,4 +1,4 @@
-# Motaa - Redifining Mobility
+# Veyu - Redefining Mobility
 
 ### Windows Instructions
 
