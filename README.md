@@ -1,4 +1,4 @@
-# Veyu - Redefining Mobility
+# Veyu - Vehicles just for you
 
 ### Windows Instructions
 
