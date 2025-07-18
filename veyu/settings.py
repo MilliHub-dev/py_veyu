@@ -29,17 +29,6 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
-    # 'unfold',
-    'jazzmin',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    # 'jet',
-
 
     # Motaa Apps
     'accounts',
@@ -50,6 +39,20 @@ INSTALLED_APPS = [
     'wallet',
     'utils',
     'analytics',
+
+
+    'daphne',
+    # 'dj_palette',
+    # 'unfold',
+    'jazzmin',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    # 'jet',
+
 
 
     # Third Party Apps
@@ -88,7 +91,7 @@ MIDDLEWARE = [
         'allauth.account.middleware.AccountMiddleware',
         ]
 
-ROOT_URLCONF = 'motaa.urls'
+ROOT_URLCONF = 'veyu.urls'
 
 TEMPLATES = [
         {
@@ -106,8 +109,8 @@ TEMPLATES = [
             },
         ]
 
-WSGI_APPLICATION = 'motaa.wsgi.application'
-ASGI_APPLICATION = 'motaa.asgi.application'
+WSGI_APPLICATION = 'veyu.wsgi.application'
+ASGI_APPLICATION = 'veyu.asgi.application'
 
 
 # Database
@@ -188,7 +191,7 @@ else:
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{PUBLIC_MEDIA_LOCATION}/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
 
-DEFAULT_STORAGE_BACKEND = 'motaa.storage.UploadedFileStorage'
+DEFAULT_STORAGE_BACKEND = 'veyu.storage.UploadedFileStorage'
 
 
 

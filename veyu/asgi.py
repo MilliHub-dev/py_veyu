@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 
 import os, django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'motaa.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.settings')
 django.setup()
 
 from channels.auth import AuthMiddlewareStack

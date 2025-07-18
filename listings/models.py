@@ -59,52 +59,31 @@ class Vehicle(DbModel):
         ('petrol', 'Petrol'),
         ('hybrid', 'Hybrid'),
     ]
-    VEHICLE_TYPE = [
-        ('sedan', 'Sedan'),
-        ('convertible', 'Convertible'),
-        ('suv', 'Sub-Urban Vehicle'),
-        ('truck', 'Truck'),
-    ]
-
-    DRIVETRAIN = {
-        '4WD' : 'Four Wheel Drive',
-        'AWD' : 'All Wheel Drive',
-        'FWD' : 'Front Wheel Drive',
-    }
 
     dealer = models.ForeignKey('accounts.Dealership', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, blank=True, null=True)
-
-    # car details
-    color = models.CharField(max_length=200)
-    brand = models.CharField(max_length=200) # aka make
+    brand = models.CharField(max_length=200)
     model = models.CharField(max_length=200, blank=True, null=True)
-    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='used_uk')
-    type = models.CharField(max_length=200, choices=VEHICLE_TYPE, default='sedan')
-    mileage = models.CharField(max_length=200, blank=True, null=True)
-    transmission = models.CharField(max_length=200, blank=True, null=True, choices=TRANSMISSION)
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='used-foreign')
     fuel_system = models.CharField(max_length=200, blank=True, null=True, choices=FUEL_SYSTEM)
-    drivetrain = models.CharField(max_length=200, blank=True, null=True, choices=DRIVETRAIN)
-    seats = models.PositiveIntegerField(blank=True, null=True, default=5)
-    doors = models.PositiveIntegerField(blank=True, null=True, default=4)
-    vin = models.CharField(max_length=200, blank=True, null=True,)
+    transmission = models.CharField(max_length=200, blank=True, null=True, choices=TRANSMISSION)
+    color = models.CharField(max_length=200)
+    mileage = models.CharField(max_length=200, blank=True, null=True)
+
+    for_sale = models.BooleanField(default=False)
+    for_rent = models.BooleanField(default=False)
+    available = models.BooleanField(default=True)
 
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
     tags = ArrayField(blank=True, null=True, data_type=str)
-    custom_duty = models.BooleanField(default=False)
     features = ArrayField(blank=True, null=True, data_type=str)
+    custom_duty = models.BooleanField(default=False)
 
-    # rental history
-    last_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
-    current_rental = models.ForeignKey('CarRental', blank=True, null=True, on_delete=models.SET_NULL, related_name='current_rental')
-    rentals = models.ManyToManyField('CarRental', blank=True, related_name='rentals')
-
-    # availability
-    available = models.BooleanField(default=True) # sold / rented items can't be listed
-    for_sale = models.BooleanField(default=False)
-    for_rent = models.BooleanField(default=False)
+    last_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
+    current_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='current_rental')
+    rentals = models.ManyToManyField('RentalOrder', blank=True, related_name='rentals')
 
     def __str__(self):
         return self.name or 'Unnamed Vehicle'
@@ -118,20 +97,56 @@ class Vehicle(DbModel):
         return self.rentals.count()
 
 
-class CarRental(DbModel):
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    order = models.ForeignKey('Order', on_delete=models.CASCADE)
+class Car(Vehicle):
+    DRIVETRAIN = [
+        ('4WD', 'Four Wheel Drive'),
+        ('AWD', 'All Wheel Drive'),
+        ('FWD', 'Front Wheel Drive'),
+        ('RWD', 'Rear Wheel Drive'),
+    ]
 
-    def __str__(self):
-        return f'{self.customer.account.email}  - Order #{self.order.id}'
+    doors = models.PositiveIntegerField(blank=True, null=True, default=4)
+    seats = models.PositiveIntegerField(blank=True, null=True, default=5)
+    drivetrain = models.CharField(max_length=200, blank=True, null=True, choices=DRIVETRAIN)
+    vin = models.CharField(max_length=200, blank=True, null=True)
 
 
-class CarPurchase(DbModel):
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    order = models.ForeignKey('Order', on_delete=models.CASCADE)
+class Boat(Vehicle):
+    hull_material = models.CharField(max_length=100, blank=True, null=True)
+    engine_count = models.PositiveIntegerField(blank=True, null=True)
+    propeller_type = models.CharField(max_length=100, blank=True, null=True)
+    length = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)  # in feet/meters
+    beam_width = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    draft = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
 
-    def __str__(self):
-        return f'{self.customer.account.email}  - Order #{self.order.id}'
+
+class Plane(Vehicle):
+    AIRCRAFT_TYPE_CHOICES = [
+        ('jet', 'Jet'),
+        ('propeller', 'Propeller'),
+        ('glider', 'Glider'),
+        ('helicopter', 'Helicopter'),
+    ]
+
+    registration_number = models.CharField(max_length=100, blank=True, null=True)
+    engine_type = models.CharField(max_length=100, blank=True, null=True)
+    aircraft_type = models.CharField(max_length=50, choices=AIRCRAFT_TYPE_CHOICES, blank=True, null=True)
+    max_altitude = models.PositiveIntegerField(blank=True, null=True)  # in feet
+    wing_span = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    range = models.PositiveIntegerField(blank=True, null=True)  # in kilometers or nautical miles
+
+
+class Bike(Vehicle):
+    BIKE_TYPE_CHOICES = [
+        ('cruiser', 'Cruiser'),
+        ('sport', 'Sport'),
+        ('touring', 'Touring'),
+        ('offroad', 'Off-Road'),
+    ]
+
+    engine_capacity = models.PositiveIntegerField(blank=True, null=True)  # in cc
+    bike_type = models.CharField(max_length=50, choices=BIKE_TYPE_CHOICES, blank=True, null=True)
+    saddle_height = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)  # in inches or cm
 
 
 def to_decimal(dig):
@@ -164,7 +179,7 @@ class OrderInspection(DbModel):
 
 
 class Order(DbModel):
-    ORDER_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
+    ORDER_TYPES  = {'rental': 'Rental', 'sale': 'Sale'}
     ORDER_STATUS  = {
         'awaiting-inspection': 'Awaiting Inspection',
         'inspecting': 'Inspecting',
@@ -188,12 +203,6 @@ class Order(DbModel):
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
     applied_coupons = models.ManyToManyField('Coupon', blank=True)
     # for rentals
-    is_recurring = models.BooleanField(default=False)
-    payment_cycle = models.CharField(max_length=20, choices=PAYMENT_CYCLES, default="month")
-    rent_from = models.DateField(blank=True, null=True)
-    rent_until = models.DateField(blank=True, null=True)
-    last_payment = models.DateField(blank=True, null=True)
-    next_payment = models.DateField(blank=True, null=True)
 
     @property
     def sub_total(self):
@@ -227,6 +236,26 @@ class Order(DbModel):
 
 
 
+class RentalOrder(Order):
+    is_recurring = models.BooleanField(default=False)
+    payment_cycle = models.CharField(max_length=20, choices=PAYMENT_CYCLES, default="month")
+    rent_from = models.DateField(blank=True, null=True)
+    rent_until = models.DateField(blank=True, null=True)
+    last_payment = models.DateField(blank=True, null=True)
+    next_payment = models.DateField(blank=True, null=True)
+    
+
+    def __str__(self):
+        return f'{self.customer.account.email}  - Order #{self.order.id}'
+
+
+class PurchaseOrder(Order):
+
+    def __str__(self):
+        return f'{self.customer.account.email}  - Order #{self.order.id}'
+
+
+
 class Coupon(DbModel):
     # motaa can issue coupons that are valid in all dealerships
     issuer = models.CharField(max_length=20, default='dealership') # motaa | dealership
@@ -246,8 +275,6 @@ class Coupon(DbModel):
             return 'Motaa'
         else:
             return self.valid_in.first().business_name
-
-
 
 
 class Listing(DbModel):
@@ -301,7 +328,6 @@ class ListingBoost(DbModel):
     def __str__(self):
         status = "Active" if self.is_active() else "Expired"
         return f"{self.listing.title} - {status} ({self.start_date} to {self.end_date})"
-
 
 
 class PurchaseOffer(DbModel):

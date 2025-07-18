@@ -1,6 +1,6 @@
 import africastalking
 from africastalking.SMS import SMSService
-from motaa import settings
+from veyu import settings
 # import vonage
 
 username = 'Motaa' # 'sandbox'

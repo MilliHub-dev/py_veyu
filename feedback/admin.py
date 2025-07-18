@@ -1,5 +1,5 @@
 from django.contrib import admin
-from utils.admin import motaa_admin
+from utils.admin import veyu_admin
 from .models import (
     SupportTicket,
     Review,
@@ -24,11 +24,11 @@ class ReviewAdmin(admin.ModelAdmin):
 
 
 # Register your models here.
-motaa_admin.register(Rating)
-motaa_admin.register(Notification)
-motaa_admin.register(Review, ReviewAdmin)
-motaa_admin.register(SupportTicket)
-motaa_admin.register(Tag)
-motaa_admin.register(TicketCategory)
+veyu_admin.register(Rating)
+veyu_admin.register(Notification)
+veyu_admin.register(Review, ReviewAdmin)
+veyu_admin.register(SupportTicket)
+veyu_admin.register(Tag)
+veyu_admin.register(TicketCategory)
 
 

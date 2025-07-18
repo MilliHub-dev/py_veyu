@@ -5,12 +5,24 @@ from django.db.models import Count, Sum
 from django.shortcuts import render
 from accounts.models import (Customer, Dealer, Mechanic,)
 from listings.models import Order
+from django.urls import path, re_path
+from django.template.response import TemplateResponse
+from django.apps import apps
+from django.http import Http404
 
-class MotaaAdminSite(AdminSite):
+
+class VeyuAdminSite(AdminSite):
     site_header = "My Custom Admin"
     site_title = "Analytics Dashboard"
     index_title = "Dashboard"
     name = 'motaa_admin'
+
+    
+    def get_urls(self):
+        custom_urls = [
+            re_path(r'^(?P<app_label>\w+)/$', self.admin_view(self.app_index), name='app_list'),
+        ]
+        return custom_urls + super().get_urls()
 
     def index(self, request, extra_context=None):
         # Get the date 30 days ago
@@ -66,6 +78,22 @@ class MotaaAdminSite(AdminSite):
 
         return super().index(request, extra_context=extra_context)
 
+    def app_index(self, request, app_label, extra_context={}):
+        # return super().app_index(request, app_label, extra_context)
+        app_config = apps.get_app_config(app_label)
+        if not app_config:
+            raise Http404("App not found")
+
+        context = {
+            **self.each_context(request),
+            "title": app_config.verbose_name,
+            "app_label": app_label,
+            "app_list": [app for app in self.get_app_list(request) if app['app_label'] == app_label],
+        }
+        print("App List:", context['app_list'])
+        context.update(extra_context or {})
+        return TemplateResponse(request, "admin/app_index.html", context)
+
 # Create an instance of the custom admin site
 # motaa_admin = MotaaAdminSite(name='motaa_admin')
-motaa_admin = MotaaAdminSite()
+veyu_admin = VeyuAdminSite()

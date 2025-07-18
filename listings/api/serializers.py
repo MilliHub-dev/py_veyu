@@ -1,6 +1,6 @@
 import json
 from ..models import (
-    CarRental,
+    RentalOrder,
     Listing,
     Order,
     Vehicle,
@@ -193,7 +193,7 @@ class VehicleUpdateSerializer(ModelSerializer):
             'uuid': {'read_only': True},
         }
 
-class BookCarRentalSerializer(serializers.ModelSerializer):
+class BookRentalOrderSerializer(serializers.ModelSerializer):
     order_items = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField()
 

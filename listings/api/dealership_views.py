@@ -37,7 +37,7 @@ from .serializers import (
     CreateListingSerializer,
     OrderSerializer,
     VehicleSerializer,
-    BookCarRentalSerializer,
+    # BookCarRentalSerializer,
     TestDriveRequestSerializer,
     TradeInRequestSerializer,
     CompleteOrderSerializer,
@@ -48,7 +48,7 @@ from ..models import (
     Vehicle,
     Listing,
     Order,
-    CarRental,
+    # CarRental,
     PurchaseOffer,
     VehicleImage,
 )

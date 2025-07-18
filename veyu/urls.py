@@ -14,7 +14,7 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework import permissions
-from utils.admin import motaa_admin
+from utils.admin import veyu_admin
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -31,7 +31,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     # Admin
-    path('admin/', motaa_admin.urls),
+    path('admin/', veyu_admin.urls),
     path('old-admin/', admin.site.urls),
     
     # Api Documetation
@@ -70,6 +70,6 @@ if settings.DEBUG:
 
 
 
-admin.site.index_title = 'MOTAA ADMINISTRATION'
-admin.site.site_header = 'MOTAA ADMIN'
-admin.site.site_title = 'MOTAA ADMIN'
+admin.site.index_title = 'Veyu'
+admin.site.site_header = 'Veyu'
+admin.site.site_title = 'Veyu'

@@ -9,7 +9,10 @@ from .models import (
 )
 from utils.sms import send_sms
 from utils.mail import send_email
-from utils.admin import motaa_admin
+from utils.admin import veyu_admin
+from django.contrib.admin import AdminSite
+
+
 
 
 class AccountsAdmin(admin.ModelAdmin):
@@ -74,9 +77,9 @@ class OTPAdmin(admin.ModelAdmin):
 
 
 # Register your models here.
-motaa_admin.register(Account, AccountsAdmin)
-motaa_admin.register(Customer)
-motaa_admin.register(Mechanic)
-motaa_admin.register(Location)
-motaa_admin.register(Dealer)
-motaa_admin.register(OTP, OTPAdmin)
+veyu_admin.register(Account, AccountsAdmin)
+veyu_admin.register(Customer)
+veyu_admin.register(Mechanic)
+veyu_admin.register(Location)
+veyu_admin.register(Dealer)
+veyu_admin.register(OTP, OTPAdmin)

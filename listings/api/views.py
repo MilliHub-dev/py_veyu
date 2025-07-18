@@ -40,18 +40,18 @@ from .serializers import (
     CreateListingSerializer,
     OrderSerializer,
     VehicleSerializer,
-    BookCarRentalSerializer,
-    TestDriveRequestSerializer,
-    TradeInRequestSerializer,
-    CompleteOrderSerializer,
-    OrderInspectionSerializer,
-    PurchaseOfferSerializer,
+    # BookCarRentalSerializer,
+    # TestDriveRequestSerializer,
+    # TradeInRequestSerializer,
+    # CompleteOrderSerializer,
+    # OrderInspectionSerializer,
+    # PurchaseOfferSerializer,
 )
 from ..models import (
     Vehicle,
     Listing,
     Order,
-    CarRental,
+    RentalOrder,
     OrderInspection,
     PurchaseOffer,
 )
@@ -462,7 +462,7 @@ class CheckoutView(APIView):
             'fees': {
                 'tax': (0.075 * float(listing.price)),
                 'inspection_fee': get_inspection_fee(listing),
-                'motaa_fee': (0.02 * float(listing.price)),
+                'veyu_fee': (0.02 * float(listing.price)),
             },
             'listing': ListingSerializer(listing, context={'request': request}).data,
         }
@@ -555,7 +555,7 @@ class CompleteOrderView(APIView):
 
 
 
-LETTERHEAD_PATH = os.path.join(settings.BASE_DIR, 'static', 'motaa/letterhead.pdf')
+LETTERHEAD_PATH = os.path.join(settings.BASE_DIR, 'static', 'veyu/letterhead.pdf')
 MEDIA_SIGNED_DIR = os.path.join(settings.MEDIA_ROOT, 'docs')
 
 class CheckoutDocumentView(APIView):

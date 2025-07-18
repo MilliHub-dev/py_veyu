@@ -4,11 +4,11 @@ from .models import (
     ServiceOffering,
     ServiceBooking,
 )
-from utils.admin import motaa_admin
+from utils.admin import veyu_admin
 
 
 
 # Register your models here.
-motaa_admin.register(Service)
-motaa_admin.register(ServiceOffering)
-motaa_admin.register(ServiceBooking)
+veyu_admin.register(Service)
+veyu_admin.register(ServiceOffering)
+veyu_admin.register(ServiceBooking)

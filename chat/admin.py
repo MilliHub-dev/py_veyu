@@ -4,9 +4,9 @@ from .models import (
     ChatMessage,    
     ChatRoom,
 )
-from utils.admin import motaa_admin
+from utils.admin import veyu_admin
 # Register your models here.
 
-motaa_admin.register(ChatAttachment)
-motaa_admin.register(ChatMessage)
-motaa_admin.register(ChatRoom)
+veyu_admin.register(ChatAttachment)
+veyu_admin.register(ChatMessage)
+veyu_admin.register(ChatRoom)
