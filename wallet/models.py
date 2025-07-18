@@ -131,7 +131,7 @@ class Transaction(DbModel):
     }
 
     # defaluts to motaa, but can be 'me@gmail.com', 'Julien Namaste'
-    sender = models.CharField(max_length=50, blank=True, null=True, default='Motaa')
+    sender = models.CharField(max_length=50, blank=True, null=True, default='Veyu')
     recipient = models.CharField(max_length=50, blank=True, null=True) # e.g Manga Auto's
     
     # optional when depositing, as transaction does not originate from the wallet.
@@ -145,7 +145,7 @@ class Transaction(DbModel):
     type = models.CharField(max_length=30, choices=TRANSACTION_TYPES, default='deposit')
     tx_ref = models.CharField(max_length=40, null=True, blank=True)
     status = models.CharField(max_length=20, default='pending', choices=TRANSACTION_STATUS)
-    narration = models.CharField(max_length=200, default='Motaa Subscription')
+    narration = models.CharField(max_length=200, default='Veyu Subscription')
 
     # selected payout info when withdrawing to local bank
     payout_info = models.ForeignKey('accounts.PayoutInformation', null=True, blank=True, on_delete=models.SET_NULL)

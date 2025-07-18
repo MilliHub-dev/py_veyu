@@ -21,7 +21,7 @@ class AccountManager(BaseUserManager):
             raise ValueError("The given email must be set")
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        if extra_fields.get('provider', 'motaa') == 'motaa':
+        if extra_fields.get('provider', 'veyu') == 'veyu':
             user.password = make_password(password)
         else:
             user.set_unusable_password()
@@ -56,7 +56,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     # for OAuth
     ACCOUNT_PROVIDERS = {
-        'motaa': 'Motaa',
+        'veyu': 'Veyu',
         'google': 'Google',
         'facebook': 'Facebook',
         'apple': 'Apple',
@@ -68,7 +68,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
     api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.SET_NULL)
-    provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='motaa')
+    provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='veyu')
 
     groups = None
     user_permissions = None

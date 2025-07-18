@@ -36,20 +36,126 @@ from django.contrib.auth import authenticate
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from utils.location import haversine
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class SignupSerializer(Serializer):
-    email = EmailField(required=True)
-    email = CharField(required=True, max_length=30,)
-    api_token = StringRelatedField()
+    """
+    User registration serializer for creating new Veyu accounts.
+    
+    Supports multiple user types: customer, mechanic, dealer.
+    Handles both Veyu native accounts and social media authentication.
+    """
+    
+    email = EmailField(
+        required=True,
+        help_text="User's email address (must be unique)",
+        style={'placeholder': 'user@example.com'}
+    )
+    first_name = CharField(
+        required=True, 
+        max_length=50,
+        help_text="User's first name",
+        style={'placeholder': 'John'}
+    )
+    last_name = CharField(
+        required=True, 
+        max_length=50,
+        help_text="User's last name",
+        style={'placeholder': 'Doe'}
+    )
+    password = CharField(
+        required=True, 
+        min_length=8,
+        max_length=128,
+        write_only=True,
+        help_text="Strong password (min 8 characters)",
+        style={'input_type': 'password', 'placeholder': '••••••••'}
+    )
+    confirm_password = CharField(
+        required=True,
+        write_only=True,
+        help_text="Password confirmation (must match password)",
+        style={'input_type': 'password', 'placeholder': '••••••••'}
+    )
+    user_type = CharField(
+        required=True,
+        help_text="Type of user account: customer, mechanic, or dealer"
+    )
+    provider = CharField(
+        required=False,
+        default='veyu',
+        help_text="Authentication provider: veyu, google, apple, facebook"
+    )
+    phone_number = CharField(
+        required=False,
+        max_length=20,
+        help_text="User's phone number (optional)",
+        style={'placeholder': '+234XXXXXXXXXX'}
+    )
+    api_token = StringRelatedField(read_only=True)
+
+    class Meta:
+        swagger_schema_fields = {
+            "example": {
+                "email": "john.doe@example.com",
+                "first_name": "John",
+                "last_name": "Doe",
+                "password": "SecurePass123!",
+                "confirm_password": "SecurePass123!",
+                "user_type": "customer",
+                "provider": "veyu",
+                "phone_number": "+2348123456789"
+            }
+        }
+
+    def validate(self, attrs):
+        """Validate password confirmation and user type."""
+        if attrs.get('password') != attrs.get('confirm_password'):
+            raise serializers.ValidationError("Passwords do not match.")
+        
+        if attrs.get('user_type') not in ['customer', 'mechanic', 'dealer']:
+            raise serializers.ValidationError("Invalid user type.")
+        
+        return attrs
+
+    def validate_provider(self, value):
+        """Validate that the provider is valid."""
+        if value not in ['google', 'apple', 'veyu', 'facebook']:
+            raise serializers.ValidationError(
+                detail={'message': 'Invalid Provider'}
+            )
+        return value
+
+    def validate_email(self, value):
+        """Validate email uniqueness."""
+        if Account.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return value
 
     def create(self, validated_data):
+        """Create new user account with proper authentication setup."""
+        validated_data.pop('confirm_password', None)
+        password = validated_data.pop('password')
+        
         try:
-            user = authenticate(email=validated_data['email'], password=validated_data['password'])
-            if user:
-                return user
-            return None
-        except Excation as error:
-            return None
+            user = Account.objects.create_user(
+                password=password if validated_data.get('provider') == 'veyu' else None,
+                **validated_data
+            )
+            
+            # Create user type specific profile
+            user_type = validated_data.get('user_type')
+            if user_type == 'customer':
+                Customer.objects.create(user=user)
+            elif user_type == 'mechanic':
+                Mechanic.objects.create(user=user)
+            elif user_type == 'dealer':
+                Dealer.objects.create(user=user)
+                
+            return user
+        except Exception as e:
+            raise serializers.ValidationError(f"Error creating account: {str(e)}")
 
 
 class AccountSerializer(ModelSerializer):
@@ -280,36 +386,61 @@ class GetAccountSerializer(ModelSerializer):
     #     return data
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(
-        style={"input_type": "password"},
-        required=False,  # Make password optional
-        allow_blank=True  # Allow empty strings
+class LoginSerializer(Serializer):
+    """
+    User authentication serializer for Veyu platform.
+    
+    Supports both email/password and social media authentication.
+    Returns JWT tokens and user profile information.
+    """
+    
+    email = EmailField(
+        required=True,
+        help_text="User's registered email address",
+        style={'placeholder': 'user@example.com'}
     )
-    provider = serializers.CharField()
+    password = CharField(
+        required=True,
+        write_only=True,
+        help_text="User's password (required for Veyu accounts)",
+        style={'input_type': 'password', 'placeholder': '••••••••'}
+    )
+    provider = CharField(
+        required=False,
+        default='veyu',
+        help_text="Authentication provider: veyu, google, apple, facebook"
+    )
 
-    def validate_email(self, value):
-        """Validate that a user with the given email exists."""
-        user = Account.objects.filter(email=value).first()
+    class Meta:
+        swagger_schema_fields = {
+            "example": {
+                "email": "john.doe@example.com",
+                "password": "SecurePass123!",
+                "provider": "veyu"
+            }
+        }
 
-        if not user:
-            raise serializers.ValidationError(
-                detail={'message': 'User does not exist'}
-            )
+    def validate(self, attrs):
+        """Authenticate user and return user object."""
+        email = attrs.get('email')
+        password = attrs.get('password')
+        provider = attrs.get('provider', 'veyu')
+
+        try:
+            user = Account.objects.get(email=email)
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Invalid email or password.")
+
+        # Validate password for Veyu accounts
+        if provider == "veyu" and not user.check_password(raw_password=password):
+            raise serializers.ValidationError("Invalid email or password.")
+
+        # Check if user is active
         if not user.is_active:
-            raise serializers.ValidationError(
-                detail={'message': 'User is not activated'}
-            )
-        return value
+            raise serializers.ValidationError("Account is deactivated.")
 
-    def validate_provider(self, value):
-        """Validate that the provider is valid."""
-        if value not in ['google', 'apple', 'motaa']:
-            raise serializers.ValidationError(
-                detail={'message': 'Invalid Provider'}
-            )
-        return value
+        attrs['user'] = user
+        return attrs
 
 
 class ChangePasswordSerializer(serializers.Serializer):

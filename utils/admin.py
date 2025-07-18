@@ -15,7 +15,7 @@ class VeyuAdminSite(AdminSite):
     site_header = "My Custom Admin"
     site_title = "Analytics Dashboard"
     index_title = "Dashboard"
-    name = 'motaa_admin'
+    name = 'veyu_admin'
 
     
     def get_urls(self):
