@@ -18,11 +18,11 @@ class VeyuAdminSite(AdminSite):
     name = 'motaa_admin'
 
     
-    def get_urls(self):
-        custom_urls = [
-            re_path(r'^(?P<app_label>\w+)/$', self.admin_view(self.app_index), name='app_list'),
-        ]
-        return custom_urls + super().get_urls()
+    # def get_urls(self):
+    #     custom_urls = [
+    #         re_path(r'^(?P<app_label>\w+)/$', self.admin_view(self.app_index), name='app_list'),
+    #     ]
+    #     return custom_urls + super().get_urls()
 
     def index(self, request, extra_context=None):
         # Get the date 30 days ago

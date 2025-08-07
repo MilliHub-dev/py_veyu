@@ -1,4 +1,4 @@
-# Motaa - Redifining Mobility
+# Veyu - Vehicles For You!
 
 ### Windows Instructions
 

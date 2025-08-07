@@ -99,10 +99,3 @@ veyu_admin.register(VehicleImage, VehicleImageAdmin)
 veyu_admin.register(Vehicle, VehicleAdmin)
 veyu_admin.register(OrderInspection)
 
-
-
-
-
-
-
-

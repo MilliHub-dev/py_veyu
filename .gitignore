@@ -24,5 +24,10 @@ backup.sql
 doc.md
 .env.local
 .env
+
+git-token
+git_access_token
+*.pem
+veyu-ssh-key.pem
 # uploads/
 static/
