@@ -1,4 +1,3 @@
-.vscode/
 venv/
 penv/
 *env/
@@ -22,7 +21,7 @@ db.sqlite3-journal
 backup.sql
 *.sql
 doc.md
-.env.local
-.env
 # uploads/
 static/
+config.bat
+node_modules
