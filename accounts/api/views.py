@@ -125,7 +125,7 @@ class SignUpView(generics.CreateAPIView):
                     user_type=data['user_type']
                 )
                 user.save(using=None)
-                if data['provider'] == 'motaa':
+                if data['provider'] == 'veyu':
                     user.set_password(data['password'])
                 else:
                     user.set_unusable_password()
@@ -235,8 +235,8 @@ class LoginView(views.APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # **If provider is "motaa", validate password**
-        if provider == "motaa" and not user.check_password(raw_password=password):
+        # **If provider is "veyu", validate password**
+        if provider == "veyu" and not user.check_password(raw_password=password):
             return Response(
                 {"error": True, "message": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -244,12 +244,7 @@ class LoginView(views.APIView):
 
         # **Login the user and generate tokens**
         login(request, user)
-        # access_token = AccessToken.for_user(user)
-        # refresh_token = RefreshToken.for_user(user)
-
         data = {
-            # "access_token": str(access_token),
-            # "refresh_token": str(refresh_token),
             "id": user.id,
             "email": user.email,
             "token": str(user.api_token),

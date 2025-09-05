@@ -191,7 +191,9 @@ else:
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{PUBLIC_MEDIA_LOCATION}/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
 
-DEFAULT_STORAGE_BACKEND = 'veyu.storage.UploadedFileStorage'
+
+if not DEBUG:
+    DEFAULT_STORAGE_BACKEND = 'veyu.storage.UploadedFileStorage'
 
 
 
@@ -307,13 +309,6 @@ JAZZMIN_SETTINGS = {
     ],
     "order_with_respect_to": ["auth", "listings.Listing"],
     "custom_links": {
-        # "my_app": [
-        #     {
-        #         "name": "Custom View",
-        #         "url": "custom-view",
-        #         "icon": "fas fa-cogs",
-        #     },
-        # ]
     },
 }
 
