@@ -1,4 +1,4 @@
-# Veyu - Vehicles For You!
+# Veyu - Vehicles just for you
 
 ### Windows Instructions
 

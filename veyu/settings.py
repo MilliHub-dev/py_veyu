@@ -18,10 +18,11 @@ if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
     ALLOWED_HOSTS = [
-            'motaadev.pythonanywhere.com',
-            'motaa.vercel.app',
-            'motaa.com.ng',
-            'motaa-backend.onrender.com',
+            'veyudev.pythonanywhere.com',
+            'veyu.vercel.app',
+            'veyu.com.ng',
+            'veyu-backend.onrender.com',
+            'api.veyu.com',
             '*', # remove after dev testing of frontend
             ]
 
@@ -283,11 +284,11 @@ CHANNEL_LAYERS = {
 
 
 JAZZMIN_SETTINGS = {
-    "site_logo": 'motaa/motaa-logo-3.png',
-    "site_title": "Motaa Admin",
-    "site_header": "Motaa Admin Portal",
+    "site_logo": 'veyu/veyu-logo-3.png',
+    "site_title": "Veyu Admin",
+    "site_header": "Veyu Admin Portal",
     "index_template": "admin/index.html",
-    "welcome_sign": "Welcome to Motaa Admin!",
+    "welcome_sign": "Welcome to Veyu Admin!",
     "topmenu_links": [
         {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},  # Direct link to an app

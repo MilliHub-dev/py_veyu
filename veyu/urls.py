@@ -18,9 +18,14 @@ from utils.admin import veyu_admin
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Project API Documentation",
+        title="Veyu API Documentation",
         default_version='v1',
-        description="API documentation for Motaa",
+        description="Comprehensive API documentation for Veyu - Redefining Mobility Platform. "
+                   "This API provides endpoints for vehicle marketplace, mechanic services, "
+                   "real-time chat, digital wallet, and user management.",
+        terms_of_service="https://veyu.com/terms/",
+        contact=openapi.Contact(email="api@veyu.com"),
+        license=openapi.License(name="MIT License"),
     ),
     public=True,
     authentication_classes=[BasicAuthentication, SessionAuthentication],
