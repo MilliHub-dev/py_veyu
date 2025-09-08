@@ -29,6 +29,7 @@ User = get_user_model()
 class WalletOverview(APIView):
     permission_classes = [IsAuthenticated, ]
     allowed_methods = ["GET"]
+    serializer_class = WalletSerializer
 
     @swagger_auto_schema(operation_summary="Endpoint to get user wallet")
     def get(self, request:Request):
@@ -120,7 +121,7 @@ class Deposit(APIView):
 
     @swagger_auto_schema(
         operation_summary="Endpoint to deposit funds to wallet",
-        request_body=deposit_schema
+        # request_body=deposit_schema
     )
     def post(self, request:Request):
         data = request.data
