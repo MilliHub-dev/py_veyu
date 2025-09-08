@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'wallet',
     'utils',
     'analytics',
-    'docs',
 
 
     'daphne',
