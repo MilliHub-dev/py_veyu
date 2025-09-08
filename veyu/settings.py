@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'wallet',
     'utils',
     'analytics',
-
+    'docs',
 
     'daphne',
     # 'dj_palette',

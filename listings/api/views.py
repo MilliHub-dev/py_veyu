@@ -43,7 +43,7 @@ from .serializers import (
     # BookCarRentalSerializer,
     # TestDriveRequestSerializer,
     # TradeInRequestSerializer,
-    # CompleteOrderSerializer,
+    CompleteOrderSerializer,
     # OrderInspectionSerializer,
     # PurchaseOfferSerializer,
 )
@@ -229,6 +229,7 @@ class MyListingsView(ListAPIView):
 
 class DealershipView(APIView):
     allowed_methods = ["GET"]
+    serializer_class = DealershipSerializer
     permission_classes = [IsAuthenticated]
 
     def get(self, request, uuid):
@@ -525,8 +526,9 @@ class BookInspectionView(APIView):
 class CompleteOrderView(APIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticatedOrReadOnly,]
+    serializer_class = CompleteOrderSerializer
 
-    @swagger_auto_schema(operation_summary="Endpoint to complete order")
+    # @swagger_auto_schema(operation_summary="Endpoint to complete order")
     def post(self, request):
         serializer = CompleteOrderSerializer(data=request.data)
         if serializer.is_valid():

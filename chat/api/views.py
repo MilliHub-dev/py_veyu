@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import (
 	IsAuthenticated,
 )
-from accounts.models import Dealership, Customer, Mechanic
+from accounts.models import Dealership, Customer, Mechanic, Account
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -27,7 +27,7 @@ def chats_view(request):
 		'error': False,
 		'data': rooms
 	}
-	return Response(data)
+	return Response(data, 200)
 
 
 @api_view(["POST"])
@@ -46,6 +46,7 @@ def send_message_view(request, room_id=None):
 
 	members = [request.user, other_member]
 	member_ids = [member.id for member in members]
+	
 	print("Members:", members)
 	if room_id is None:
 		try:

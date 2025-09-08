@@ -80,6 +80,7 @@ class MechanicOverview(ListAPIView):
 
 class MechanicDashboardView(ListAPIView):
     allowed_methods = ['GET']
+    serializer_class = MechanicSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
@@ -121,7 +122,9 @@ class MechanicDashboardView(ListAPIView):
 
 class MechanicAnalyticsView(APIView):
     allowed_methods = ['GET']
-
+    permission_classes = [IsAuthenticated, IsMechanicOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    serializer_class = MechanicSerializer
 
     def make_revenue_chart(self, data, period="monthly"):
         def get_counts(queryset, dates):
@@ -298,7 +301,8 @@ class MechanicSearchView(ListAPIView):
 
 class MechanicProfileView(APIView):
     allowed_methods = ['GET', 'POST']
-    # serializer_class = CreateBookingSerializer
+    serializer_class = MechanicSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
     kwargs = ['mech_id']
 
     def get_view_name(self):
@@ -365,7 +369,8 @@ class MechanicProfileView(APIView):
 class MechanicServicesView(ListAPIView):
     allowed_methods = ['GET', 'POST']
     permission_classes = [IsAuthenticated, IsMechanicOnly]
-    serializer_class = MechanicServiceHistorySerializer
+    # serializer_class = MechanicServiceHistorySerializer
+    serializer_class = MechanicServiceSerializer
 
     def get(self, request, *args, **kwargs):
         # mech = Mechanic.me(kwargs['mech_id'])
@@ -402,6 +407,7 @@ class MechanicServicesView(ListAPIView):
 class CreateServiceOfferingView(CreateAPIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticated, IsMechanicOnly]
+    serializer_class = MechanicServiceSerializer
 
     def get(self, request):
         services = Service.objects.all()
@@ -443,6 +449,8 @@ class CreateServiceOfferingView(CreateAPIView):
 class ServiceOfferingUpdateView(APIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticated, IsMechanicOnly]
+    serializer_class = MechanicServiceSerializer
+
 
     def post(self, request, *args, **kwargs):
         return Response()
@@ -507,6 +515,8 @@ class MechanicSettingsView(APIView):
     parser_classes = [MultiPartParser, JSONParser]
     permission_classes = [IsAuthenticated, IsMechanicOnly,]
     allowed_methods = ['GET', 'POST']
+    serializer_class = MechanicSerializer
+    
 
     def get(self, request):
         mechanic = Mechanic.objects.get(user=request.user)

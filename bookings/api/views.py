@@ -188,7 +188,7 @@ class MechanicSearchView(ListAPIView):
 class MechanicProfileView(APIView):
     allowed_methods = ['GET', 'POST']
     permission_classes = [IsAuthenticated]
-    serializer_class = CreateBookingSerializer
+    serializer_class = MechanicSerializer
     paystack = PaystackAdapter()
     kwargs = ['mech_id']
 
@@ -284,9 +284,9 @@ class MechanicServiceHistory(ListAPIView):
         data = {
             'error': False,
             'message': 'Successfully got %s\' service history' % mech.account.first_name,
-            'data': CreateBookingSerializer(history).data
+            'data': CreateBookingSerializer(history, many=True).data
         }
-        return Response()
+        return Response(data, 200)
 
 
 class BookingUpdateView(RetrieveAPIView):

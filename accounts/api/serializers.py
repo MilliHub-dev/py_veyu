@@ -198,6 +198,7 @@ class MechanicSerializer(ModelSerializer):
     level = SerializerMethodField()
     price_start = SerializerMethodField()
     distance = SerializerMethodField()
+
     class Meta:
         model = Mechanic
         fields = (

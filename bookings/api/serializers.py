@@ -46,7 +46,8 @@ class UpdateBookingSerializer(ModelSerializer):
 
     class Meta:
         model = ServiceBooking
-        fields = ('booking_status',)
+        # fields = ('booking_status',)
+        fields = '__all__'
         # read_only_fields = ('id', 'uuid', 'services', 'customer', 'date_created', )
 
 

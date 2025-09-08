@@ -135,9 +135,6 @@ class SignUpView(generics.CreateAPIView):
 
                 if user_type == 'customer':
                     Customer.objects.create(user=user, phone_number=data['phone_number'])
-                # else:
-                #     business = {'dealer': Dealership, 'mechanic': Mechanic}.get(user_type)
-                #     business.objects.create(user=user)
                 user_data = {
                     "token": str(user.api_token),
                 }
@@ -198,7 +195,7 @@ class SignUpView(generics.CreateAPIView):
                     return Response({'error' : False, 'message': "Invalid or missing user_type param"})
         except Exception as error:
             message = str(error)
-            raise error
+            # raise error
             if message == 'UNIQUE constraint failed: accounts_customer.phone_number':
                 message = "User with this phone number already exists"
             return Response({'error' : True, 'message': message}, 500)
@@ -408,6 +405,7 @@ class VerifyEmailView(APIView):
 class VerifyPhoneNumberView(APIView):
     allowed_methods = ['POST']
     permission_classes = [IsAuthenticated]
+    serializer_class = VerifyPhoneNumberSerializer
 
     def post(self, request:Request):
         data = request.data

@@ -13,7 +13,7 @@ app_name = 'utils'
 
 
 urlpatterns = [
-    path('', index_view, name='home'),
+    # path('', index_view, name='home'),
     path('emailer/', email_relay),
     path('hooks/payment-webhook/', payment_webhook),
     path('hooks/verification/', verification_webhook),

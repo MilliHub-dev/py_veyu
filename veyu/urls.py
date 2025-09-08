@@ -29,15 +29,16 @@ schema_view = get_schema_view(
     ),
     public=True,
     authentication_classes=[BasicAuthentication, SessionAuthentication],
-    permission_classes=(permissions.AllowAny, permissions.IsAuthenticated),
+    permission_classes=[permissions.AllowAny, permissions.IsAuthenticated],
+    
 )
 
 
 
 urlpatterns = [
     # Admin
-    path('admin/', veyu_admin.urls),
-    path('old-admin/', admin.site.urls),
+    path('admin/', veyu_admin.urls, name='admin'),
+    # path('old-admin/', include(admin.site.urls)),  # Keep the old admin for reference, remove later if not needed
     
     # Api Documetation
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI
@@ -45,7 +46,7 @@ urlpatterns = [
     
     # API Endpoints
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
-    path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
+    # path('api/v1/mechanics/', include('bookings.api.urls', namespace='bookings_api')),
     path('api/v1/listings/', include('listings.api.urls', namespace='listings_api')),
     path('api/v1/chat/', include('chat.api.urls', namespace="chat_api")),
     path('api/v1/wallet/', include('wallet.urls')),
@@ -64,7 +65,7 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm'
     ),
-    path('', include('utils.urls', namespace='utils')),
+    # path('', include('utils.urls', namespace='utils')),
 ]
 
 if settings.DEBUG:
