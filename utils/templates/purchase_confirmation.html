@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="title">Purchase Confirmation</div>
+  <h2>Thanks for your purchase, <span class="highlight">{{ customer_name }}</span>!</h2>
+  <p>Your order has been created successfully.</p>
+  <table style="width:100%; border-collapse: collapse;">
+    <tr><td style="padding:6px 0;"><strong>Order ID:</strong></td><td>{{ order_uuid }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Listing:</strong></td><td>{{ listing_title }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Vehicle:</strong></td><td>{{ vehicle_name }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Amount:</strong></td><td>{{ amount }}</td></tr>
+  </table>
+  <p style="margin-top:16px;">
+    <a class="btn" href="{{ order_link|default:'#' }}">View Order</a>
+  </p>
+  <p>— Veyu Team</p>
+{% endblock %}

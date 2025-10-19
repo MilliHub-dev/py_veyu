@@ -263,7 +263,7 @@ class Coupon(DbModel):
     expires = models.DateTimeField(blank=True, null=True)
     users = models.ManyToManyField('accounts.Customer', blank=True)
     discount_type = models.CharField(max_length=20, default='flat') # flat | percentage
-    discount_value = models.DecimalField(decimal_places=2, default=0.00, max_digits=1000)
+    discount_value = models.DecimalField(decimal_places=2, default=0.00, max_digits=12)
     code = models.CharField(blank=True, null=True, max_length=20)
 
     def __str__(self):
@@ -286,7 +286,7 @@ class Listing(DbModel):
     approved_by = models.ForeignKey('accounts.Account', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_by')
     created_by = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='created_by')
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
-    price = models.DecimalField(decimal_places=2, max_digits=10000, blank=True, null=True)
+    price = models.DecimalField(decimal_places=2, max_digits=12, blank=True, null=True)
     title = models.CharField(max_length=400, blank=True, null=True)
     viewers = models.ManyToManyField('accounts.Account', limit_choices_to={'user_type': 'customer'}, blank=True, related_name='viewers')
     offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='offers')
@@ -333,7 +333,7 @@ class ListingBoost(DbModel):
 class PurchaseOffer(DbModel):
     bidder = models.ForeignKey('accounts.Customer', models.CASCADE, related_name='bidder')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='listing')
-    amount = models.DecimalField(decimal_places=2, max_digits=10000)
+    amount = models.DecimalField(decimal_places=2, max_digits=12)
 
 
 class TestDriveRequest(DbModel):
@@ -348,7 +348,7 @@ class TradeInRequest(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
     to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE)
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
-    estimated_value = models.DecimalField(decimal_places=2, max_digits=10000)
+    estimated_value = models.DecimalField(decimal_places=2, max_digits=12)
     comments = models.TextField(blank=True, null=True)
 
     def __str__(self):

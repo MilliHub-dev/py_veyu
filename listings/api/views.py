@@ -72,6 +72,7 @@ from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import ValidationError
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -92,6 +93,120 @@ from django.core.files import File as DjangoFile
 from django.http import Http404
 from django.core.files.storage import default_storage
 
+# ===== OpenAPI Schemas for Listings =====
+
+CarSchema = openapi.Schema(
+    title='Car',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'kind': openapi.Schema(type=openapi.TYPE_STRING, enum=['car']),
+        'doors': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'seats': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'drivetrain': openapi.Schema(type=openapi.TYPE_STRING),
+        'vin': openapi.Schema(type=openapi.TYPE_STRING),
+    }
+)
+
+BoatSchema = openapi.Schema(
+    title='Boat',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'kind': openapi.Schema(type=openapi.TYPE_STRING, enum=['boat']),
+        'hull_material': openapi.Schema(type=openapi.TYPE_STRING),
+        'engine_count': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'propeller_type': openapi.Schema(type=openapi.TYPE_STRING),
+        'length': openapi.Schema(type=openapi.TYPE_NUMBER),
+        'beam_width': openapi.Schema(type=openapi.TYPE_NUMBER),
+        'draft': openapi.Schema(type=openapi.TYPE_NUMBER),
+    }
+)
+
+PlaneSchema = openapi.Schema(
+    title='Plane',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'kind': openapi.Schema(type=openapi.TYPE_STRING, enum=['plane']),
+        'registration_number': openapi.Schema(type=openapi.TYPE_STRING),
+        'engine_type': openapi.Schema(type=openapi.TYPE_STRING),
+        'aircraft_type': openapi.Schema(type=openapi.TYPE_STRING),
+        'max_altitude': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'wing_span': openapi.Schema(type=openapi.TYPE_NUMBER),
+        'range': openapi.Schema(type=openapi.TYPE_INTEGER),
+    }
+)
+
+BikeSchema = openapi.Schema(
+    title='Bike',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'kind': openapi.Schema(type=openapi.TYPE_STRING, enum=['bike']),
+        'engine_capacity': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'bike_type': openapi.Schema(type=openapi.TYPE_STRING, description='cruiser|sport|touring|offroad'),
+        'saddle_height': openapi.Schema(type=openapi.TYPE_NUMBER),
+    }
+)
+
+VehicleOneOf = openapi.Schema(
+    title='Vehicle',
+    type=openapi.TYPE_OBJECT,
+    oneOf=[CarSchema, BoatSchema, PlaneSchema, BikeSchema],
+)
+
+ListingSchema = openapi.Schema(
+    title='Listing',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'uuid': openapi.Schema(type=openapi.TYPE_STRING),
+        'listing_type': openapi.Schema(type=openapi.TYPE_STRING),
+        'price': openapi.Schema(type=openapi.TYPE_NUMBER),
+        'vehicle': VehicleOneOf,
+    }
+)
+
+PaginationSchema = openapi.Schema(
+    title='Pagination',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'offset': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'limit': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'count': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'next': openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+        'previous': openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+    }
+)
+
+EnvelopeListSchema = openapi.Schema(
+    title='EnvelopeList',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'error': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+        'message': openapi.Schema(type=openapi.TYPE_STRING),
+        'data': openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'pagination': PaginationSchema,
+                'results': openapi.Schema(type=openapi.TYPE_ARRAY, items=ListingSchema),
+            }
+        )
+    }
+)
+
+DetailEnvelopeSchema = openapi.Schema(
+    title='EnvelopeDetail',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'error': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+        'message': openapi.Schema(type=openapi.TYPE_STRING),
+        'data': openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'listing': ListingSchema,
+                'recommended': openapi.Schema(type=openapi.TYPE_ARRAY, items=ListingSchema),
+            }
+        )
+    }
+)
+
 def django_date(date_str: str) -> str:
     """
     Converts a date string from 'DD/MM/YYYY' to 'YYYY-MM-DD'
@@ -102,29 +217,8 @@ def django_date(date_str: str) -> str:
     except ValueError:
         raise ValueError('Invalid date format. Expected DD/MM/YYYY.')
 
+# ... rest of your code ...
 
-
-User = get_user_model()
-
-def typer(obj):
-    if type(obj) == list:
-        for item in obj:
-            typer(obj)
-    elif type(obj) == dict:
-        for key in list(obj.keys()):
-            typer(obj[key])
-    else:
-        print(f"{obj} is a {type(obj)}")
-
-
-def get_inspection_fee(listing):
-    if listing.listing_type == 'sale':
-        return (decimal.Decimal(0.1/100) * listing.price)
-    return (decimal.Decimal(2/100) * listing.price)
-
-
-
-# Customer Views
 class ListingSearchView(ListAPIView):
     allowed_methods = ['GET']
     serializer_class = ListingSerializer
@@ -153,6 +247,18 @@ class ListingSearchView(ListAPIView):
 
         return qs
 
+    @swagger_auto_schema(
+        operation_summary="Search listings (sale and rental)",
+        tags=["Listings"],
+        manual_parameters=[
+            openapi.Parameter('find', openapi.IN_QUERY, description='Search term for name/brand/model', type=openapi.TYPE_STRING),
+            openapi.Parameter('brands', openapi.IN_QUERY, description='Comma-separated brands', type=openapi.TYPE_STRING),
+            openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
+            openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
+            openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+        ],
+        responses={200: EnvelopeListSchema}
+    )
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(
             self.filter_queryset(
@@ -177,71 +283,6 @@ class ListingSearchView(ListAPIView):
         }
         return Response(data, 200)
 
-
-class MyListingsView(ListAPIView):
-    serializer_class = ListingSerializer
-    permission_classes = [IsAuthenticated]
-    queryset = queryset = Listing.objects.filter(
-        approved=True,
-        verified=True,
-        vehicle__available=True,
-        vehicle__dealer__verified_business=True,
-        vehicle__dealer__verified_id=True,
-    ).distinct() # serach all listings sale & rent
-
-    def get(self, request, *args, **kwargs):
-        scope = request.GET.get('scope')
-        scope = scope.split(';')
-        qs = self.get_queryset()
-
-        data = {
-            'error': False,
-        }
-
-        if 'recents' in scope:
-            recents = self.serializer_class(
-                qs.filter(viewers__in=[self.request.user,]),
-                many=True, context={'request': request}
-            ).data[::6]
-            data['recents'] = recents
-        
-        if 'favorites' in scope:
-            pass
-
-        if 'top-deals' in scope:
-            rentals = self.serializer_class(
-                qs.filter(listing_type='rental').order_by('-id'),
-                many=True, context={'request': request}
-            ).data[::6]
-
-            sales = self.serializer_class(
-                qs.filter(listing_type='sale').order_by('-id'),
-                many=True, context={'request': request}
-            ).data[::6]
-
-            data['top_deals'] = {
-                'services': [],
-                'sales': sales,
-                'rentals': rentals
-            }
-        return Response(data)
-
-
-class DealershipView(APIView):
-    allowed_methods = ["GET"]
-    serializer_class = DealershipSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, uuid):
-        dealer = Dealership.objects.get(uuid=uuid)
-        data = {
-            'error': False,
-            'data': DealershipSerializer(dealer, context={'request': request}).data
-        }
-        return Response(data, 200)
-
-
-# Rentals
 class RentListingView(ListAPIView):
     allowed_methods = ['GET']
     serializer_class = ListingSerializer
@@ -259,6 +300,17 @@ class RentListingView(ListAPIView):
     filterset_class = CarRentalFilter # Use the filter class
     pagination_class = OffsetPaginator
 
+    @swagger_auto_schema(
+        operation_summary="Get car listings for rent",
+        tags=["Listings"],
+        manual_parameters=[
+            openapi.Parameter('make', openapi.IN_QUERY, description='Comma-separated brands', type=openapi.TYPE_STRING),
+            openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
+            openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
+            openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+        ],
+        responses={200: EnvelopeListSchema}
+    )
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(
             self.filter_queryset(
@@ -283,57 +335,6 @@ class RentListingView(ListAPIView):
         }
         return Response(data, 200)
 
-
-class RentListingDetailView(RetrieveUpdateDestroyAPIView):
-    allowed_methods = ['GET', 'PUT', 'DELETE']
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    queryset = Listing.objects.filter(
-        verified=True,
-        approved=False,
-        listing_type='rental',
-        vehicle__available=True
-    ).distinct()
-    serializer_class = ListingSerializer
-    lookup_field = 'uuid'
-
-    def get(self, request, *args, **kwargs):
-        listing = Listing.objects.get(uuid=self.kwargs['uuid'])
-
-        if not request.user in listing.viewers.all():
-            listing.viewers.add(request.user,)
-            listing.save()
-
-        # count impressions here
-
-        small_change = (decimal.Decimal(25/100) * listing.price)
-
-        recommended = self.queryset.filter(
-            Q(price__gte=(listing.price - small_change)) |
-            Q(price__lte=(listing.price + small_change)) |
-            Q(vehicle__brand__iexact=listing.vehicle.brand) |
-            Q(payment_cycle__iexact=listing.payment_cycle)
-            # Q(vehicle__dealer=listing.vehicle.dealer)
-            # Q(price=listing.price) |
-        ).exclude(uuid=listing.uuid).distinct()
-
-        print("Recommended Listings:", recommended)
-
-
-        serializer = self.serializer_class(listing, context={'request': request})
-        recommended = self.serializer_class(recommended, many=True, context={'request': request})
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'listing': serializer.data,
-                'recommended': recommended.data
-            }
-        }
-        return Response(data, 200)
-
-
-# Buying
 class BuyListingView(ListAPIView):
     allowed_methods = ['GET']
     serializer_class = ListingSerializer
@@ -353,8 +354,15 @@ class BuyListingView(ListAPIView):
     pagination_class = OffsetPaginator
 
     @swagger_auto_schema(
-        operation_summary="Get Car Listings for Sale",
-        responses={'200': ListingSerializer(many=True)}
+        operation_summary="Get car listings for sale",
+        tags=["Listings"],
+        manual_parameters=[
+            openapi.Parameter('brands', openapi.IN_QUERY, description='Comma-separated brands', type=openapi.TYPE_STRING),
+            openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
+            openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
+            openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+        ],
+        responses={200: EnvelopeListSchema}
     )
     def get(self, request, *args, **kwargs):
         queryset = self.paginate_queryset(
@@ -380,6 +388,53 @@ class BuyListingView(ListAPIView):
         }
         return Response(data, 200)
 
+class RentListingDetailView(RetrieveUpdateDestroyAPIView):
+    allowed_methods = ['GET', 'PUT', 'DELETE']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(
+        verified=True,
+        approved=True,
+        listing_type='rental',
+        vehicle__available=True
+    ).distinct()
+    serializer_class = ListingSerializer
+    lookup_field = 'uuid'
+
+    @swagger_auto_schema(
+        operation_summary="Get rental listing details",
+        tags=["Listings"],
+        responses={200: DetailEnvelopeSchema}
+    )
+    def get(self, request, *args, **kwargs):
+        listing = Listing.objects.get(uuid=self.kwargs['uuid'])
+
+        if not request.user in listing.viewers.all():
+            listing.viewers.add(request.user,)
+            listing.save()
+
+        small_change = (decimal.Decimal(25/100) * listing.price)
+
+        recommended = self.queryset.filter(
+            Q(price__gte=(listing.price - small_change)) |
+            Q(price__lte=(listing.price + small_change)) |
+            Q(vehicle__brand__iexact=listing.vehicle.brand) |
+            Q(payment_cycle__iexact=listing.payment_cycle)
+            # Q(vehicle__dealer=listing.vehicle.dealer)
+            # Q(price=listing.price) |
+        ).exclude(uuid=listing.uuid).distinct()
+
+        serializer = self.serializer_class(listing, context={'request': request})
+        recommended = self.serializer_class(recommended, many=True, context={'request': request})
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'listing': serializer.data,
+                'recommended': recommended.data
+            }
+        }
+        return Response(data, 200)
 
 class BuyListingDetailView(RetrieveAPIView):
     serializer_class = ListingSerializer
@@ -389,6 +444,11 @@ class BuyListingDetailView(RetrieveAPIView):
     lookup_field = 'uuid'
     queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
 
+    @swagger_auto_schema(
+        operation_summary="Get sale listing details",
+        tags=["Listings"],
+        responses={200: DetailEnvelopeSchema}
+    )
     def get(self, request, *args, **kwargs):
         listing = self.get_object()
 
@@ -414,37 +474,70 @@ class BuyListingDetailView(RetrieveAPIView):
         }
         return Response(data=data, status=200, content_type="text/json")
 
-    def count_view(self, user, listing):
-        if user and user.is_authenticated:
-            if not user in listing.viewers.all():
-                listing.viewers.add(user,)
-        listing.views += 1
-        listing.save()
 
+class MyListingsView(ListAPIView):
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        vehicle__available=True,
+        vehicle__dealer__verified_business=True,
+        vehicle__dealer__verified_id=True,
+    ).distinct()
 
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        action = data['action']
-        listing = self.get_object()
+    def get(self, request, *args, **kwargs):
+        scope = request.GET.get('scope', '')
+        scope = scope.split(';') if scope else []
+        qs = self.get_queryset()
 
-        try:
-            response = {
-                'error': False,
+        data = {
+            'error': False,
+        }
+
+        if 'recents' in scope:
+            recents = self.serializer_class(
+                qs.filter(viewers__in=[self.request.user,]),
+                many=True, context={'request': request}
+            ).data[::6]
+            data['recents'] = recents
+        if 'favorites' in scope:
+            pass
+        if 'top-deals' in scope:
+            rentals = self.serializer_class(
+                qs.filter(listing_type='rental').order_by('-id'),
+                many=True, context={'request': request}
+            ).data[::6]
+            sales = self.serializer_class(
+                qs.filter(listing_type='sale').order_by('-id'),
+                many=True, context={'request': request}
+            ).data[::6]
+            data['top_deals'] = {
+                'services': [],
+                'sales': sales,
+                'rentals': rentals
             }
-            customer = Customer.objects.get(user=request.user)
-            cart = customer.cart
-            if action == 'add-to-cart':
-                cart.add(listing,)
-                customer.save()
-                response['message'] = 'Successfully added to your cart'
-            elif action == 'buy-now':
-                order = Order(customer=customer,)
-                order.order_items.add(listing,)
-                order.save()
-                response['message'] = 'Successfully added to your cart'
-            return Response(response, status=200)
-        except Exception as error:
-            return Response({'error': True, 'message': str(error)}, status=500)
+        return Response(data)
+
+
+class DealershipView(APIView):
+    allowed_methods = ["GET"]
+    serializer_class = DealershipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, uuid=None, slug=None):
+        dealer = None
+        if uuid:
+            dealer = Dealership.objects.get(uuid=uuid)
+        elif slug:
+            dealer = Dealership.objects.get(slug=slug)
+        else:
+            raise Http404("Dealer not found")
+        data = {
+            'error': False,
+            'data': DealershipSerializer(dealer, context={'request': request}).data
+        }
+        return Response(data, 200)
 
 
 class CheckoutView(APIView):
@@ -453,31 +546,37 @@ class CheckoutView(APIView):
     queryset = Listing.objects.all()
     lookup_field = 'uuid'
 
-
+    @swagger_auto_schema(
+        operation_summary="Get checkout summary for a listing",
+        tags=["Listings"],
+    )
     def get(self, request, *args, **kwargs):
         listing = Listing.objects.get(uuid=kwargs['listingId'])
-
         data = {
             'error': False,
             'total': 0,
             'fees': {
-                'tax': (0.075 * float(listing.price)),
-                'inspection_fee': get_inspection_fee(listing),
-                'veyu_fee': (0.02 * float(listing.price)),
+                'tax': (0.075 * float(listing.price)) if listing.price else 0,
+                'inspection_fee': get_inspection_fee(listing) if listing.price else 0,
+                'veyu_fee': (0.02 * float(listing.price)) if listing.price else 0,
             },
             'listing': ListingSerializer(listing, context={'request': request}).data,
         }
         return Response(data)
 
+    @swagger_auto_schema(
+        operation_summary="Create order for a listing",
+        tags=["Listings"],
+    )
     def post(self, request, *args, **kwargs):
         data = request.data
         listing = Listing.objects.get(uuid=kwargs['listingId'])
         order = Order(
-            payment_option=data['payment_option'],
+            payment_option=data.get('payment_option'),
             customer=request.user.customer,
             order_type=listing.listing_type,
             order_item=listing,
-            paid= True if data['payment_option'] == 'card' else False
+            paid=True if data.get('payment_option') == 'card' else False
         )
         order.save()
         listing.vehicle.available = False
@@ -488,20 +587,37 @@ class CheckoutView(APIView):
         listing.vehicle.dealer.save()
 
         on_checkout_success.send(order, listing=listing, customer=request.user.customer,)
-        # create a new order
-        # create a notification for both dealer and customer
-        # register a sale in dealer's dashboard
+        # send purchase confirmation email
+        try:
+            from utils.mail import send_email
+            send_email(
+                subject="Your order has been created",
+                recipients=[request.user.email],
+                template="utils/templates/purchase_confirmation.html",
+                context={
+                    "customer_name": request.user.first_name or request.user.email,
+                    "order_uuid": str(order.uuid),
+                    "listing_title": listing.title,
+                    "vehicle_name": listing.vehicle.name,
+                    "amount": str(order.sub_total),
+                }
+            )
+        except Exception:
+            pass
         return Response({'error': False, 'message': 'Your order was created', 'data': OrderSerializer(order).data}, 200)
 
 
 class BookInspectionView(APIView):
-    allowed_methods = ['GET', 'POST']
+    allowed_methods = ['POST']
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Book vehicle inspection",
+        tags=["Listings"],
+    )
     def post(self, request):
         try:
             data = request.data
-            print("Inspection Data:", data)
             listing = Listing.objects.get(uuid=request.data['listing_id'])
             order = Order.objects.get(customer=request.user.customer, order_item=listing)
             order.order_status = 'awaiting-inspection'
@@ -517,11 +633,26 @@ class BookInspectionView(APIView):
             )
             inspection.save()
             on_inspection_created.send(request.user.customer, date=date, time=time)
+            # send inspection scheduled email
+            try:
+                from utils.mail import send_email
+                send_email(
+                    subject="Inspection Scheduled",
+                    recipients=[request.user.email],
+                    template="utils/templates/inspection_scheduled.html",
+                    context={
+                        "customer_name": request.user.first_name or request.user.email,
+                        "listing_title": listing.title,
+                        "vehicle_name": listing.vehicle.name,
+                        "date": date,
+                        "time": time,
+                    }
+                )
+            except Exception:
+                pass
             return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
         except Exception as error:
-            # raise error
             return Response({'error': True, 'message': str(error)}, 500)
-
 
 class CompleteOrderView(APIView):
     allowed_methods = ['POST']
@@ -563,6 +694,10 @@ MEDIA_SIGNED_DIR = os.path.join(settings.MEDIA_ROOT, 'docs')
 class CheckoutDocumentView(APIView):
     parser_classes = [JSONParser, MultiPartParser]
 
+    @swagger_auto_schema(
+        operation_summary="Generate and fetch checkout document",
+        tags=["Listings"],
+    )
     def get(self, request):
         doc_type = request.GET.get('doc_type', 'order-slip')
         params = request.GET.dict()

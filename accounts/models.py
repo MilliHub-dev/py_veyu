@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Group, PermissionsMixin
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.hashers import make_password
 from utils.models import DbModel
 from django.utils import timezone
@@ -67,7 +66,8 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     last_name = models.CharField(max_length=150, blank=False)
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
-    api_token = models.ForeignKey(Token, blank=True, null=True, on_delete=models.SET_NULL)
+    api_token = models.CharField(max_length=64, blank=True, null=True)
+
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='veyu')
 
     groups = None
@@ -87,12 +87,19 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     def save(self, *args, **kwargs):
         if not self.api_token:
             super().save(using=None)
-            self.api_token = Token.objects.get_or_create(user=self)[0]
+            # Generate/ensure DRF Token then store the key string to avoid FK dependency
+            try:
+                from rest_framework.authtoken.models import Token
+                token_obj, _ = Token.objects.get_or_create(user=self)
+                self.api_token = token_obj.key
+            except Exception:
+                # If authtoken not installed or unavailable, leave blank
+                pass
         super().save(*args, **kwargs)
 
     @property
     def token(self):
-        return self.api_token.key
+        return self.api_token
 
     def verify_email(self):
         self.verified_email = True
@@ -152,10 +159,12 @@ class UserProfile(DbModel):
         obj = None
         try:
             obj = cls.objects.get(uuid=obj_id)
-        except:
-            obj = cls.objects.get(id=obj_id)
-        finally:
-            return obj
+        except Exception:
+            try:
+                obj = cls.objects.get(id=obj_id)
+            except Exception:
+                obj = None
+        return obj
 
 
     def verify_phone_number(self):

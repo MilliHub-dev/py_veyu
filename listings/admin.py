@@ -6,6 +6,10 @@ from .models import (
     Listing,
     Order,
     Vehicle,
+    Car,
+    Boat,
+    Plane,
+    Bike,
     VehicleImage,
     TestDriveRequest,
     TradeInRequest,
@@ -24,8 +28,27 @@ class ListingAdmin(admin.ModelAdmin):
     actions = ['approve_selected_listings']
 
     def approve_selected_listings(self, request, queryset, *args, **kwargs):
-        queryset.update(approved=True, verified=True)
-        self.message_user(request, f"Successfully approved {queryset.count()} listings")
+        updated = queryset.update(approved=True, verified=True)
+        # send email to each dealer for approved listings
+        for listing in queryset:
+            dealer = listing.vehicle.dealer
+            if dealer and dealer.user and dealer.user.email:
+                try:
+                    from utils.mail import send_email
+                    send_email(
+                        subject="Your listing is now live",
+                        recipients=[dealer.user.email],
+                        template="utils/templates/listing_published.html",
+                        context={
+                            "dealer_name": dealer.user.first_name or dealer.user.email,
+                            "listing_title": listing.title,
+                            "vehicle_name": listing.vehicle.name,
+                            "price": listing.price,
+                        }
+                    )
+                except Exception:
+                    pass
+        self.message_user(request, f"Successfully approved {updated} listings")
 
 
 # @veyu_admin.register(CarRental)
@@ -77,11 +100,38 @@ class VehicleImageAdmin(admin.ModelAdmin):
 
 
 
+# Inline to manage images on the vehicle edit page
+class VehicleImageInline(admin.TabularInline):
+    model = VehicleImage
+    extra = 1
+
+
 # @veyu_admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
     list_display = ['name', 'brand', 'condition', 'available',]
     list_filter = ['brand', 'condition', 'available', 'dealer']
     search_fields = ['name', 'brand', 'dealer__user__email']
+    inlines = [VehicleImageInline]
+
+
+class CarAdmin(VehicleAdmin):
+    list_display = ['name', 'brand', 'doors', 'seats', 'drivetrain', 'available']
+    list_filter = VehicleAdmin.list_filter + ['drivetrain']
+
+
+class BoatAdmin(VehicleAdmin):
+    list_display = ['name', 'brand', 'hull_material', 'engine_count', 'available']
+    list_filter = VehicleAdmin.list_filter + ['hull_material']
+
+
+class PlaneAdmin(VehicleAdmin):
+    list_display = ['name', 'brand', 'aircraft_type', 'engine_type', 'available']
+    list_filter = VehicleAdmin.list_filter + ['aircraft_type']
+
+
+class BikeAdmin(VehicleAdmin):
+    list_display = ['name', 'brand', 'bike_type', 'engine_capacity', 'available']
+    list_filter = VehicleAdmin.list_filter + ['bike_type']
 
 
 
@@ -97,5 +147,9 @@ veyu_admin.register(PurchaseOffer, PurchaseOfferAdmin)
 veyu_admin.register(TestDriveRequest, TestDriveRequestAdmin)
 veyu_admin.register(VehicleImage, VehicleImageAdmin)
 veyu_admin.register(Vehicle, VehicleAdmin)
+veyu_admin.register(Car, CarAdmin)
+veyu_admin.register(Boat, BoatAdmin)
+veyu_admin.register(Plane, PlaneAdmin)
+veyu_admin.register(Bike, BikeAdmin)
 veyu_admin.register(OrderInspection)
 

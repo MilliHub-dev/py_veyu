@@ -90,6 +90,14 @@ class SignUpView(generics.CreateAPIView):
     serializer_class = SignupSerializer
     parser_classes = [MultiPartParser, JSONParser]
 
+    @swagger_auto_schema(
+        operation_summary="Check if email is available",
+        operation_description="Returns whether an email is already registered. Pass ?email=...",
+        manual_parameters=[
+            openapi.Parameter('email', openapi.IN_QUERY, description='Email to check', type=openapi.TYPE_STRING),
+        ],
+        responses={200: openapi.Response('OK'), 400: openapi.Response('Missing email')}
+    )
     def get(self, request:Request):
         # check if user with email exists only
         email = request.GET.get('email', None)
@@ -111,6 +119,16 @@ class SignUpView(generics.CreateAPIView):
             'message': "This route must be called with the 'email' param.",
         }, status=400)
 
+    @swagger_auto_schema(
+        operation_summary="Create a new account",
+        operation_description=(
+            "Provider notes:\n"
+            "- provider=veyu: password and confirm_password are required and validated.\n"
+            "- provider in [google, apple, facebook]: password is not used here; third-party token verification is expected upstream.\n"
+            "- user_type must be one of: customer | mechanic | dealer.\n"
+            "- action defaults to 'create-account'. Use 'setup-business-profile' to create business profile after signup."
+        )
+    )
     def post(self, request:Request):
         try:
             data = request.data
@@ -139,6 +157,16 @@ class SignUpView(generics.CreateAPIView):
                     "token": str(user.api_token),
                 }
                 user_data.update(AccountSerializer(user).data)
+                # send welcome email
+                try:
+                    send_email(
+                        subject="Welcome to Veyu",
+                        recipients=[user.email],
+                        template="utils/templates/welcome_email.html",
+                        context={"name": user.first_name or user.email}
+                    )
+                except Exception:
+                    pass
                 return Response({ 'error': False, 'data': user_data }, 201)
             elif action == 'setup-business-profile':
                 user = request.user
@@ -205,7 +233,15 @@ class LoginView(views.APIView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
 
-
+    @swagger_auto_schema(
+        operation_summary="Authenticate user",
+        operation_description=(
+            "Provider notes:\n"
+            "- The account's provider must match the provided provider.\n"
+            "- provider=veyu: email/password are validated locally.\n"
+            "- provider in [google, apple, facebook]: current implementation does not validate third-party tokens (should be added)."
+        )
+    )
     def post(self, request: Request):
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():

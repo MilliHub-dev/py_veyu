@@ -4,6 +4,7 @@ from environ import Env
 from decouple import config
 from datetime import timedelta
 from dotenv import load_dotenv
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -68,6 +69,8 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 SITE_ID = 1
@@ -116,15 +119,26 @@ ASGI_APPLICATION = 'veyu.asgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+# Prefer DATABASE_URL (Neon/PostgreSQL); fallback to SQLite in local dev
+DB_URL = env('DATABASE_URL', default='')
+if not DB_URL or not str(DB_URL).strip():
+    DB_URL = f'sqlite:///{BASE_DIR / "local.db.sqlite3"}'
+
+ssl_required = False
+try:
+    scheme = DB_URL.split(':', 1)[0]
+    if scheme in {"postgres", "postgresql", "pgsql", "redshift", "timescale", "timescalegis"} and not DEBUG:
+        ssl_required = True
+except Exception:
+    pass
 
 DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'local.db.sqlite3',
-            # 'NAME': BASE_DIR / 'olddb.sqlite3',
-            }
-        }
+        'default': dj_database_url.parse(
+            DB_URL,
+            conn_max_age=600,
+            ssl_require=ssl_required,
+        )
+}
 
 
 # Password validation
@@ -162,40 +176,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 
-# STORAGE SETTINGS
-
-AWS_ACCESS_KEY_ID = 'your-spaces-access-key'
-AWS_SECRET_ACCESS_KEY = 'your-spaces-secret-access-key'
-AWS_STORAGE_BUCKET_NAME = 'your-storage-bucket-name'
-AWS_S3_ENDPOINT_URL = 'https://nyc3.digitaloceanspaces.com'
-AWS_S3_OBJECT_PARAMETERS = {
-    'CacheControl': 'max-age=86400',
-}
-AWS_LOCATION = 'assets'
-
-
-AWS_S3_SIGNATURE_VERSION = 's3v4'
-
+# STORAGE SETTINGS (Cloudinary for media)
 MEDIA_URL = 'media/'
 STATIC_URL = 'static/'
 
+# Use Cloudinary for media uploads
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 if DEBUG:
-    MEDIA_URL = f'uploads/'
+    MEDIA_URL = 'uploads/'
     STATICFILES_DIRS = [
         BASE_DIR / 'static'
     ]
 else:
     STATIC_ROOT = BASE_DIR / 'static'
-    STATIC_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_LOCATION}/'
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    PUBLIC_MEDIA_LOCATION = 'uploads'
-    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{PUBLIC_MEDIA_LOCATION}/'
+    # Keep static served via collected static; media via Cloudinary
 MEDIA_ROOT = BASE_DIR / 'uploads'
-
-
-if not DEBUG:
-    DEFAULT_STORAGE_BACKEND = 'veyu.storage.UploadedFileStorage'
 
 
 
@@ -272,6 +268,8 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', default='Veyu <support@veyu.cc>')
+SERVER_EMAIL = env.get_value('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
 
 # DJANGO CHANNELS
 CHANNEL_LAYERS = {

@@ -18,7 +18,7 @@ def send_email(subject, recipients: list, message=None, template=None, context={
     email = EmailMessage(
         subject=subject,
         body=content,
-        from_email='Veyu <support@veyu.cc>',
+        from_email=settings.DEFAULT_FROM_EMAIL,
         to=recipients,
     )
     email.content_subtype = 'html'

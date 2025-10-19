@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="title">Inspection Scheduled</div>
+  <p>Hi <span class="highlight">{{ customer_name }}</span>, your inspection has been scheduled successfully.</p>
+  <table style="width:100%; border-collapse: collapse;">
+    <tr><td style="padding:6px 0;"><strong>Listing:</strong></td><td>{{ listing_title }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Vehicle:</strong></td><td>{{ vehicle_name }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Date:</strong></td><td>{{ date }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Time:</strong></td><td>{{ time }}</td></tr>
+  </table>
+  <p style="margin-top:16px;">
+    <a class="btn" href="{{ inspection_link|default:'#' }}">View Details</a>
+  </p>
+  <p>— Veyu Team</p>
+{% endblock %}

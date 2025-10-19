@@ -4,6 +4,10 @@ from ..models import (
     Listing,
     Order,
     Vehicle,
+    Car,
+    Boat,
+    Plane,
+    Bike,
     OrderInspection,
     VehicleImage,
     TestDriveRequest,
@@ -103,6 +107,7 @@ class VehicleSerializer(serializers.ModelSerializer):
     transmission = serializers.SerializerMethodField()
     fuel_system = serializers.SerializerMethodField()
     trips = serializers.SerializerMethodField()
+    kind = serializers.SerializerMethodField()
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -129,9 +134,32 @@ class VehicleSerializer(serializers.ModelSerializer):
     def get_fuel_system(self, obj):
         return obj.get_fuel_system_display()
 
+    def get_kind(self, obj):
+        return obj.__class__.__name__.lower()
+
     # def get_features(self, obj):
     #     return json.dumps(obj.features)
 
+
+class CarSerializer(VehicleSerializer):
+    class Meta:
+        model = Car
+        fields = '__all__'
+
+class BoatSerializer(VehicleSerializer):
+    class Meta:
+        model = Boat
+        fields = '__all__'
+
+class PlaneSerializer(VehicleSerializer):
+    class Meta:
+        model = Plane
+        fields = '__all__'
+
+class BikeSerializer(VehicleSerializer):
+    class Meta:
+        model = Bike
+        fields = '__all__'
 
 class OrderInspectionSerializer(serializers.ModelSerializer):
     class Meta:

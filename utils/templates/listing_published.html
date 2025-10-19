@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="title">Listing Approved</div>
+  <p>Hi <span class="highlight">{{ dealer_name }}</span>, your listing <strong>{{ listing_title }}</strong> has been approved and published.</p>
+  <table style="width:100%; border-collapse: collapse;">
+    <tr><td style="padding:6px 0;"><strong>Vehicle:</strong></td><td>{{ vehicle_name }}</td></tr>
+    <tr><td style="padding:6px 0;"><strong>Price:</strong></td><td>{{ price }}</td></tr>
+  </table>
+  <p style="margin-top:16px;">
+    <a class="btn" href="{{ dashboard_link|default:'#' }}">Manage Listing</a>
+  </p>
+  <p>— Veyu Team</p>
+{% endblock %}

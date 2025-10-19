@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Motta</title>
+    <title>Welcome to Veyu</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,7 +21,7 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         h1 {
-            color: #0065b5;
+            color: #f4a950;
         }
         .details {
             margin-bottom: 20px;
@@ -38,7 +38,7 @@
             display: inline-block;
             font-size: 16px;
             color: #fff !important;
-            background-color: #0065b5;
+            background-color: #f4a950;
             padding: 10px 20px;
             text-decoration: none;
             border-radius: 5px;
@@ -67,20 +67,20 @@
 <body>
     <div class="container">
         <div class="logo">
-            <img src="{% static 'motaa/motaa-logo.jpeg' %}" />
+            <img src="{% static 'veyu/logo.png' %}" />
         </div>
-        <h1> Welcome To Motaa</h1>
+        <h1> Welcome To Veyu</h1>
 
         <div class="details">
             <p><strong>Hi {{ user.first_name }}</strong></p>
-            <p>Thanks for signing up for a Motaa account. </p>
-            <p>With Motaa you get the best deals for car rentals and purchases, with our vast inventory of 
+            <p>Thanks for signing up for a Veyu account. </p>
+            <p>With Veyu you get the best deals for car rentals and purchases, with our vast inventory of 
             vetted car listing, you're sure to find what you're looking for.
             </p>
         </div>
 
         <div class="footer">
-            Motaa - &copy; {% now "Y" %}
+            Veyu - &copy; {% now "Y" %}
         </div>
     </div>
 </body>
