@@ -30,4 +30,4 @@ EXPOSE 6379 8000
 # Start Redis, Nginx, and Gunicorn with Django
 CMD service redis-server start && \
     service nginx start && \
-    gunicorn motaa.asgi:application --bind 0.0.0.0:8000
+    gunicorn veyu.asgi:application --bind 0.0.0.0:8000
