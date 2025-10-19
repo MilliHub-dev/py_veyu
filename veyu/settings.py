@@ -27,6 +27,23 @@ else:
             '*', # remove after dev testing of frontend
             ]
 
+# Trust frontend/admin origins for CSRF when behind a proxy (Render)
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.onrender.com',
+    'https://*.render.com',
+    'https://*.veyu.cc',
+    'https://veyu.com.ng',
+    'https://api.veyu.com',
+    'https://dev.veyu.cc',
+]
+
+# Respect X-Forwarded-Proto from Render proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Use secure cookies in production
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 
 # Application definition
 
