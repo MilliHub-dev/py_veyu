@@ -82,6 +82,7 @@ SMS_API_KEY = env.get_value('AFRICAS_TALKING_API_KEY')
 MIDDLEWARE = [
         'corsheaders.middleware.CorsMiddleware',
         'django.middleware.security.SecurityMiddleware',
+        'whitenoise.middleware.WhiteNoiseMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.middleware.common.CommonMiddleware',
         'django.middleware.csrf.CsrfViewMiddleware',
@@ -140,6 +141,19 @@ DATABASES = {
         )
 }
 
+# drf-yasg (Swagger) configuration
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': False,
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Format: Bearer <token>'
+        }
+    },
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -177,8 +191,8 @@ USE_TZ = True
 
 
 # STORAGE SETTINGS (Cloudinary for media)
-MEDIA_URL = 'media/'
-STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+STATIC_URL = '/static/'
 
 # Use Cloudinary for media uploads
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
@@ -192,6 +206,9 @@ else:
     STATIC_ROOT = BASE_DIR / 'static'
     # Keep static served via collected static; media via Cloudinary
 MEDIA_ROOT = BASE_DIR / 'uploads'
+
+# WhiteNoise static files storage (fingerprinted files for caching)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 
