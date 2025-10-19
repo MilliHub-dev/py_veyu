@@ -100,8 +100,8 @@ class FlutterwaveAdapter(PaymentGateway):
                 'name': f'{customer_details.first_name} {customer_details.last_name}'
             },
             'customizations': {
-                'title': 'Motaa Wallet Top up',
-                'logo': 'wallet/gatway/assets/Motaa Logo.png'
+                'title': 'Veyu Wallet Top up',
+                'logo': 'wallet/gatway/assets/Veyu Logo.png'
             }
         }
 

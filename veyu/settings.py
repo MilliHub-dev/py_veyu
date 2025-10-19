@@ -49,7 +49,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 INSTALLED_APPS = [
 
-    # Motaa Apps
+    # veyu Apps
     'accounts',
     'chat',
     'bookings',
@@ -107,7 +107,7 @@ MIDDLEWARE = [
         'django.contrib.messages.middleware.MessageMiddleware',
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-        # Motaa Middleware
+        # veyu Middleware
         'utils.middleware.UserTypeMiddleware',
 
         # Downloaded Middleware

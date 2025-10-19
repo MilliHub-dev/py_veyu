@@ -37,18 +37,18 @@ class AccountsAdmin(admin.ModelAdmin):
     def send_test_sms(self, request, queryset, *args, **kwargs):
         for account in queryset:
             if account.user_type == 'customer':
-                send_sms(f"Hi {account.first_name}, welcome to Motaa. \
+                send_sms(f"Hi {account.first_name}, welcome to veyu. \
                           \nYour verification code is 121-678 ", recipient=account.customer.phone_number)
             elif account.user_type == 'mechanic':
                 print('User Phone Number:', account.mechanic.phone_number)
-                send_sms(f"Hi {account.first_name}, welcome to Motaa. \
+                send_sms(f"Hi {account.first_name}, welcome to veyu. \
                           \nYour verification code is 121-678 ", recipient=account.mechanic.phone_number)
         self.message_user(request, "Successfully sent sms")
 
     def send_welcome_email(self, request, queryset, *args, **kwargs):
         for account in queryset:
             send_email(
-                subject="Welcome to Motaa",
+                subject="Welcome to veyu",
                 context={'user': account},
                 recipients=[account.email],
                 template="utils/templates/welcome.html",
@@ -58,7 +58,7 @@ class AccountsAdmin(admin.ModelAdmin):
     def send_test_email(self, request, queryset, *args, **kwargs):
         for account in queryset:
             send_email(
-                subject="Welcome to Motaa",
+                subject="Welcome to veyu",
                 context={'user': account},
                 recipients=[account.email],
                 template="utils/templates/email-confirmation.html",

@@ -1,5 +1,5 @@
 """
-ASGI config for motaa project.
+ASGI config for veyu project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

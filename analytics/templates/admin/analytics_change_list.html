@@ -35,21 +35,27 @@
 {% block extrahead %}
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ monthly_data|default:{}|json_script:"analytics-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Ensure data is available to avoid errors
-    const labels = {{ monthly_data.labels|default:"[]"|safe }};
-    const customers = {{ monthly_data.customers|default:"[]"|safe }};
-    const dealers = {{ monthly_data.dealers|default:"[]"|safe }};
-    const mechanics = {{ monthly_data.mechanics|default:"[]"|safe }};
-    const orders = {{ monthly_data.orders|default:"[]"|safe }};
-    const revenue = {{ monthly_data.revenue|default:"[]"|safe }};
+    if (window.__analyticsChartsInit) return; // prevent double init if included twice
+    window.__analyticsChartsInit = true;
+
+    let data = {};
+    try { data = JSON.parse(document.getElementById('analytics-data')?.textContent || '{}'); } catch(e) { data = {}; }
+
+    const labels = Array.isArray(data.labels) ? data.labels : [];
+    const customers = Array.isArray(data.customers) ? data.customers : [];
+    const dealers = Array.isArray(data.dealers) ? data.dealers : [];
+    const mechanics = Array.isArray(data.mechanics) ? data.mechanics : [];
+    const orders = Array.isArray(data.orders) ? data.orders : [];
+    const revenue = Array.isArray(data.revenue) ? data.revenue : [];
 
     // User Growth Chart
     new Chart(document.getElementById('userChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: labels,
+            labels,
             datasets: [
                 { label: 'Customers', data: customers, borderColor: '#2563eb', fill: false },
                 { label: 'Dealers', data: dealers, borderColor: '#16a34a', fill: false },
@@ -59,28 +65,26 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: {
-                tooltip: { mode: 'index', intersect: false }
-            }
+            plugins: { tooltip: { mode: 'index', intersect: false } }
         }
     });
 
-    // Revenue Chart
+    // Revenue Chart (Chart.js v3 scales)
     new Chart(document.getElementById('revenueChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [
-                { label: 'Orders', data: orders, backgroundColor: '#ea580c', yAxisID: 'y-axis-1' },
-                { label: 'Revenue', data: revenue, backgroundColor: '#dc2626', yAxisID: 'y-axis-2', type: 'line' }
+                { label: 'Orders', data: orders, backgroundColor: '#ea580c', yAxisID: 'y1' },
+                { label: 'Revenue', data: revenue, backgroundColor: '#dc2626', yAxisID: 'y2', type: 'line' }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             scales: {
-                'y-axis-1': { position: 'left', beginAtZero: true, title: { display: true, text: 'Number of Orders' } },
-                'y-axis-2': { position: 'right', beginAtZero: true, title: { display: true, text: 'Revenue ($)' } }
+                y1: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Number of Orders' } },
+                y2: { type: 'linear', position: 'right', beginAtZero: true, title: { display: true, text: 'Revenue ($)' } }
             }
         }
     });

@@ -130,7 +130,7 @@ class Transaction(DbModel):
         'bank': 'Bank' # card, bank transfer, ussd, etc
     }
 
-    # defaluts to motaa, but can be 'me@gmail.com', 'Julien Namaste'
+    # defaluts to veyu, but can be 'me@gmail.com', 'Julien Namaste'
     sender = models.CharField(max_length=50, blank=True, null=True, default='Veyu')
     recipient = models.CharField(max_length=50, blank=True, null=True) # e.g Manga Auto's
     
@@ -150,7 +150,7 @@ class Transaction(DbModel):
     # selected payout info when withdrawing to local bank
     payout_info = models.ForeignKey('accounts.PayoutInformation', null=True, blank=True, on_delete=models.SET_NULL)
 
-    # optional if not paying for a car, rental or service on motaa
+    # optional if not paying for a car, rental or service on veyu
     related_order = models.ForeignKey('listings.Order', blank=True, null=True, on_delete=models.CASCADE)
     related_booking = models.ForeignKey('bookings.ServiceBooking', blank=True, null=True, on_delete=models.CASCADE)
 

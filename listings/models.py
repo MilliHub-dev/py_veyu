@@ -190,7 +190,7 @@ class Order(DbModel):
     }
     PAYMENT_OPTION  = {
         'pay-after-inspection': 'Payment after Inspection',
-        'wallet': 'Motaa Wallet',
+        'wallet': 'Veyu Wallet',
         'card': 'Credit / Debit Card',
         'financial-aid': 'Financing Aid',
     }
@@ -257,8 +257,8 @@ class PurchaseOrder(Order):
 
 
 class Coupon(DbModel):
-    # motaa can issue coupons that are valid in all dealerships
-    issuer = models.CharField(max_length=20, default='dealership') # motaa | dealership
+    # veyu can issue coupons that are valid in all dealerships
+    issuer = models.CharField(max_length=20, default='dealership') # veyu | dealership
     valid_in = models.ManyToManyField('accounts.Dealership', blank=True)
     expires = models.DateTimeField(blank=True, null=True)
     users = models.ManyToManyField('accounts.Customer', blank=True)
@@ -271,8 +271,8 @@ class Coupon(DbModel):
 
     @property
     def dealership(self):
-        if self.issuer == 'motaa':
-            return 'Motaa'
+        if self.issuer == 'veyu':
+            return 'Veyu'
         else:
             return self.valid_in.first().business_name
 

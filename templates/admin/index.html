@@ -94,100 +94,69 @@
     </div>
 </div>
 
+{{ monthly_data|default:{}|json_script:"admin-analytics-data" }}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-    // Ensure data is available to avoid errors
-    const labels = {{ monthly_data.labels|default:"[]"|safe }};
-    const customers = {{ monthly_data.customers|default:"[]"|safe }};
-    const dealers = {{ monthly_data.dealers|default:"[]"|safe }};
-    const mechanics = {{ monthly_data.mechanics|default:"[]"|safe }};
-    const orders = {{ monthly_data.orders|default:"[]"|safe }};
-    const revenue = {{ monthly_data.revenue|default:"[]"|safe }};
+        if (window.__adminDashboardChartsInit) return;
+        window.__adminDashboardChartsInit = true;
 
-    // Assuming 'monthly_data' is passed to the template and available in JS
-    const monthlyData = {{ monthly_data|safe }};
+        let data = {};
+        try { data = JSON.parse(document.getElementById('admin-analytics-data')?.textContent || '{}'); } catch(e) { data = {}; }
 
-    // User Growth Bar Chart (with daily increase)
-    new Chart(document.getElementById('userChart').getContext('2d'), {
-        type: 'line',  // Change to 'bar' for a bar chart
-        data: {
-            labels: {{ monthly_data.labels|safe }},
-            datasets: [
-                { 
-                    label: 'Customers', 
-                    data: {{ monthly_data.customer_increase|safe }},
-                    backgroundColor: '#2563eb',
-                    borderColor: '#1d4ed8',
-                    borderWidth: 1
-                },
-                { 
-                    label: 'Dealers', 
-                    data: {{ monthly_data.dealer_increase|safe }},
-                    backgroundColor: '#16a34a',
-                    borderColor: '#15803d',
-                    borderWidth: 1
-                },
-                { 
-                    label: 'Mechanics', 
-                    data: {{ monthly_data.mechanic_increase|safe }},
-                    backgroundColor: '#ea580c',
-                    borderColor: '#d97706',
-                    borderWidth: 1
-                },
-            ]
-        },
-        options: {
-            responsive: true,
-            aspectRatio: 1.75,
-            maintainAspectRatio: false,
-            plugins: {
-                tooltip: { mode: 'index', intersect: false }
+        const labels = Array.isArray(data.labels) ? data.labels : [];
+        const customers = Array.isArray(data.customers) ? data.customers : [];
+        const dealers = Array.isArray(data.dealers) ? data.dealers : [];
+        const mechanics = Array.isArray(data.mechanics) ? data.mechanics : [];
+        const orders = Array.isArray(data.orders) ? data.orders : [];
+        const revenue = Array.isArray(data.revenue) ? data.revenue : [];
+
+        const customer_increase = Array.isArray(data.customer_increase) ? data.customer_increase : [];
+        const dealer_increase = Array.isArray(data.dealer_increase) ? data.dealer_increase : [];
+        const mechanic_increase = Array.isArray(data.mechanic_increase) ? data.mechanic_increase : [];
+
+        // User Growth Chart
+        new Chart(document.getElementById('userChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Customers', data: customer_increase, backgroundColor: '#2563eb', borderColor: '#1d4ed8', borderWidth: 1, fill: false },
+                    { label: 'Dealers', data: dealer_increase, backgroundColor: '#16a34a', borderColor: '#15803d', borderWidth: 1, fill: false },
+                    { label: 'Mechanics', data: mechanic_increase, backgroundColor: '#ea580c', borderColor: '#d97706', borderWidth: 1, fill: false },
+                ]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,  // Ensure the y-axis starts from zero
-                    title: {
-                        display: true,
-                        text: 'Increase Count'
-                    }
-                },
-                xAxes: [{
-                    type: 'time',
-                    time: {unit: 'day'},
-                }],
-                x:{
-                    title: {
-                        display: true,
-                        text: 'Date'
-                    }
-                }   
-
+            options: {
+                responsive: true,
+                aspectRatio: 1.75,
+                maintainAspectRatio: false,
+                plugins: { tooltip: { mode: 'index', intersect: false } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Increase Count' } },
+                    x: { title: { display: true, text: 'Date' } }
+                }
             }
-        }
-    });
+        });
 
-
-
-    // Revenue Chart
-    new Chart(document.getElementById('revenueChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { label: 'Orders', data: orders, backgroundColor: '#ea580c', yAxisID: 'y-axis-1' },
-                { label: 'Revenue', data: revenue, backgroundColor: '#dc2626', yAxisID: 'y-axis-2', type: 'line' }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                'y-axis-1': { position: 'left', beginAtZero: true, title: { display: true, text: 'Number of Orders' } },
-                'y-axis-2': { position: 'right', beginAtZero: true, title: { display: true, text: 'Revenue (₦)' } }
+        // Revenue Chart (Chart.js v3 scales)
+        new Chart(document.getElementById('revenueChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Orders', data: orders, backgroundColor: '#ea580c', yAxisID: 'y1' },
+                    { label: 'Revenue', data: revenue, backgroundColor: '#dc2626', yAxisID: 'y2', type: 'line' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y1: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Number of Orders' } },
+                    y2: { type: 'linear', position: 'right', beginAtZero: true, title: { display: true, text: 'Revenue (₦)' } }
+                }
             }
-        }
+        });
     });
-});
 </script>
 
 {% endblock %}

@@ -60,13 +60,13 @@ def email_webhook_receiver(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
 
-    signature = request.headers.get('X-Motaa-Signature')
+    signature = request.headers.get('X-Veyu-Signature')
     if not signature:
         return JsonResponse({'error': 'Missing signature'}, status=400)
 
     raw_body = request.body
     expected_signature = hmac.new(
-        os.environ.get("MOTAA_EMAIL_HMAC_SECRET", None).encode(),
+        os.environ.get("VEYU_EMAIL_HMAC_SECRET", None).encode(),
         raw_body,
         hashlib.sha256
     ).hexdigest()

@@ -3,7 +3,7 @@ from africastalking.SMS import SMSService
 from veyu import settings
 # import vonage
 
-username = 'Motaa' # 'sandbox'
+username = 'Veyu' # 'sandbox'
 # api_key = settings.SMS_API_KEY
 # api_key = "atsk_42d1a7b512f793e7eb3382340f4c3565cdca0c0430a325d9599816dacc0c5fd76f0d7cdb" # sandbox
 api_key="atsk_42e7f18bae53ab9f80e226feabe3a79351a6c1c8cf3af4fd0a823a93fb6643c02bf9e1a1"
@@ -16,7 +16,7 @@ api_key="atsk_42e7f18bae53ab9f80e226feabe3a79351a6c1c8cf3af4fd0a823a93fb6643c02b
 #     try:
 #         sender = vonage.Sms(vonage_client)
 #         response = sender.send_message({
-#             'from': 'Motaa',
+#             'from': 'Veyu',
 #             'text':message,
 #             'to': recipient,
 #         })
@@ -39,7 +39,7 @@ def send_sms(message, recipient:str, fail_silently=False):
         progress = sender.send(
             recipients=[recipient],
             message=message,
-            # senderi='Motaa'
+            # senderi='veyu'
         )
         print("SENT", progress)
         return progress

@@ -815,7 +815,7 @@ class CheckoutDocumentView(APIView):
         return [
             f"ORDER AGREEMENT",
             "",
-            f"This agreement is made between Motaa and {order.customer.user.name}.",
+            f"This agreement is made between veyu and {order.customer.user.name}.",
             f"Vehicle: {order.order_item.vehicle.name}",
             f"Amount: {order.sub_total}",
             f"Vehicle ID: {order.order_item.vehicle.uuid}",
@@ -823,7 +823,7 @@ class CheckoutDocumentView(APIView):
             "",
             "1. The seller agrees to supply the goods as outlined in the order summary.",
             "2. The buyer agrees to remit payment as agreed upon.",
-            "3. This contract is binding and subject to Motaa's terms of service.",
+            "3. This contract is binding and subject to veyu's terms of service.",
             "4. All disputes will be resolved under applicable local laws.",
             "",
             "Signed and agreed by both parties on the date above."

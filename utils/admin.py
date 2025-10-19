@@ -95,5 +95,5 @@ class VeyuAdminSite(AdminSite):
         return TemplateResponse(request, "admin/app_index.html", context)
 
 # Create an instance of the custom admin site
-# motaa_admin = MotaaAdminSite(name='motaa_admin')
+
 veyu_admin = VeyuAdminSite()

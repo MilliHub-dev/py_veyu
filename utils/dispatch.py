@@ -59,7 +59,7 @@ def handle_booking_request(sender, **kwargs):
 @receiver(on_wallet_deposit)
 def handle_wallet_deposit(sender, **kwargs):
     # create a notification
-    # send an email of the receipt from motaa
+    # send an email of the receipt from veyu
     user = sender
     notification = Notification(
         user=user,
@@ -81,7 +81,7 @@ def notify_motaa_staff_of_listing_creation(sender, **kwargs):
             kwargs={
                 'message':'<b> Someone just added a new listing that needs approval. </b> ',
                 'recipients':[user.email for user in Account.objects.filter(is_superuser=True)],
-                'subject':"New Listing on Motaa!",
+                'subject':"New Listing on veyu!",
             }
         ).start()
     except Exception as error:
@@ -113,14 +113,14 @@ def handle_otp_requested(sender, **kwargs):
                 'template':'utils/templates/email-confirmation.html',
                 'recipients':[user.email],
                 'context':{'code': otp.code, 'user': user},
-                'subject':"Motaa Verification",
+                'subject':"Veyu Verification",
             }
         ).start()
         # send_email(
         #     template='utils/templates/email-confirmation.html',
         #     recipients=[user.email],
         #     context={'code': otp.code, 'user': user},
-        #     subject="Motaa Verification",
+        #     subject="Veyu Verification",
         # )
     elif sender == 'sms':
         profile = None
@@ -131,7 +131,7 @@ def handle_otp_requested(sender, **kwargs):
         if user.user_type == 'mechanic':
             profile = user.mechanic
         send_sms(
-            message=f"Hi {user.name}, your Motaa authentication code is {otp.code}. \n \
+            message=f"Hi {user.name}, your veyu authentication code is {otp.code}. \n \
              Do not share this code with anyone!",
             recipient=profile.phone_number
         )
@@ -156,7 +156,7 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
 @receiver(user_just_registered)
 def handle_welcome_new_signup(sender:Account, **kwargs):
     send_email(
-        subject="Welcome To Motaa",
+        subject="Welcome To veyu",
         recipients=[sender.email],
         context={'user': sender},
         template='utils/templates/welcome.html'
@@ -165,7 +165,7 @@ def handle_welcome_new_signup(sender:Account, **kwargs):
 
 def handle_phone_number_changed(sender:Account, otp):
     send_sms(
-        message=f'Hi {sender.first_name}, welcome to Motaa, your verification code is {otp.code}',
+        message=f'Hi {sender.first_name}, welcome to veyu, your verification code is {otp.code}',
         recipient=sender.phone_number,
     )
 

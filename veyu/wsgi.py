@@ -1,5 +1,5 @@
 """
-WSGI config for motaa project.
+WSGI config for veyu project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
