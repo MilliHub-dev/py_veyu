@@ -33,6 +33,6 @@ RUN python manage.py collectstatic --noinput || true
 # Expose the ports for Redis and Django app
 EXPOSE 6379 8000
 
-# Start Redis (daemon) and run Gunicorn in foreground on $PORT (Render)
+# Start Redis (daemon) and run Daphne ASGI server on $PORT (Render)
 CMD redis-server --daemonize yes && \
-    gunicorn veyu.asgi:application --bind 0.0.0.0:${PORT:-8000}
+    daphne -b 0.0.0.0 -p ${PORT:-8000} veyu.asgi:application
