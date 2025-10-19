@@ -24,10 +24,15 @@ COPY . /usr/src/app/
 # Copy Nginx configuration
 COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
 
+# Prepare nginx runtime dirs (some slim images may not have these)
+RUN mkdir -p /var/log/nginx /var/run /var/cache/nginx
+
+# Collect static files (ensure settings are configured for STATIC_ROOT)
+RUN python manage.py collectstatic --noinput || true
+
 # Expose the ports for Redis and Django app
 EXPOSE 6379 8000
 
-# Start Redis, Nginx, and Gunicorn with Django
-CMD service redis-server start && \
-    service nginx start && \
-    gunicorn veyu.asgi:application --bind 0.0.0.0:8000
+# Start Redis (daemon) and run Gunicorn in foreground on $PORT (Render)
+CMD redis-server --daemonize yes && \
+    gunicorn veyu.asgi:application --bind 0.0.0.0:${PORT:-8000}
