@@ -17,4 +17,4 @@
    pip install -r requirements.txt
    ```
 
-Ask if you need any further details added!
+Ask if you need any further details added contact us!
