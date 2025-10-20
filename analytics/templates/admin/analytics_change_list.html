@@ -35,7 +35,7 @@
 {% block extrahead %}
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{{ monthly_data|default:{}|json_script:"analytics-data" }}
+{{ monthly_data|json_script:"analytics-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     if (window.__analyticsChartsInit) return; // prevent double init if included twice

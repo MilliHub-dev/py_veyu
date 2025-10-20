@@ -76,7 +76,7 @@
 
 {% block extrahead %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{{ monthly_data|default:{}|json_script:"analytics-data" }}
+{{ monthly_data|json_script:"analytics-data" }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     if (window.__analyticsChartsInit2) return; // prevent duplicate init

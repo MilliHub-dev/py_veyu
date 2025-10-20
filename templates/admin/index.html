@@ -94,7 +94,7 @@
     </div>
 </div>
 
-{{ monthly_data|default:{}|json_script:"admin-analytics-data" }}
+{{ monthly_data|json_script:"admin-analytics-data" }}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (window.__adminDashboardChartsInit) return;
