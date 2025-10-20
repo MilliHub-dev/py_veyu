@@ -293,17 +293,23 @@ class LoginView(views.APIView):
 
         # signing into dashboard
         if user.user_type == 'dealer':
-            data.update({
-             "dealerId": str(user.dealership.uuid),
-             "verified_id": user.dealership.verified_id,
-             "verified_business": user.dealership.verified_business,
-            })
+            try:
+                data.update({
+                 "dealerId": str(user.dealership.uuid),
+                 "verified_id": user.dealership.verified_id,
+                 "verified_business": user.dealership.verified_business,
+                })
+            except Account.dealership.RelatedObjectDoesNotExist:
+                pass
         elif user.user_type == 'mechanic':
-            data.update({
-             "mechanicId": str(user.mechanic.uuid),
-             "verified_id": user.mechanic.verified_id,
-             "verified_business": user.mechanic.verified_business,
-            })
+            try:
+                data.update({
+                 "mechanicId": str(user.mechanic.uuid),
+                 "verified_id": user.mechanic.verified_id,
+                 "verified_business": user.mechanic.verified_business,
+                })
+            except Account.mechanic.RelatedObjectDoesNotExist:
+                pass
         return Response(data, 200)
 
 
