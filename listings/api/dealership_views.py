@@ -365,6 +365,25 @@ class CreateListingView(CreateAPIView):
             listing = None
 
             if action == 'create-listing':
+                # Validate required fields
+                required_fields = ['title', 'brand', 'model', 'condition', 'vehicle_type', 
+                                   'transmission', 'fuel_system', 'drivetrain', 'seats', 'doors', 
+                                   'vin', 'listing_type', 'price']
+                missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
+                
+                if missing_fields:
+                    return Response({
+                        'error': True,
+                        'message': f'Missing required fields: {", ".join(missing_fields)}'
+                    }, status=400)
+                
+                # Validate listing_type specific fields
+                if data.get('listing_type') == 'rental' and 'payment_cycle' not in data:
+                    return Response({
+                        'error': True,
+                        'message': 'payment_cycle is required for rental listings'
+                    }, status=400)
+                
                 vehicle = Vehicle(
                     name = data['title'],
                     dealer=dealer,
@@ -429,9 +448,24 @@ class CreateListingView(CreateAPIView):
             }
             on_listing_created.send(dealer, listing=listing)
             return Response(data, 200)
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found for this user'
+            }, status=404)
+        except KeyError as e:
+            return Response({
+                'error': True,
+                'message': f'Missing required field: {str(e)}'
+            }, status=400)
         except Exception as error:
-            raise error
-            return Response({'error': True, 'message': str(error)}, 500)
+            # Log the error for debugging
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': True,
+                'message': f'An error occurred: {str(error)}'
+            }, status=500)
 
 
 class ListingDetailView(RetrieveUpdateDestroyAPIView):
