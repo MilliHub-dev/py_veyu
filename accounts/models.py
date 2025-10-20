@@ -238,6 +238,14 @@ class Mechanic(UserProfile):
 
     def rating(self):
         return '0.0'
+    
+    @property
+    def business_verification_status(self):
+        """Returns the current business verification status"""
+        try:
+            return self.verification_submission.status
+        except BusinessVerificationSubmission.DoesNotExist:
+            return 'not_submitted'
 
 
 class MechanicBoost(DbModel):
@@ -317,6 +325,14 @@ class Dealership(UserProfile):
         if avg > 0:
             avg = avg/self.reviews.count()
         return round(avg, 1)
+    
+    @property
+    def business_verification_status(self):
+        """Returns the current business verification status"""
+        try:
+            return self.verification_submission.status
+        except BusinessVerificationSubmission.DoesNotExist:
+            return 'not_submitted'
 
     @property
     def services(self):
@@ -442,6 +458,86 @@ class Document(DbModel):
     doctype = models.CharField(max_length=200, choices=DOCTYPES)
     files = models.ManyToManyField('File', blank=True)
 
+
+
+class BusinessVerificationSubmission(DbModel):
+    """
+    Stores business verification details submitted by dealers/mechanics
+    for manual admin approval
+    """
+    VERIFICATION_STATUS_CHOICES = {
+        'not_submitted': 'Not Submitted',
+        'pending': 'Pending Review',
+        'verified': 'Verified',
+        'rejected': 'Rejected',
+    }
+    
+    BUSINESS_TYPE_CHOICES = {
+        'dealership': 'Dealership',
+        'mechanic': 'Mechanic',
+    }
+    
+    # Link to the business profile
+    business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES)
+    dealership = models.OneToOneField('Dealership', on_delete=models.CASCADE, null=True, blank=True, related_name='verification_submission')
+    mechanic = models.OneToOneField('Mechanic', on_delete=models.CASCADE, null=True, blank=True, related_name='verification_submission')
+    
+    # Verification status
+    status = models.CharField(max_length=20, default='pending', choices=VERIFICATION_STATUS_CHOICES)
+    
+    # Business details
+    business_name = models.CharField(max_length=300)
+    cac_number = models.CharField(max_length=200, blank=True, null=True, help_text="Corporate Affairs Commission Number")
+    tin_number = models.CharField(max_length=200, blank=True, null=True, help_text="Tax Identification Number")
+    business_address = models.TextField()
+    business_email = models.EmailField()
+    business_phone = models.CharField(max_length=20)
+    
+    # Documents (uploaded files)
+    cac_document = models.FileField(upload_to='verification/cac/', blank=True, null=True)
+    tin_document = models.FileField(upload_to='verification/tin/', blank=True, null=True)
+    proof_of_address = models.FileField(upload_to='verification/address/', blank=True, null=True)
+    business_license = models.FileField(upload_to='verification/license/', blank=True, null=True)
+    
+    # Admin review
+    reviewed_by = models.ForeignKey('Account', on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_verifications')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_notes = models.TextField(blank=True, null=True, help_text="Internal notes from admin review")
+    rejection_reason = models.TextField(blank=True, null=True, help_text="Reason for rejection (shown to user)")
+    
+    class Meta:
+        verbose_name = 'Business Verification Submission'
+        verbose_name_plural = 'Business Verification Submissions'
+        ordering = ['-date_created']
+    
+    def __str__(self):
+        return f"{self.business_name} - {self.get_status_display()}"
+    
+    @property
+    def business_profile(self):
+        """Returns the associated business profile (dealership or mechanic)"""
+        return self.dealership if self.dealership else self.mechanic
+    
+    def approve(self, admin_user):
+        """Approve the verification and update the business profile"""
+        self.status = 'verified'
+        self.reviewed_by = admin_user
+        self.reviewed_at = now()
+        self.save()
+        
+        # Update the business profile
+        business = self.business_profile
+        if business:
+            business.verified_business = True
+            business.save()
+    
+    def reject(self, admin_user, reason):
+        """Reject the verification"""
+        self.status = 'rejected'
+        self.reviewed_by = admin_user
+        self.reviewed_at = now()
+        self.rejection_reason = reason
+        self.save()
 
 
 # use as ref to old imports for now

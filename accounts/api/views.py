@@ -239,8 +239,37 @@ class LoginView(views.APIView):
             "Provider notes:\n"
             "- The account's provider must match the provided provider.\n"
             "- provider=veyu: email/password are validated locally.\n"
-            "- provider in [google, apple, facebook]: current implementation does not validate third-party tokens (should be added)."
-        )
+            "- provider in [google, apple, facebook]: current implementation does not validate third-party tokens (should be added).\n\n"
+            "**Response includes:**\n"
+            "- For dealers: dealerId, verified_id, verified_business, business_verification_status\n"
+            "- For mechanics: mechanicId, verified_id, verified_business, business_verification_status\n"
+            "- business_verification_status values: 'not_submitted', 'pending', 'verified', 'rejected'"
+        ),
+        responses={
+            200: openapi.Response(
+                description="Login successful",
+                examples={
+                    "application/json": {
+                        "id": 123,
+                        "email": "dealer@example.com",
+                        "token": "abc123token",
+                        "refresh": "refresh_token_here",
+                        "first_name": "John",
+                        "last_name": "Doe",
+                        "user_type": "dealer",
+                        "provider": "veyu",
+                        "is_active": True,
+                        "dealerId": "550e8400-e29b-41d4-a716-446655440000",
+                        "verified_id": True,
+                        "verified_business": False,
+                        "business_verification_status": "pending"
+                    }
+                }
+            ),
+            401: "Invalid credentials or provider mismatch",
+            404: "Account does not exist"
+        },
+        tags=['Authentication']
     )
     def post(self, request: Request):
         serializer = self.serializer_class(data=request.data)
@@ -298,6 +327,7 @@ class LoginView(views.APIView):
                  "dealerId": str(user.dealership.uuid),
                  "verified_id": user.dealership.verified_id,
                  "verified_business": user.dealership.verified_business,
+                 "business_verification_status": user.dealership.business_verification_status,
                 })
             except Account.dealership.RelatedObjectDoesNotExist:
                 pass
@@ -307,6 +337,7 @@ class LoginView(views.APIView):
                  "mechanicId": str(user.mechanic.uuid),
                  "verified_id": user.mechanic.verified_id,
                  "verified_business": user.mechanic.verified_business,
+                 "business_verification_status": user.mechanic.business_verification_status,
                 })
             except Account.mechanic.RelatedObjectDoesNotExist:
                 pass
@@ -370,36 +401,269 @@ class UpdateProfileView(views.APIView):
 
 
 class BusinessVerificationView(views.APIView):
-    allowed_methods = ['POST']
-
-    def post(self, request):
+    """
+    Submit business verification details for manual admin approval.
+    Supports both POST (create/update) and GET (check status).
+    """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    
+    @swagger_auto_schema(
+        operation_summary="Get Business Verification Status",
+        operation_description=(
+            "Check the current business verification status for the authenticated dealer or mechanic.\n\n"
+            "**Statuses:**\n"
+            "- `not_submitted`: No verification has been submitted yet\n"
+            "- `pending`: Verification submitted and awaiting admin review\n"
+            "- `verified`: Verification approved by admin\n"
+            "- `rejected`: Verification rejected by admin (check rejection_reason)\n\n"
+            "**Authentication Required:** Yes (Token or JWT)\n"
+            "**User Types:** dealer, mechanic only"
+        ),
+        responses={
+            200: openapi.Response(
+                description="Verification status retrieved successfully",
+                examples={
+                    "application/json": {
+                        "status": "pending",
+                        "status_display": "Pending Review",
+                        "submission_date": "2025-10-20T14:30:00Z",
+                        "rejection_reason": None
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Invalid user type",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Only dealers and mechanics can submit business verification"
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description="Business profile not found",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Business profile not found"
+                    }
+                }
+            )
+        },
+        tags=['Business Verification']
+    )
+    def get(self, request):
+        """Get the current verification status"""
+        from accounts.api.serializers import BusinessVerificationStatusSerializer
+        from accounts.models import BusinessVerificationSubmission
+        
+        user = request.user
+        
+        # Find the user's business profile
         try:
-            data = request.data
-            objects = {'dealership': Dealership, 'mechanic': Mechanic}
-            obj = objects.get(data['object'])
+            if user.user_type == 'dealer':
+                dealership = Dealership.objects.get(user=user)
+                try:
+                    submission = dealership.verification_submission
+                    serializer = BusinessVerificationStatusSerializer({
+                        'status': submission.status,
+                        'status_display': submission.get_status_display(),
+                        'date_created': submission.date_created,
+                        'rejection_reason': submission.rejection_reason
+                    })
+                    return Response(serializer.data, status=200)
+                except BusinessVerificationSubmission.DoesNotExist:
+                    return Response({
+                        'status': 'not_submitted',
+                        'status_display': 'Not Submitted',
+                        'submission_date': None,
+                        'rejection_reason': None
+                    }, status=200)
+            elif user.user_type == 'mechanic':
+                mechanic = Mechanic.objects.get(user=user)
+                try:
+                    submission = mechanic.verification_submission
+                    serializer = BusinessVerificationStatusSerializer({
+                        'status': submission.status,
+                        'status_display': submission.get_status_display(),
+                        'date_created': submission.date_created,
+                        'rejection_reason': submission.rejection_reason
+                    })
+                    return Response(serializer.data, status=200)
+                except BusinessVerificationSubmission.DoesNotExist:
+                    return Response({
+                        'status': 'not_submitted',
+                        'status_display': 'Not Submitted',
+                        'submission_date': None,
+                        'rejection_reason': None
+                    }, status=200)
+            else:
+                return Response({
+                    'error': True,
+                    'message': 'Only dealers and mechanics can submit business verification'
+                }, status=400)
+        except (Dealership.DoesNotExist, Mechanic.DoesNotExist):
+            return Response({
+                'error': True,
+                'message': 'Business profile not found'
+            }, status=404)
 
-            # get dealership / mechanic
-            business = obj.objects.get(uuid=data['object_id'])
-            business.verification_ref = data['verification_ref']
-
-            if 'user.verified_email' in data['scope']:
-                business.user.verified_email = True
-                business.user.save()
-            if 'verified_id' in data['scope']:
-                business.user.verified_id = True
-            if 'verified_business' in data['scope']:
-                business.verified_business = True
-            if 'verified_tin' in data['scope']:
-                business.verified_tin = True
-            business.save()
-            
-            response = {
-                'error': False,
-                'message': 'Verification Successful'
+    @swagger_auto_schema(
+        operation_summary="Submit Business Verification",
+        operation_description=(
+            "Submit business verification details for manual admin approval.\n\n"
+            "**Process:**\n"
+            "1. Submit this form with all required business details and documents\n"
+            "2. Status will be set to `pending`\n"
+            "3. Admin reviews the submission in the admin panel\n"
+            "4. Admin approves or rejects the verification\n"
+            "5. Use GET endpoint to check current status\n\n"
+            "**Required Fields:**\n"
+            "- business_type: 'dealership' or 'mechanic'\n"
+            "- business_name: Official business name\n"
+            "- business_address: Full business address\n"
+            "- business_email: Business contact email\n"
+            "- business_phone: Business contact phone\n\n"
+            "**Optional Fields:**\n"
+            "- cac_number: Corporate Affairs Commission number\n"
+            "- tin_number: Tax Identification Number\n"
+            "- cac_document: CAC registration document (file)\n"
+            "- tin_document: TIN certificate (file)\n"
+            "- proof_of_address: Utility bill or lease agreement (file)\n"
+            "- business_license: Business license document (file)\n\n"
+            "**Note:** If a submission already exists, it will be updated and status reset to `pending`.\n\n"
+            "**Authentication Required:** Yes (Token or JWT)\n"
+            "**User Types:** dealer, mechanic only"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['business_type', 'business_name', 'business_address', 'business_email', 'business_phone'],
+            properties={
+                'business_type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    enum=['dealership', 'mechanic'],
+                    description='Type of business'
+                ),
+                'business_name': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Official business name',
+                    example='ABC Motors Limited'
+                ),
+                'cac_number': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Corporate Affairs Commission registration number',
+                    example='RC123456'
+                ),
+                'tin_number': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Tax Identification Number',
+                    example='12345678-0001'
+                ),
+                'business_address': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Full business address',
+                    example='123 Main Street, Victoria Island, Lagos'
+                ),
+                'business_email': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_EMAIL,
+                    description='Business contact email',
+                    example='info@abcmotors.com'
+                ),
+                'business_phone': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Business contact phone number',
+                    example='+2348012345678'
+                ),
+                'cac_document': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='CAC registration certificate (PDF, JPG, PNG)'
+                ),
+                'tin_document': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='TIN certificate (PDF, JPG, PNG)'
+                ),
+                'proof_of_address': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='Proof of business address - utility bill or lease (PDF, JPG, PNG)'
+                ),
+                'business_license': openapi.Schema(
+                    type=openapi.TYPE_FILE,
+                    description='Business operating license (PDF, JPG, PNG)'
+                ),
             }
-            return Response(response, 200)
-        except Exception as error:
-            raise error
+        ),
+        responses={
+            201: openapi.Response(
+                description="Verification submitted successfully",
+                examples={
+                    "application/json": {
+                        "error": False,
+                        "message": "Business verification submitted successfully. Admin will review your submission.",
+                        "data": {
+                            "id": 1,
+                            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+                            "business_type": "dealership",
+                            "status": "pending",
+                            "business_name": "ABC Motors Limited",
+                            "cac_number": "RC123456",
+                            "tin_number": "12345678-0001",
+                            "business_address": "123 Main Street, Victoria Island, Lagos",
+                            "business_email": "info@abcmotors.com",
+                            "business_phone": "+2348012345678",
+                            "rejection_reason": None,
+                            "date_created": "2025-10-20T14:30:00Z",
+                            "business_verification_status": "Pending Review"
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Validation error or invalid user type",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Validation failed",
+                        "errors": {
+                            "business_name": ["This field is required."],
+                            "business_email": ["Enter a valid email address."]
+                        }
+                    }
+                }
+            )
+        },
+        tags=['Business Verification']
+    )
+    def post(self, request):
+        """Submit or update business verification details"""
+        from accounts.api.serializers import BusinessVerificationSubmissionSerializer
+        
+        # Validate user type
+        if request.user.user_type not in ['dealer', 'mechanic']:
+            return Response({
+                'error': True,
+                'message': 'Only dealers and mechanics can submit business verification'
+            }, status=400)
+        
+        serializer = BusinessVerificationSubmissionSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            submission = serializer.save()
+            return Response({
+                'error': False,
+                'message': 'Business verification submitted successfully. Admin will review your submission.',
+                'data': serializer.data
+            }, status=201)
+        
+        return Response({
+            'error': True,
+            'message': 'Validation failed',
+            'errors': serializer.errors
+        }, status=400)
 
 
 

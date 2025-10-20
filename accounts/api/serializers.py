@@ -579,3 +579,76 @@ class VerifyPhoneNumberSerializer(serializers.Serializer):
 
         return data
 
+
+class BusinessVerificationSubmissionSerializer(serializers.ModelSerializer):
+    """Serializer for submitting business verification details"""
+    business_verification_status = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        from accounts.models import BusinessVerificationSubmission
+        model = BusinessVerificationSubmission
+        fields = [
+            'id', 'uuid', 'business_type', 'status', 'business_name',
+            'cac_number', 'tin_number', 'business_address', 'business_email',
+            'business_phone', 'cac_document', 'tin_document', 'proof_of_address',
+            'business_license', 'rejection_reason', 'date_created', 'last_updated',
+            'business_verification_status'
+        ]
+        read_only_fields = ['id', 'uuid', 'status', 'rejection_reason', 'date_created', 'last_updated']
+    
+    def get_business_verification_status(self, obj):
+        return obj.get_status_display()
+    
+    def create(self, validated_data):
+        from accounts.models import BusinessVerificationSubmission, Dealership, Mechanic
+        
+        # Get the authenticated user from context
+        request = self.context.get('request')
+        user = request.user
+        
+        # Determine business type and get the profile
+        business_type = validated_data.get('business_type')
+        
+        if business_type == 'dealership':
+            try:
+                dealership = Dealership.objects.get(user=user)
+                validated_data['dealership'] = dealership
+            except Dealership.DoesNotExist:
+                raise serializers.ValidationError("Dealership profile not found for this user")
+        elif business_type == 'mechanic':
+            try:
+                mechanic = Mechanic.objects.get(user=user)
+                validated_data['mechanic'] = mechanic
+            except Mechanic.DoesNotExist:
+                raise serializers.ValidationError("Mechanic profile not found for this user")
+        
+        # Check if submission already exists
+        if business_type == 'dealership' and hasattr(validated_data['dealership'], 'verification_submission'):
+            # Update existing submission
+            submission = validated_data['dealership'].verification_submission
+            for key, value in validated_data.items():
+                if key not in ['dealership', 'mechanic']:
+                    setattr(submission, key, value)
+            submission.status = 'pending'  # Reset to pending on resubmission
+            submission.save()
+            return submission
+        elif business_type == 'mechanic' and hasattr(validated_data['mechanic'], 'verification_submission'):
+            submission = validated_data['mechanic'].verification_submission
+            for key, value in validated_data.items():
+                if key not in ['dealership', 'mechanic']:
+                    setattr(submission, key, value)
+            submission.status = 'pending'
+            submission.save()
+            return submission
+        
+        # Create new submission
+        return BusinessVerificationSubmission.objects.create(**validated_data)
+
+
+class BusinessVerificationStatusSerializer(serializers.Serializer):
+    """Serializer for checking verification status"""
+    status = serializers.CharField(read_only=True)
+    status_display = serializers.CharField(read_only=True)
+    submission_date = serializers.DateTimeField(read_only=True, source='date_created')
+    rejection_reason = serializers.CharField(read_only=True)
+
