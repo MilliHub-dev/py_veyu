@@ -46,6 +46,7 @@ from .serializers import (
 )
 from ..models import (
     Vehicle,
+    Car,
     Listing,
     Order,
     # CarRental,
@@ -366,7 +367,7 @@ class CreateListingView(CreateAPIView):
 
             if action == 'create-listing':
                 # Validate required fields
-                required_fields = ['title', 'brand', 'model', 'condition', 'vehicle_type', 
+                required_fields = ['title', 'brand', 'model', 'condition',
                                    'transmission', 'fuel_system', 'drivetrain', 'seats', 'doors', 
                                    'vin', 'listing_type', 'price']
                 missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
@@ -384,14 +385,14 @@ class CreateListingView(CreateAPIView):
                         'message': 'payment_cycle is required for rental listings'
                     }, status=400)
                 
-                vehicle = Vehicle(
+                # Create Car instance (not Vehicle) since it has the additional fields
+                vehicle = Car(
                     name = data['title'],
                     dealer=dealer,
                     color = data.get('color', 'None'),
                     brand = data['brand'],
                     model = data['model'],
                     condition = data['condition'],
-                    type = data['vehicle_type'],
                     mileage = data.get('mileage', 0),
                     transmission = data['transmission'],
                     fuel_system = data['fuel_system'],
@@ -506,7 +507,6 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 vehicle.color = data['vehicle'].get('color', 'None')
                 vehicle.brand = data['vehicle']['brand']
                 vehicle.condition = data['vehicle']['condition']
-                vehicle.type = data['vehicle']['type']
                 vehicle.transmission = data['vehicle']['transmission']
                 vehicle.mileage = data['vehicle']['mileage']
                 vehicle.fuel_system = data['vehicle']['fuel_system']
