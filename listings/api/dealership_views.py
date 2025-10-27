@@ -69,6 +69,7 @@ from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import ValidationError
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -319,6 +320,30 @@ class ListingsView(ListAPIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     serializer_class = ListingSerializer
 
+    @swagger_auto_schema(
+        operation_summary="List dealer listings",
+        operation_description="Return all listings that belong to the authenticated dealer.",
+        responses={
+            200: openapi.Response(
+                description='List of listings',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'data': [
+                            {
+                                'uuid': '550e8400-e29b-41d4-a716-446655440000',
+                                'title': '2020 Toyota Camry',
+                                'price': '5000000.00',
+                                'listing_type': 'sale',
+                                'verified': False
+                            }
+                        ]
+                    }
+                }
+            )
+        },
+        tags=['Listings']
+    )
     def get(self, request, *args, **kwargs):
         dealer = Dealership.objects.get(user=request.user)
         listings = Listing.objects.filter(vehicle__dealer=dealer)
@@ -328,6 +353,33 @@ class ListingsView(ListAPIView):
         }
         return Response(data, 200)
 
+    @swagger_auto_schema(
+        operation_summary="Modify a listing (delete/unpublish/publish)",
+        operation_description=(
+            "Provide an action and the listing UUID to modify a listing.\n\n"
+            "- delete: Permanently delete the listing\n"
+            "- unpublish: Mark listing as not verified (unpublished)\n"
+            "- publish: Mark listing as verified (published)"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['action', 'listing'],
+            properties={
+                'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['delete', 'unpublish', 'publish'], example='publish'),
+                'listing': openapi.Schema(type=openapi.TYPE_STRING, format='uuid', description='Listing UUID')
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Operation successful',
+                examples={
+                    'application/json': {'error': False, 'message': 'Successfully Published Listing'}
+                }
+            ),
+            404: openapi.Response(description='Listing not found')
+        },
+        tags=['Listings']
+    )
     def post(self, request, *args, **kwargs):
         action = request.data['action']
         dealer = Dealership.objects.get(user=request.user)
@@ -357,6 +409,88 @@ class CreateListingView(CreateAPIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     serializer_class = CreateListingSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Create, upload images, or publish a listing",
+        operation_description=(
+            "Perform listing actions based on the 'action' field.\n\n"
+            "- create-listing: Create a new listing (required fields below)\n"
+            "- upload-images: Upload one or more images for a listing (multipart/form-data)\n"
+            "- publish-listing: Publish an existing listing\n\n"
+            "Required fields for create-listing:\n"
+            "title, brand, model, condition, transmission, fuel_system, drivetrain, seats, doors, vin, listing_type, price.\n"
+            "For rental listings, payment_cycle is required."
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=[
+                'action'
+            ],
+            properties={
+                'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['create-listing','upload-images','publish-listing'], example='create-listing'),
+                'title': openapi.Schema(type=openapi.TYPE_STRING, example='2020 Toyota Camry XLE'),
+                'brand': openapi.Schema(type=openapi.TYPE_STRING, example='Toyota'),
+                'model': openapi.Schema(type=openapi.TYPE_STRING, example='Camry'),
+                'condition': openapi.Schema(type=openapi.TYPE_STRING, enum=['new','used-foreign','used-local'], example='used-foreign'),
+                'transmission': openapi.Schema(type=openapi.TYPE_STRING, enum=['auto','manual'], example='auto'),
+                'fuel_system': openapi.Schema(type=openapi.TYPE_STRING, enum=['diesel','electric','petrol','hybrid'], example='petrol'),
+                'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD'], example='FWD'),
+                'seats': openapi.Schema(type=openapi.TYPE_INTEGER, example=5),
+                'doors': openapi.Schema(type=openapi.TYPE_INTEGER, example=4),
+                'vin': openapi.Schema(type=openapi.TYPE_STRING, example='1HGBH41JXMN109186'),
+                'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental'], example='sale'),
+                'price': openapi.Schema(type=openapi.TYPE_NUMBER, example=5000000),
+                'color': openapi.Schema(type=openapi.TYPE_STRING, example='Black'),
+                'mileage': openapi.Schema(type=openapi.TYPE_INTEGER, example=25000),
+                'notes': openapi.Schema(type=openapi.TYPE_STRING, example='Well maintained with full service history'),
+                'features': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), example=['AC','Bluetooth']),
+                'payment_cycle': openapi.Schema(type=openapi.TYPE_STRING, enum=['daily','weekly','monthly'], example='daily'),
+                'image': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_FILE), description='Used with action=upload-images')
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Operation successful',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'message': 'Successfully published your listing',
+                        'data': {
+                            'id': '550e8400-e29b-41d4-a716-446655440000',
+                            'title': '2020 Toyota Camry XLE'
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description='Validation error',
+                examples={
+                    'application/json': {
+                        'error': True,
+                        'message': 'Missing required fields: drivetrain, seats'
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description='Dealership not found',
+                examples={
+                    'application/json': {
+                        'error': True,
+                        'message': 'Dealership profile not found for this user'
+                    }
+                }
+            ),
+            500: openapi.Response(
+                description='Server error',
+                examples={
+                    'application/json': {
+                        'error': True,
+                        'message': 'An error occurred: ...'
+                    }
+                }
+            )
+        },
+        tags=['Listings']
+    )
     def post(self, request, **kwargs):
         try:
             dealer = Dealership.objects.get(user=request.user)
@@ -478,6 +612,15 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
     def get_object(self):
         return Listing.objects.get(uuid=self.kwargs['listing_id'])
 
+    @swagger_auto_schema(
+        operation_summary="Get listing detail",
+        operation_description="Retrieve a single listing by its UUID (path parameter: listing_id).",
+        responses={
+            200: openapi.Response(description='Listing detail'),
+            404: openapi.Response(description='Listing not found')
+        },
+        tags=['Listings']
+    )
     def get(self, request, listing_id):
         try:
             data = {
@@ -488,6 +631,54 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
         except Exception as error:
             return Response({'error': True, 'message': str(error)}, 500)
 
+    @swagger_auto_schema(
+        operation_summary="Edit listing / upload or remove images / publish listing",
+        operation_description=(
+            "This endpoint performs multiple actions based on 'action':\n\n"
+            "- edit-listing: Update listing and vehicle fields (see request schema)\n"
+            "- upload-images: Upload images array under 'image' (multipart/form-data)\n"
+            "- remove-image: Remove a vehicle image by 'image_id' (UUID)\n"
+            "- publish-listing: Publish a listing by passing 'listing' UUID (note: uses body UUID)"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['action'],
+            properties={
+                'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['edit-listing','upload-images','remove-image','publish-listing'], example='edit-listing'),
+                'title': openapi.Schema(type=openapi.TYPE_STRING, description='Listing title'),
+                'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Listing price'),
+                'notes': openapi.Schema(type=openapi.TYPE_STRING, description='Additional notes'),
+                'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental']),
+                'payment_cycle': openapi.Schema(type=openapi.TYPE_STRING, enum=['daily','weekly','monthly'], description='Required when listing_type=rental'),
+                'vehicle': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'brand': openapi.Schema(type=openapi.TYPE_STRING),
+                        'model': openapi.Schema(type=openapi.TYPE_STRING),
+                        'condition': openapi.Schema(type=openapi.TYPE_STRING, enum=['new','used-foreign','used-local']),
+                        'transmission': openapi.Schema(type=openapi.TYPE_STRING, enum=['auto','manual']),
+                        'fuel_system': openapi.Schema(type=openapi.TYPE_STRING, enum=['diesel','electric','petrol','hybrid']),
+                        'color': openapi.Schema(type=openapi.TYPE_STRING),
+                        'mileage': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD']),
+                        'seats': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'doors': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'vin': openapi.Schema(type=openapi.TYPE_STRING),
+                        'features': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
+                    }
+                ),
+                'image': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_FILE), description='Used with action=upload-images'),
+                'image_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid', description='Used with action=remove-image'),
+                'listing': openapi.Schema(type=openapi.TYPE_STRING, format='uuid', description='Used with action=publish-listing')
+            }
+        ),
+        responses={
+            200: openapi.Response(description='Operation successful'),
+            400: openapi.Response(description='Validation error'),
+            404: openapi.Response(description='Not found')
+        },
+        tags=['Listings']
+    )
     def post(self, request, listing_id):
         try:
             dealer = Dealership.objects.get(user=request.user)
@@ -559,6 +750,12 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
             return Response({'error': True, 'message': str(error)}, 500)
 
     # for delete
+    @swagger_auto_schema(
+        operation_summary="Delete a listing",
+        operation_description="Delete the listing identified by the path parameter listing_id.",
+        responses={200: openapi.Response(description='Deleted successfully'), 404: openapi.Response(description='Not found')},
+        tags=['Listings']
+    )
     def delete(self, request, *args, **kwargs):
         try:
             listing = self.get_object()
@@ -574,6 +771,14 @@ class OrderListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
+    @swagger_auto_schema(
+        operation_summary="List dealer orders",
+        operation_description="Return all orders for the authenticated dealer.",
+        responses={
+            200: openapi.Response(description='List of orders')
+        },
+        tags=['Orders']
+    )
     def get(self, request):
         dealer = Dealership.objects.get(user=request.user)
         orders = dealer.orders.all()
@@ -593,6 +798,12 @@ class SettingsView(APIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     parser_classes = [MultiPartParser, JSONParser]
 
+    @swagger_auto_schema(
+        operation_summary="Get dealership settings",
+        operation_description="Return the authenticated dealer's profile/settings.",
+        responses={200: openapi.Response(description='Dealer profile')},
+        tags=['Dealership']
+    )
     def get(self, request):
         dealer = Dealership.objects.get(user=request.user)
         data = {
@@ -601,6 +812,28 @@ class SettingsView(APIView):
         }
         return Response(data, status=200)
 
+    @swagger_auto_schema(
+        operation_summary="Update dealership settings",
+        operation_description=(
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo'."
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['business_name','about','headline','services','contact_phone','contact_email'],
+            properties={
+                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file'),
+                'business_name': openapi.Schema(type=openapi.TYPE_STRING),
+                'about': openapi.Schema(type=openapi.TYPE_STRING),
+                'slug': openapi.Schema(type=openapi.TYPE_STRING),
+                'headline': openapi.Schema(type=openapi.TYPE_STRING),
+                'services': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), example=['Car Sale','Car Leasing','Drivers']),
+                'contact_phone': openapi.Schema(type=openapi.TYPE_STRING),
+                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL)
+            }
+        ),
+        responses={200: openapi.Response(description='Updated successfully')},
+        tags=['Dealership']
+    )
     def post(self, request):
         data = request.data
         dealer = Dealership.objects.get(user=request.user)
