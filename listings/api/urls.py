@@ -10,6 +10,8 @@ from .views import (
     DealershipView,
     BookInspectionView,
     CheckoutDocumentView,
+    AllListingsView,
+    FeaturedListingsView,
 )
 
 
@@ -18,6 +20,8 @@ app_name = 'rentals_api'
 # English or spanish 😂🫴
 
 urlpatterns = [
+    path('', AllListingsView.as_view(), name='all-listings'),
+    path('featured/', FeaturedListingsView.as_view(), name='featured-listings'),
     # retrieve recently viewed listings and favorites
     path('buy/', BuyListingView.as_view(), name='buy-listing'),
     path('find/', ListingSearchView.as_view(), name='find-cars'),

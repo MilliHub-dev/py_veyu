@@ -54,6 +54,7 @@ from ..models import (
     RentalOrder,
     OrderInspection,
     PurchaseOffer,
+    ListingBoost,
 )
 from accounts.api.serializers import (
     DealershipSerializer,
@@ -267,6 +268,95 @@ class ListingSearchView(ListAPIView):
         )
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
 
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link(),
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+class AllListingsView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        vehicle__available=True,
+        vehicle__dealer__verified_business=True,
+        vehicle__dealer__verified_id=True,
+    ).distinct()
+    filter_backends = [DjangoFilterBackend,]
+    filterset_class = CarRentalFilter
+    pagination_class = OffsetPaginator
+
+    @swagger_auto_schema(
+        operation_summary="Get all active listings",
+        tags=["Listings"],
+        manual_parameters=[
+            openapi.Parameter('ordering', openapi.IN_QUERY, description='Ordering field (e.g. -created_at)', type=openapi.TYPE_STRING),
+        ],
+        responses={200: EnvelopeListSchema}
+    )
+    def get(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        ordering = request.GET.get('ordering')
+        if ordering:
+            try:
+                queryset = queryset.order_by(ordering)
+            except Exception:
+                pass
+        queryset = self.paginate_queryset(queryset)
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        data = {
+            'error': False,
+            'message': '',
+            'data': {
+                'pagination': {
+                    'offset': self.paginator.offset,
+                    'limit': self.paginator.limit,
+                    'count': self.paginator.count,
+                    'next': self.paginator.get_next_link(),
+                    'previous': self.paginator.get_previous_link(),
+                },
+                'results': serializer.data
+            }
+        }
+        return Response(data, 200)
+
+class FeaturedListingsView(ListAPIView):
+    allowed_methods = ['GET']
+    serializer_class = ListingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    queryset = Listing.objects.filter(
+        approved=True,
+        verified=True,
+        vehicle__available=True,
+        boosted__active=True,
+        vehicle__dealer__verified_business=True,
+        vehicle__dealer__verified_id=True,
+    ).distinct()
+    pagination_class = OffsetPaginator
+
+    @swagger_auto_schema(
+        operation_summary="Get featured listings",
+        tags=["Listings"],
+        responses={200: EnvelopeListSchema}
+    )
+    def get(self, request, *args, **kwargs):
+        queryset = self.paginate_queryset(self.get_queryset())
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
         data = {
             'error': False,
             'message': '',

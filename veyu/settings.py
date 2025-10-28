@@ -215,7 +215,7 @@ STATIC_URL = '/static/'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 if DEBUG:
-    MEDIA_URL = 'uploads/'
+    MEDIA_URL = '/uploads/'
     STATICFILES_DIRS = [
         BASE_DIR / 'static'
     ]
