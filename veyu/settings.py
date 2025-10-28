@@ -335,8 +335,6 @@ JAZZMIN_SETTINGS = {
         "listings.Listing": "fas fa-car",
     },
     "hide_models": [
-        'listings.Vehicle',
-        'listings.VehicleImage',
         'listings.VehicleCategories',
         'listings.VehicleTags',
         'listings.PurchaseOffers',
