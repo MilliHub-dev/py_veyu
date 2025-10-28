@@ -31,4 +31,4 @@ git_access_token
 *.pem
 veyu-ssh-key.pem
 # uploads/
-static/
+
