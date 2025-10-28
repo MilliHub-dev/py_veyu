@@ -24,7 +24,7 @@ backup.sql
 *.sql
 doc.md
 .env.local
-.env
+
 
 git-token
 git_access_token
