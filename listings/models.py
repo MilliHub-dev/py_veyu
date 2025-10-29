@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 from django.utils.timezone import now
 from django.db.models import Q
-
+from cloudinary.models import CloudinaryField
 
 PAYMENT_CYCLES = [
     ('single', 'One Time / Single Payment'),
@@ -27,7 +27,7 @@ VEHICLE_FEATURES = [
 
 
 class VehicleImage(DbModel):
-    image = models.ImageField(upload_to='vehicles/images/', blank=True, null=True)
+    image = CloudinaryField('image', folder='vehicles/images/', blank=True, null=True)
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):

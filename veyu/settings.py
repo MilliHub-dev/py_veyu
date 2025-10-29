@@ -1,10 +1,14 @@
 import os
 from pathlib import Path
 from environ import Env
-from decouple import config
+from decouple import config, Csv
 from datetime import timedelta
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -206,6 +210,42 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+
+# Load environment variables
+load_dotenv()
+
+# Cloudinary configuration from CLOUDINARY_URL
+CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
+
+# Parse CLOUDINARY_URL
+if CLOUDINARY_URL:
+    from urllib.parse import urlparse
+    
+    # Parse the URL
+    parsed = urlparse(CLOUDINARY_URL)
+    
+    # Extract credentials
+    api_key, api_secret = parsed.netloc.split('@')[0].split(':') if '@' in parsed.netloc else (None, None)
+    cloud_name = parsed.netloc.split('@')[-1] if '@' in parsed.netloc else parsed.netloc
+    
+    # Configure Cloudinary
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': cloud_name,
+        'API_KEY': api_key,
+        'API_SECRET': api_secret,
+        'SECURE': True,
+    }
+    
+    # Initialize Cloudinary
+    import cloudinary
+    cloudinary.config(
+        cloud_name=cloud_name,
+        api_key=api_key,
+        api_secret=api_secret,
+        secure=True
+    )
+else:
+    raise ImproperlyConfigured("CLOUDINARY_URL environment variable not set")
 
 # STORAGE SETTINGS (Cloudinary for media)
 MEDIA_URL = '/media/'
