@@ -40,7 +40,10 @@ class VehicleImage(DbModel):
 
 
     def __str__(self):
-        return self.image.name
+        # Return the public_id or URL of the Cloudinary image
+        if hasattr(self.image, 'public_id'):
+            return self.image.public_id
+        return str(self.image)
 
 
 class Vehicle(DbModel):
