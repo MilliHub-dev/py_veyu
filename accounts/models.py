@@ -8,6 +8,7 @@ from utils import make_random_otp
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
+from cloudinary.models import CloudinaryField
 
 
 class AccountManager(BaseUserManager):
@@ -184,7 +185,7 @@ class UserProfile(DbModel):
 
 
 class Customer(UserProfile):
-    image = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    image = CloudinaryField('profile_image', folder='users/profiles/', blank=True, null=True)
     cart = models.ManyToManyField("listings.Listing", blank=True, related_name="cart")
     favorites = models.ManyToManyField("listings.Listing", blank=True, related_name="favorites")
     service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
@@ -213,7 +214,7 @@ class Mechanic(UserProfile):
     about = models.TextField(blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     slug = models.SlugField(blank=True, null=True)
-    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    logo = CloudinaryField('mechanic_logo', folder='mechanics/logos/', blank=True, null=True)
     level = models.CharField(max_length=20, default='new', choices=LEVELS)
     headline = models.CharField(max_length=200, blank=True, null=True)
     available = models.BooleanField(default=True)
@@ -279,7 +280,7 @@ class Dealership(UserProfile):
     
     about = models.TextField(blank=True, null=True)
     slug = models.SlugField(blank=True, null=True)
-    logo = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    logo = CloudinaryField('logo', folder='dealerships/logos/', blank=True, null=True)
     business_name = models.CharField(max_length=300, blank=True, null=True)
     headline = models.CharField(max_length=200, blank=True, null=True)
     contact_email = models.EmailField(blank=True, null=True)
