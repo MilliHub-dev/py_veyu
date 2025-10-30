@@ -80,8 +80,8 @@ class Vehicle(DbModel):
 
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
-    tags = ArrayField(blank=True, null=True, data_type=str)
-    features = ArrayField(blank=True, null=True, data_type=str)
+    tags = ArrayField(blank=True, null=True, data_type=str, default=list)
+    features = ArrayField(blank=True, null=True, data_type=str, default=list)
     custom_duty = models.BooleanField(default=False)
 
     last_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
@@ -92,6 +92,12 @@ class Vehicle(DbModel):
         return self.name or 'Unnamed Vehicle'
 
     def save(self, *args, **kwargs):
+        # Ensure tags and features are lists before saving
+        if self.tags is None:
+            self.tags = []
+        if self.features is None:
+            self.features = []
+            
         if not self.slug:
             self.slug = self.name.replace(' ', '-').replace('.', '').replace("'", '').lower().strip()
         return super().save(*args, **kwargs)
