@@ -538,7 +538,13 @@ class CreateListingView(CreateAPIView):
                 if data['listing_type'] == 'sale':
                     vehicle.for_sale = True
                 elif data['listing_type'] == 'rental':
-                    vehicle.features=data['features']
+                    # Convert features to list if it's a string
+                    features = data.get('features', [])
+                    if isinstance(features, str):
+                        features = [f.strip() for f in features.split(',') if f.strip()]
+                    elif not isinstance(features, list):
+                        features = []
+                    vehicle.features = features
                     vehicle.for_rent = True
                 vehicle.save()
 
