@@ -40,6 +40,7 @@ from utils import (
 from utils.dispatch import (
     otp_requested,
 )
+from utils.otp import make_random_otp
 
 # Local app imports
 from ..models import (
@@ -153,21 +154,38 @@ class SignUpView(generics.CreateAPIView):
 
                 if user_type == 'customer':
                     Customer.objects.create(user=user, phone_number=data['phone_number'])
-                user_data = {
-                    "token": str(user.api_token),
-                }
-                user_data.update(AccountSerializer(user).data)
-                # send welcome email
+                # Generate and save email verification code
+                verification_code = make_random_otp()
+                user.email_verification_code = verification_code
+                user.save()
+
+                # Send verification email
                 try:
                     send_email(
-                        subject="Welcome to Veyu",
+                        subject="Verify Your Email - Veyu",
                         recipients=[user.email],
-                        template="utils/templates/welcome_email.html",
-                        context={"name": user.first_name or user.email}
+                        template="utils/templates/verification_email.html",
+                        context={
+                            "name": user.first_name or user.email,
+                            "verification_code": verification_code
+                        }
                     )
-                except Exception:
-                    pass
-                return Response({ 'error': False, 'data': user_data }, 201)
+                except Exception as e:
+                    print(f"Error sending verification email: {str(e)}")
+                
+                # Prepare response data
+                user_data = {
+                    "token": str(user.api_token),
+                    "email_verified": user.email_verified,
+                    "verification_sent": True
+                }
+                user_data.update(AccountSerializer(user).data)
+                
+                return Response({
+                    'error': False,
+                    'message': 'Account created successfully. Please check your email to verify your account.',
+                    'data': user_data
+                }, status=201)
             elif action == 'setup-business-profile':
                 user = request.user
                 if not user:
