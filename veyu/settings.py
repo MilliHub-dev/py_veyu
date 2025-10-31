@@ -337,12 +337,59 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 # EMAIL CONFIGURATION
 if DEBUG:
-    # In development, print emails to console
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    EMAIL_FILE_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+    # Development settings - file-based email backend
+    EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
     EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
-    DEFAULT_FROM_EMAIL = 'noreply@veyu.local'
-    SERVER_EMAIL = 'noreply@veyu.local'
+    os.makedirs(EMAIL_FILE_PATH, exist_ok=True)  # Ensure directory exists
+
+    # Configure logging for email debugging
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{levelname} {asctime} {module} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+            'file': {
+                'level': 'DEBUG',
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'email_debug.log'),
+                'formatter': 'verbose',
+            },
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console', 'file'],
+                'level': 'INFO',
+                'propagate': True,
+            },
+            'django.core.mail': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'utils.mail': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+        },
+    }
+
+    # Log email configuration
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Development email backend: {EMAIL_BACKEND}")
+    logger.debug(f"Email file path: {EMAIL_FILE_PATH}")
+    logger.debug(f"Email debug log: {os.path.join(BASE_DIR, 'email_debug.log')}")
 else:
     # Production SMTP settings
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

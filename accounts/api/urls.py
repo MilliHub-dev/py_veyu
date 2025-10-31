@@ -11,6 +11,7 @@ from .views import (
     CartView,
     NotificationView,
 )
+from .test_views import TestEmailView
 from django.urls import include
 
 app_name = 'accounts_api'
@@ -18,6 +19,7 @@ app_name = 'accounts_api'
 urlpatterns = [
     path('login/', LoginView.as_view()),
     path('register/', SignUpView.as_view()),
+    path('test-email/', TestEmailView.as_view(), name='test-email'),  # Test email endpoint
     path('verify-business/', BusinessVerificationView.as_view()),
     path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
     path('verify-email/', VerifyEmailView.as_view()),
