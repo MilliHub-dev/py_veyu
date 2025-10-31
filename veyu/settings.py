@@ -335,15 +335,32 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 
-# EMAIL
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', default='Veyu <support@veyu.cc>')
-SERVER_EMAIL = env.get_value('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
+# EMAIL CONFIGURATION
+if DEBUG:
+    # In development, print emails to console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    EMAIL_FILE_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+    EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
+    DEFAULT_FROM_EMAIL = 'noreply@veyu.local'
+    SERVER_EMAIL = 'noreply@veyu.local'
+else:
+    # Production SMTP settings
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = env.get_value('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = env.get_value('EMAIL_PORT', 587)
+    EMAIL_USE_TLS = env.get_value('EMAIL_USE_TLS', True)
+    EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', '')
+    DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', 'Veyu <support@veyu.cc>')
+    SERVER_EMAIL = env.get_value('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+    
+    # Timeout for SMTP connection (in seconds)
+    EMAIL_TIMEOUT = 10  # 10 seconds timeout
+    
+    # Additional SMTP settings for reliability
+    EMAIL_USE_SSL = env.get_value('EMAIL_USE_SSL', False)
+    EMAIL_SSL_KEYFILE = env.get_value('EMAIL_SSL_KEYFILE', None)
+    EMAIL_SSL_CERTFILE = env.get_value('EMAIL_SSL_CERTFILE', None)
 
 # DJANGO CHANNELS
 CHANNEL_LAYERS = {
