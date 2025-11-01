@@ -381,6 +381,11 @@ if DEBUG:
                 'level': 'DEBUG',
                 'propagate': True,
             },
+            'utils.zeptomail': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
         },
     }
 
@@ -391,13 +396,25 @@ if DEBUG:
     logger.debug(f"Email file path: {EMAIL_FILE_PATH}")
     logger.debug(f"Email debug log: {os.path.join(BASE_DIR, 'email_debug.log')}")
 else:
-    # Production SMTP settings
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = env.get_value('EMAIL_HOST', 'smtp.gmail.com')
-    EMAIL_PORT = env.get_value('EMAIL_PORT', 587)
-    EMAIL_USE_TLS = env.get_value('EMAIL_USE_TLS', True)
-    EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', '')
-    EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', '')
+    # Production - Use ZeptoMail
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Fallback
+    
+    # ZeptoMail API Configuration
+    ZEPTOMAIL_API_KEY = env.get_value('ZEPTOMAIL_API_KEY')
+    ZEPTOMAIL_SENDER_EMAIL = env.get_value('ZEPTOMAIL_SENDER_EMAIL', 'noreply@veyu.com.ng')
+    ZEPTOMAIL_SENDER_NAME = env.get_value('ZEPTOMAIL_SENDER_NAME', 'Veyu')
+    
+    # If ZeptoMail API key is available, use our custom email backend
+    if ZEPTOMAIL_API_KEY:
+        EMAIL_BACKEND = 'utils.zeptomail.ZeptoMailBackend'
+    else:
+        # Fallback to SMTP if ZeptoMail is not configured
+        logger.warning("ZEPTOMAIL_API_KEY not found. Falling back to SMTP.")
+        EMAIL_HOST = env.get_value('EMAIL_HOST', 'smtp.gmail.com')
+        EMAIL_PORT = env.get_value('EMAIL_PORT', 587)
+        EMAIL_USE_TLS = env.get_value('EMAIL_USE_TLS', True)
+        EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', '')
+        EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', '')
     DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', 'Veyu <support@veyu.cc>')
     SERVER_EMAIL = env.get_value('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
     

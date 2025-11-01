@@ -1,0 +1,24 @@
+Content-Type: multipart/alternative;
+ boundary="===============2791277547161503683=="
+MIME-Version: 1.0
+Subject: Test Email from Veyu
+From: admin@veyu.cc
+To: ekeminieffiong22@gmail.com
+Date: Sat, 01 Nov 2025 14:08:48 -0000
+Message-ID: <176200612898.18536.4625928299341370917@DrMilli>
+
+--===============2791277547161503683==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+This is a test email from Veyu using ZeptoMail.
+--===============2791277547161503683==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<h1>Test Email</h1><p>This is a test email from Veyu using ZeptoMail.</p>
+--===============2791277547161503683==--
+
+-------------------------------------------------------------------------------
