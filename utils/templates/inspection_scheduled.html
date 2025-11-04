@@ -1,15 +1,250 @@
-{% extends "base.html" %}
-{% block content %}
-  <div class="title">Inspection Scheduled</div>
-  <p>Hi <span class="highlight">{{ customer_name }}</span>, your inspection has been scheduled successfully.</p>
-  <table style="width:100%; border-collapse: collapse;">
-    <tr><td style="padding:6px 0;"><strong>Listing:</strong></td><td>{{ listing_title }}</td></tr>
-    <tr><td style="padding:6px 0;"><strong>Vehicle:</strong></td><td>{{ vehicle_name }}</td></tr>
-    <tr><td style="padding:6px 0;"><strong>Date:</strong></td><td>{{ date }}</td></tr>
-    <tr><td style="padding:6px 0;"><strong>Time:</strong></td><td>{{ time }}</td></tr>
-  </table>
-  <p style="margin-top:16px;">
-    <a class="btn" href="{{ inspection_link|default:'#' }}">View Details</a>
-  </p>
-  <p>— Veyu Team</p>
-{% endblock %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspection Scheduled - {{ app_name|default:'Veyu' }}</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --secondary-color: #6366F1;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --text-color: #1F2937;
+            --text-muted: #6B7280;
+            --border-color: #E5E7EB;
+            --bg-light: #F9FAFB;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #F3F4F6;
+            margin: 0;
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 1rem;
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        h1, h2, h3 {
+            color: #111827;
+            margin-top: 0;
+            line-height: 1.3;
+        }
+        
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        p {
+            margin: 1rem 0;
+            color: var(--text-color);
+            font-size: 1rem;
+            line-height: 1.625;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            background-color: #EFF6FF;
+            color: var(--primary-color);
+        }
+        
+        .details-card {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .detail-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            width: 120px;
+            color: var(--text-muted);
+        }
+        
+        .detail-value {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .button {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white !important;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 1.5rem 0;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .button-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .button:hover {
+            background: #4338CA;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
+        }
+        
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .footer p {
+            margin: 0.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-4 {
+            margin-top: 1.5rem;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (max-width: 640px) {
+            .content {
+                padding: 1.5rem 1rem;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                width: 100%;
+                margin-bottom: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+        </div>
+        
+        <div class="content">
+            <div class="text-center">
+                <span class="status-badge">Inspection Scheduled</span>
+                <h1>Your Inspection is Confirmed</h1>
+                <p>Hi <strong>{{ customer_name|default:'Valued Customer' }}</strong>, your vehicle inspection has been successfully scheduled.</p>
+            </div>
+            
+            <div class="details-card">
+                <div class="detail-row">
+                    <div class="detail-label">Listing:</div>
+                    <div class="detail-value">{{ listing_title|default:'Vehicle Listing' }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Vehicle:</div>
+                    <div class="detail-value">{{ vehicle_name|default:'Vehicle Details' }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Date:</div>
+                    <div class="detail-value">{{ date|default:'Not specified' }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Time:</div>
+                    <div class="detail-value">{{ time|default:'Not specified' }}</div>
+                </div>
+                {% if inspection_location %}
+                <div class="detail-row">
+                    <div class="detail-label">Location:</div>
+                    <div class="detail-value">{{ inspection_location }}</div>
+                </div>
+                {% endif %}
+                {% if inspector_name %}
+                <div class="detail-row">
+                    <div class="detail-label">Inspector:</div>
+                    <div class="detail-value">{{ inspector_name }}{% if inspector_contact %} ({{ inspector_contact }}){% endif %}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4">
+                <h3>What to Expect:</h3>
+                <ul>
+                    <li>Thorough inspection of the vehicle's condition</li>
+                    <li>Detailed report with photos</li>
+                    <li>Professional assessment from certified inspectors</li>
+                </ul>
+                
+                <p class="mt-4">If you need to reschedule or have any questions, please contact us at least 24 hours before your appointment.</p>
+                
+                <a href="{{ inspection_link|default:'#' }}" class="button button-block">View Inspection Details</a>
+                
+                <p class="text-muted text-center">Need assistance? Contact our support team at <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">{{ support_email|default:'support@veyu.cc' }}</a></p>
+            </div>
+            
+            <div class="footer">
+                <p>© {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.</p>
+                <p>This email was sent to {{ email|default:'you@example.com' }}. If you believe this was sent in error, please contact us immediately.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

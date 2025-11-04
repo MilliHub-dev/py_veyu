@@ -8,6 +8,7 @@ from .models import (
     Dealer,
     BusinessVerificationSubmission,
 )
+from .newsletter import Newsletter, NewsletterAdmin
 from utils.sms import send_sms
 from utils.mail import send_email
 from utils.admin import veyu_admin
@@ -51,23 +52,23 @@ class AccountsAdmin(admin.ModelAdmin):
 
     def send_welcome_email(self, request, queryset, *args, **kwargs):
         for account in queryset:
-            send_email(
-                subject="Welcome to veyu",
-                context={'user': account},
-                recipients=[account.email],
-                template="utils/templates/welcome.html",
-            )
-        self.message_user(request, "Successfully sent welcome email")
+            try:
+                from accounts.utils.email_notifications import send_welcome_email
+                send_welcome_email(account)
+                self.message_user(request, f"Successfully sent welcome email to {account.email}")
+            except Exception as e:
+                self.message_user(request, f"Failed to send welcome email to {account.email}: {str(e)}", level='error')
 
     def send_test_email(self, request, queryset, *args, **kwargs):
         for account in queryset:
-            send_email(
-                subject="Welcome to veyu",
-                context={'user': account},
-                recipients=[account.email],
-                template="utils/templates/email-confirmation.html",
-            )
-        self.message_user(request, "Successfully sent sms")
+            try:
+                from accounts.utils.email_notifications import send_verification_email
+                # Generate a test verification code
+                verification_code = "123456"
+                send_verification_email(account, verification_code)
+                self.message_user(request, f"Test verification email sent to {account.email}")
+            except Exception as e:
+                self.message_user(request, f"Failed to send test email to {account.email}: {str(e)}", level='error')
 
 
 class OTPAdmin(admin.ModelAdmin):
@@ -163,6 +164,7 @@ class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
 # Register your models here.
 veyu_admin.register(Account, AccountsAdmin)
 veyu_admin.register(Customer)
+veyu_admin.register(Newsletter, NewsletterAdmin)
 veyu_admin.register(Mechanic)
 veyu_admin.register(Location)
 veyu_admin.register(Dealer)

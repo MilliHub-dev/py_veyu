@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
     # 'jet',
 
 
@@ -254,15 +255,20 @@ STATIC_URL = '/static/'
 # Use Cloudinary for media uploads
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-if DEBUG:
-    MEDIA_URL = '/uploads/'
-    STATICFILES_DIRS = [
-        BASE_DIR / 'static'
-    ]
-else:
-    STATIC_ROOT = BASE_DIR / 'static'
-    # Keep static served via collected static; media via Cloudinary
+# Static files configuration
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# In production, collectstatic will collect files to STATIC_ROOT
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (user uploads)
 MEDIA_ROOT = BASE_DIR / 'uploads'
+
+# Create directories if they don't exist
+os.makedirs(STATIC_ROOT, exist_ok=True)
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # WhiteNoise static files storage (fingerprinted files for caching)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -425,6 +431,9 @@ else:
     EMAIL_USE_SSL = env.get_value('EMAIL_USE_SSL', False)
     EMAIL_SSL_KEYFILE = env.get_value('EMAIL_SSL_KEYFILE', None)
     EMAIL_SSL_CERTFILE = env.get_value('EMAIL_SSL_CERTFILE', None)
+
+# Frontend URL for email verification and password reset links
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://dev.veyu.cc')
 
 # DJANGO CHANNELS
 CHANNEL_LAYERS = {

@@ -1,0 +1,80 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrahead %}
+{{ block.super }}
+{{ media }}
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .form-row {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .form-row:last-child {
+        border-bottom: none;
+    }
+    .form-row label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .form-row input[type="text"],
+    .form-row textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .submit-row {
+        margin-top: 20px;
+        padding: 10px 0;
+    }
+    .submit-row input {
+        background: #79aec8;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .submit-row input:hover {
+        background: #609ab6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Send Test Newsletter</h1>
+    <p>Enter email addresses (comma-separated) to send a test version of the selected newsletter(s):</p>
+    
+    <form action="" method="post">
+        {% csrf_token %}
+        
+        <div class="form-row">
+            <label for="test_emails">Email Addresses:</label>
+            <textarea name="test_emails" id="test_emails" rows="5" required></textarea>
+            <p class="help">Enter one or more email addresses, separated by commas</p>
+        </div>
+        
+        <div class="form-row">
+            <p>The following newsletters will be sent:</p>
+            <ul>
+                {% for newsletter in newsletters %}
+                <li>{{ newsletter.title }} ({{ newsletter.subject }})</li>
+                <input type="hidden" name="_selected_action" value="{{ newsletter.id }}" />
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="submit-row">
+            <input type="hidden" name="action" value="send_test_newsletter" />
+            <input type="submit" name="apply" value="Send Test Email(s)" />
+            <a href="{% url 'admin:accounts_newsletter_changelist' %}" class="button cancel-link" style="margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

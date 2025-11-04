@@ -677,23 +677,38 @@ class CheckoutView(APIView):
         listing.vehicle.dealer.save()
 
         on_checkout_success.send(order, listing=listing, customer=request.user.customer,)
-        # send purchase confirmation email
+        # Send order confirmation email using the new template
         try:
-            from utils.mail import send_email
-            send_email(
-                subject="Your order has been created",
-                recipients=[request.user.email],
-                template="utils/templates/purchase_confirmation.html",
-                context={
-                    "customer_name": request.user.first_name or request.user.email,
-                    "order_uuid": str(order.uuid),
-                    "listing_title": listing.title,
-                    "vehicle_name": listing.vehicle.name,
-                    "amount": str(order.sub_total),
-                }
-            )
-        except Exception:
-            pass
+            from accounts.utils.email_notifications import send_order_confirmation
+            from decimal import Decimal
+            
+            order_details = {
+                'order_number': f"ORD-{order.uuid}",
+                'order_date': order.created_at.strftime("%B %d, %Y"),
+                'customer_name': request.user.get_full_name() or request.user.email,
+                'order_status': 'confirmed',
+                'order_items': [{
+                    'name': listing.title,
+                    'description': listing.vehicle.name,
+                    'quantity': 1,
+                    'price': str(order.sub_total)
+                }],
+                'subtotal': str(order.sub_total),
+                'tax': str(Decimal('0.075') * order.sub_total) if order.sub_total else '0.00',
+                'shipping': '0.00',
+                'total': str(order.sub_total * Decimal('1.075')) if order.sub_total else '0.00',
+                'shipping_address': order.shipping_address or 'Not specified',
+                'billing_address': order.billing_address or 'Same as shipping',
+                'tracking_number': order.tracking_number or 'Not available yet',
+                'tracking_link': f"{settings.FRONTEND_URL}/orders/{order.uuid}/tracking" if hasattr(settings, 'FRONTEND_URL') else '#',
+                'support_email': settings.DEFAULT_FROM_EMAIL,
+                'order_details_link': f"{settings.FRONTEND_URL}/orders/{order.uuid}" if hasattr(settings, 'FRONTEND_URL') else '#'
+            }
+            
+            send_order_confirmation(request.user, order_details)
+            
+        except Exception as e:
+            logger.error(f"Failed to send order confirmation email: {str(e)}", exc_info=True)
         return Response({'error': False, 'message': 'Your order was created', 'data': OrderSerializer(order).data}, 200)
 
 
@@ -723,7 +738,51 @@ class BookInspectionView(APIView):
             )
             inspection.save()
             on_inspection_created.send(request.user.customer, date=date, time=time)
-            # send inspection scheduled email
+            
+            # Send inspection scheduled email using the new template
+            try:
+                from accounts.utils.email_notifications import send_inspection_scheduled
+                from datetime import datetime, time as dt_time
+                
+                # Parse the time string to a time object
+                try:
+                    inspection_time = datetime.strptime(time, "%H:%M").time()
+                except (ValueError, TypeError):
+                    inspection_time = dt_time(10, 0)  # Default to 10:00 AM if parsing fails
+                
+                inspection_details = {
+                    'inspection_reference': f"INSP-{inspection.id}",
+                    'inspection_date': date.strftime("%A, %B %d, %Y"),
+                    'inspection_time': inspection_time.strftime("%I:%M %p"),
+                    'vehicle_name': inspection.order.order_item.vehicle.name,
+                    'vehicle_year': inspection.order.order_item.vehicle.year,
+                    'vehicle_make': inspection.order.order_item.vehicle.make,
+                    'vehicle_model': inspection.order.order_item.vehicle.model,
+                    'listing_title': inspection.order.order_item.title,
+                    'location': inspection.order.order_item.vehicle.dealer.location.address if hasattr(inspection.order.order_item.vehicle.dealer, 'location') else 'To be determined',
+                    'contact_person': inspection.order.order_item.vehicle.dealer.contact_name if hasattr(inspection.order.order_item.vehicle.dealer, 'contact_name') else 'Dealership Representative',
+                    'contact_phone': inspection.order.order_item.vehicle.dealer.phone_number if hasattr(inspection.order.order_item.vehicle.dealer, 'phone_number') else 'N/A',
+                    'support_email': settings.DEFAULT_FROM_EMAIL,
+                    'inspection_checklist': [
+                        'Exterior condition and paint',
+                        'Engine and mechanical components',
+                        'Interior condition and electronics',
+                        'Test drive (if applicable)',
+                        'Document verification'
+                    ],
+                    'what_to_bring': [
+                        'Valid driver\'s license',
+                        'Proof of insurance (if test driving)',
+                        'List of any specific concerns'
+                    ]
+                }
+                
+                send_inspection_scheduled(request.user, inspection_details)
+                
+            except Exception as e:
+                logger.error(f"Failed to send inspection scheduled email: {str(e)}", exc_info=True)
+                
+            # Original email sending code (kept as fallback)
             try:
                 from utils.mail import send_email
                 send_email(

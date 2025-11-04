@@ -1,11 +1,323 @@
-{% extends "emails/base.html" %}
-{% block content %}
-  <h2>New Order Notification</h2>
-  <p>Hello {{ recipient_name }},</p>
-  <p>You have a new order (Order ID: {{ order_id }}) placed on Veyu.</p>
-  <ul>
-    <li>Car: {{ car_name }}</li>
-    <li>Customer: {{ customer_name }}</li>
-    <li>Price: {{ price }}</li>
-  </ul>
-{% endblock %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Order Notification - {{ app_name|default:'Veyu' }}</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --secondary-color: #6366F1;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --text-color: #1F2937;
+            --text-muted: #6B7280;
+            --border-color: #E5E7EB;
+            --bg-light: #F9FAFB;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #F3F4F6;
+            margin: 0;
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 1rem;
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        h1, h2, h3 {
+            color: #111827;
+            margin-top: 0;
+            line-height: 1.3;
+        }
+        
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        p {
+            margin: 1rem 0;
+            color: var(--text-color);
+            font-size: 1rem;
+            line-height: 1.625;
+        }
+        
+        .order-card {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .order-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .order-details th, 
+        .order-details td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .order-details th {
+            background-color: rgba(79, 70, 229, 0.1);
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .order-total {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--text-color);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .status-new {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+        }
+        
+        .customer-info {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        
+        .customer-info h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            font-size: 1.125rem;
+        }
+        
+        .button {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white !important;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 1.5rem 0;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .button-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .button:hover {
+            background: #4338CA;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
+        }
+        
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .footer p {
+            margin: 0.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-4 {
+            margin-top: 1.5rem;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (max-width: 640px) {
+            .content {
+                padding: 1.5rem 1rem;
+            }
+            
+            .order-details th, 
+            .order-details td {
+                padding: 0.5rem;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+        </div>
+        
+        <div class="content">
+            <div class="text-center">
+                <span class="status-badge status-new">New Order</span>
+                <h1>New Order Received</h1>
+                <p>Hello <strong>{{ recipient_name|default:'Team' }}</strong>,</p>
+                <p>A new order has been placed on {{ app_name|default:'Veyu' }} and requires your attention.</p>
+            </div>
+            
+            <div class="order-card">
+                <div class="detail-row">
+                    <div class="detail-label">Order #</div>
+                    <div class="detail-value">{{ order_id|default:'N/A' }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Date & Time</div>
+                    <div class="detail-value">{{ order_date|date:"F j, Y h:i A"|default:'Not specified' }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value">
+                        <span class="status-badge status-new">New</span>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>Order Details</h3>
+            <table class="order-details">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.name|default:'Vehicle' }}</strong>
+                            {% if item.vin %}
+                            <div style="font-size: 0.875rem; color: var(--text-muted);">
+                                VIN: {{ item.vin }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.quantity|default:1 }}</td>
+                        <td>{{ item.price|default:'$0.00' }}</td>
+                        <td>{{ item.total|default:'$0.00' }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td colspan="3" style="text-align: right;"><strong>Subtotal</strong></td>
+                        <td>{{ subtotal|default:'$0.00' }}</td>
+                    </tr>
+                    {% if tax %}
+                    <tr>
+                        <td colspan="3" style="text-align: right;"><strong>Tax</strong></td>
+                        <td>{{ tax|default:'$0.00' }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if discount %}
+                    <tr>
+                        <td colspan="3" style="text-align: right;"><strong>Discount</strong></td>
+                        <td>-{{ discount|default:'$0.00' }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="order-total">
+                        <td colspan="3" style="text-align: right;"><strong>Total</strong></td>
+                        <td>{{ total|default:'$0.00' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="customer-info">
+                <h3>Customer Information</h3>
+                <p>
+                    <strong>{{ customer_name|default:'N/A' }}</strong><br>
+                    {{ customer_email|default:'' }}<br>
+                    {{ customer_phone|default:'' }}
+                </p>
+                
+                <h3 style="margin-top: 1.5rem;">Shipping Address</h3>
+                <p>
+                    {{ shipping_address.line1|default:'' }}<br>
+                    {% if shipping_address.line2 %}{{ shipping_address.line2 }}<br>{% endif %}
+                    {{ shipping_address.city|default:'' }}, {{ shipping_address.state|default:'' }} {{ shipping_address.postal_code|default:'' }}<br>
+                    {{ shipping_address.country|default:'' }}
+                </p>
+                
+                {% if billing_address %}
+                <h3 style="margin-top: 1.5rem;">Billing Address</h3>
+                <p>
+                    {{ billing_address.line1|default:'' }}<br>
+                    {% if billing_address.line2 %}{{ billing_address.line2 }}<br>{% endif %}
+                    {{ billing_address.city|default:'' }}, {{ billing_address.state|default:'' }} {{ billing_address.postal_code|default:'' }}<br>
+                    {{ billing_address.country|default:'' }}
+                </p>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4 text-center">
+                <a href="{{ order_dashboard_link|default:'#' }}" class="button">View Order in Dashboard</a>
+                <p class="text-muted">
+                    Need help? Contact our support team at 
+                    <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">
+                        {{ support_email|default:'support@veyu.cc' }}
+                    </a>
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p> 2023 {{ app_name|default:'Veyu' }}. All rights reserved.</p>
+                <p>This is an automated notification. Please do not reply to this email.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,67 +2,173 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Verify Your Email - Veyu</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - {{ app_name|default:'Veyu' }}</title>
     <style>
+        :root {
+            --primary-color: #4F46E5;
+            --secondary-color: #6366F1;
+            --success-color: #10B981;
+            --danger-color: #EF4444;
+            --text-color: #1F2937;
+            --text-muted: #6B7280;
+            --border-color: #E5E7EB;
+            --bg-light: #F9FAFB;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: var(--text-color);
+            background-color: #F3F4F6;
+            margin: 0;
+            padding: 20px 0;
+        }
+        
+        .container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .container {
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-            padding: 30px;
-            margin-top: 20px;
-        }
+        
         .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2.5rem 2rem;
             text-align: center;
-            margin-bottom: 30px;
+            color: white;
         }
+        
         .logo {
-            max-width: 150px;
-            margin-bottom: 20px;
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 1rem;
         }
-        .code {
-            background: #f5f5f5;
-            padding: 15px 25px;
-            font-size: 24px;
-            font-weight: bold;
-            letter-spacing: 2px;
+        
+        .content {
+            padding: 2.5rem 2rem;
+        }
+        
+        h1, h2, h3 {
+            color: #111827;
+            margin-top: 0;
+            line-height: 1.3;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+        }
+        
+        p {
+            margin: 1rem 0;
+            color: var(--text-color);
+            font-size: 1rem;
+            line-height: 1.625;
+        }
+        
+        .verification-code {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            font-size: 2rem;
+            font-weight: 700;
             text-align: center;
-            margin: 20px 0;
-            border-radius: 4px;
+            margin: 2rem 0;
+            border-radius: 8px;
+            letter-spacing: 0.5rem;
+            color: var(--primary-color);
+            border: 1px dashed var(--border-color);
+        }
+        
+        .button {
             display: inline-block;
+            background: var(--primary-color);
+            color: white !important;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 1.5rem 0;
+            transition: all 0.2s ease;
         }
+        
+        .button:hover {
+            background: #4338CA;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
+        }
+        
         .footer {
-            margin-top: 40px;
-            font-size: 12px;
-            color: #777;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            color: var(--text-muted);
             text-align: center;
+        }
+        
+        .footer p {
+            margin: 0.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .text-muted {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .code-block {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            word-break: break-all;
+            font-size: 0.875rem;
+            margin: 1rem 0;
+        }
+        
+        @media (max-width: 640px) {
+            .content {
+                padding: 1.5rem 1rem;
+            }
+            
+            .verification-code {
+                font-size: 1.5rem;
+                padding: 1rem;
+                letter-spacing: 0.25rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Verify Your Email</h1>
+            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+            <h2>Verify Your Email Address</h2>
         </div>
         
-        <p>Hello {{ name }},</p>
-        
-        <p>Thank you for signing up with Veyu! To complete your registration, please use the following verification code:</p>
-        
-        <div class="code">{{ verification_code }}</div>
-        
-        <p>This code will expire in 24 hours. If you didn't request this, please ignore this email.</p>
-        
-        <p>Best regards,<br>The Veyu Team</p>
-        
-        <div class="footer">
-            <p>© {% now "Y" %} Veyu. All rights reserved.</p>
+        <div class="content">
+            <p>Hello <strong>{{ name }}</strong>,</p>
+            
+            <p>Thank you for signing up with {{ app_name|default:'Veyu' }}! To complete your registration and verify your email address, please use the following verification code:</p>
+            
+            <div class="verification-code">
+                {{ verification_code }}
+            </div>
+            
+            <p class="text-muted">This code will expire in 30 minutes. Please do not share this code with anyone.</p>
+            
+            <p>If you didn't request this email, you can safely ignore it. Your account security is important to us.</p>
+            
+            <div class="footer">
+                <p>Need help? <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color); text-decoration: none;">Contact our support team</a></p>
+                <p class="text-muted">This email was sent to {{ email }}. If this wasn't you, please ignore this email.</p>
+                <p class="text-muted">&copy; {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.</p>
+            </div>
         </div>
     </div>
 </body>

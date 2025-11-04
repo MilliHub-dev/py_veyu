@@ -32,7 +32,15 @@ from django.db.models import QuerySet, Q
 
 # Utility imports
 from utils.sms import send_sms
-from utils.mail import send_email
+from accounts.utils.email_notifications import (
+    send_verification_email, 
+    send_welcome_email,
+    send_otp_email,
+    send_business_verification_status,
+    send_booking_confirmation,
+    send_inspection_scheduled,
+    send_order_confirmation
+)
 from utils import (
     IsDealerOrStaff,
     OffsetPaginator,
@@ -159,25 +167,30 @@ class SignUpView(generics.CreateAPIView):
                 user.email_verification_code = verification_code
                 user.save()
 
-                # Send verification email
-                try:
-                    send_email(
-                        subject="Verify Your Email - Veyu",
-                        recipients=[user.email],
-                        template="utils/templates/verification_email.html",
-                        context={
-                            "name": user.first_name or user.email,
-                            "verification_code": verification_code
-                        }
-                    )
-                except Exception as e:
-                    print(f"Error sending verification email: {str(e)}")
+                # Send verification and welcome emails
+                verification_sent = send_verification_email(user, verification_code)
+                welcome_sent = send_welcome_email(user)
+                
+                # Send OTP for phone verification if phone number exists
+                if user.phone_number:
+                    otp_code = make_random_otp()
+                    otp_sent = send_otp_email(user, otp_code)
+                    if otp_sent:
+                        # Save OTP to database
+                        OTP.objects.create(
+                            user=user,
+                            code=otp_code,
+                            phone_number=user.phone_number,
+                            purpose='phone_verification',
+                            expires_at=timezone.now() + timezone.timedelta(minutes=30)
+                        )
                 
                 # Prepare response data
                 user_data = {
                     "token": str(user.api_token),
                     "email_verified": user.email_verified,
-                    "verification_sent": True
+                    "verification_sent": verification_sent,
+                    "welcome_email_sent": welcome_sent
                 }
                 user_data.update(AccountSerializer(user).data)
                 

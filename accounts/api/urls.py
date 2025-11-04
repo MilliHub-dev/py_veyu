@@ -1,35 +1,41 @@
-from django.urls import path
-# from django.contrib.auth import views as auth_views
+from django.urls import path, include
 
+# Import views
 from .views import (
     SignUpView,
-    LoginView,
     UpdateProfileView,
-    VerifyEmailView,
     BusinessVerificationView,
-    VerifyPhoneNumberView,
     CartView,
     NotificationView,
 )
 from .test_views import TestEmailView
-from django.urls import include
+
+# Import authentication URLs
+from .auth_urls import urlpatterns as auth_urls
 
 app_name = 'accounts_api'
 
 urlpatterns = [
-    path('login/', LoginView.as_view()),
-    path('register/', SignUpView.as_view()),
-    path('test-email/', TestEmailView.as_view(), name='test-email'),  # Test email endpoint
-    path('verify-business/', BusinessVerificationView.as_view()),
-    path('verify-phone-number/', VerifyPhoneNumberView.as_view()),
-    path('verify-email/', VerifyEmailView.as_view()),
-    path('update-profile/',  UpdateProfileView.as_view()),
-
-
-    path('cart/', CartView.as_view()),
-    path('notifications/', NotificationView.as_view()),
-
-    path("accounts/", include("django.contrib.auth.urls")),
+    # Authentication endpoints (login, register, password reset, etc.)
+    path('', include(auth_urls)),
+    
+    # Business verification
+    path('verify-business/', BusinessVerificationView.as_view(), name='verify-business'),
+    
+    # User profile
+    path('profile/', UpdateProfileView.as_view(), name='update-profile'),
+    
+    # Cart
+    path('cart/', CartView.as_view(), name='cart'),
+    
+    # Notifications
+    path('notifications/', NotificationView.as_view(), name='notifications'),
+    
+    # Test email endpoint (for development)
+    path('test-email/', TestEmailView.as_view(), name='test-email'),
+    
+    # Django REST Auth URLs
     path('auth/', include('dj_rest_auth.urls')),
+    path('accounts/', include('django.contrib.auth.urls')),
 ]
 
