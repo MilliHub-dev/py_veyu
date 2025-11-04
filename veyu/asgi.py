@@ -13,12 +13,12 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
-from chat.routing import urlpatterns as chat_urlpatterns
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.settings')
 django.setup()
 
-# Import JWT middleware after Django setup
+# Import after Django setup to avoid settings configuration errors
+from chat.routing import urlpatterns as chat_urlpatterns
 from chat.middleware import ApiTokenAuthMiddleware
 
 # Initialize ASGI application
