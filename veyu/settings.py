@@ -400,15 +400,11 @@ if DEBUG:
     logger = logging.getLogger(__name__)
     logger.debug(f"Development email backend: {EMAIL_BACKEND}")
     logger.debug(f"Email file path: {EMAIL_FILE_PATH}")
-    logger.debug(f"Email debug log: {os.path.join(BASE_DIR, 'email_debug.log')}")
 else:
-    # Production - Use ZeptoMail
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Fallback
-    
-    # ZeptoMail API Configuration
-    ZEPTOMAIL_API_KEY = env.get_value('ZEPTOMAIL_API_KEY')
-    ZEPTOMAIL_SENDER_EMAIL = env.get_value('ZEPTOMAIL_SENDER_EMAIL', 'noreply@veyu.com.ng')
-    ZEPTOMAIL_SENDER_NAME = env.get_value('ZEPTOMAIL_SENDER_NAME', 'Veyu')
+    # Production - Use ZeptoMail with SMTP fallback
+    ZEPTOMAIL_API_KEY = os.getenv('ZEPTOMAIL_API_KEY')
+    ZEPTOMAIL_SENDER_EMAIL = os.getenv('ZEPTOMAIL_SENDER_EMAIL', 'noreply@veyu.com.ng')
+    ZEPTOMAIL_SENDER_NAME = os.getenv('ZEPTOMAIL_SENDER_NAME', 'Veyu')
     
     # If ZeptoMail API key is available, use our custom email backend
     if ZEPTOMAIL_API_KEY:
