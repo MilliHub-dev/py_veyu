@@ -177,13 +177,12 @@ class SignUpView(generics.CreateAPIView):
                     otp_code = make_random_otp()
                     otp_sent = send_otp_email(user, otp_code)
                     if otp_sent:
-                        # Save OTP to database
+                        # Save OTP to database for phone verification
                         OTP.objects.create(
-                            user=user,
+                            valid_for=user,
                             code=otp_code,
-                            phone_number=phone_number,
-                            purpose='phone_verification',
-                            expires_at=timezone.now() + timezone.timedelta(minutes=30)
+                            channel='sms',
+                            used=False
                         )
                 
                 # Prepare response data
