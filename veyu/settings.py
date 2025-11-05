@@ -342,94 +342,69 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # EMAIL CONFIGURATION
-if DEBUG:
-    # Development settings - file-based email backend
-    EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
-    EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
-    os.makedirs(EMAIL_FILE_PATH, exist_ok=True)  # Ensure directory exists
+# Gmail SMTP Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')  # Replace with your Gmail
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-app-password')  # Use App Password
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Veyu <your-email@gmail.com>')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-    # Configure logging for email debugging
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'verbose': {
-                'format': '{levelname} {asctime} {module} {message}',
-                'style': '{',
-            },
-        },
-        'handlers': {
-            'console': {
-                'level': 'DEBUG',
-                'class': 'logging.StreamHandler',
-                'formatter': 'verbose',
-            },
-            'file': {
-                'level': 'DEBUG',
-                'class': 'logging.FileHandler',
-                'filename': os.path.join(BASE_DIR, 'email_debug.log'),
-                'formatter': 'verbose',
-            },
-        },
-        'loggers': {
-            'django': {
-                'handlers': ['console', 'file'],
-                'level': 'INFO',
-                'propagate': True,
-            },
-            'django.core.mail': {
-                'handlers': ['console', 'file'],
-                'level': 'DEBUG',
-                'propagate': True,
-            },
-            'utils.mail': {
-                'handlers': ['console', 'file'],
-                'level': 'DEBUG',
-                'propagate': True,
-            },
-            'utils.zeptomail': {
-                'handlers': ['console', 'file'],
-                'level': 'DEBUG',
-                'propagate': True,
-            },
-        },
-    }
+# Email settings
+EMAIL_TIMEOUT = 10  # 10 seconds timeout
+EMAIL_USE_SSL = False
 
-    # Log email configuration
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.debug(f"Development email backend: {EMAIL_BACKEND}")
-    logger.debug(f"Email file path: {EMAIL_FILE_PATH}")
-else:
-    # Production - Use ZeptoMail with SMTP fallback
-    ZEPTOMAIL_API_KEY = os.getenv('ZEPTOMAIL_API_KEY')
-    ZEPTOMAIL_SENDER_EMAIL = os.getenv('ZEPTOMAIL_SENDER_EMAIL', 'noreply@veyu.com.ng')
-    ZEPTOMAIL_SENDER_NAME = os.getenv('ZEPTOMAIL_SENDER_NAME', 'Veyu')
-    
-    # If ZeptoMail API key is available, use our custom email backend
-    if ZEPTOMAIL_API_KEY:
-        EMAIL_BACKEND = 'utils.zeptomail.ZeptoMailBackend'
-    else:
-         # Fallback to SMTP if ZeptoMail is not configured
-        logger.warning("ZEPTOMAIL_API_KEY not found. Falling back to SMTP.")
-        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-        EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-        EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-        EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-        EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-        EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-    
-    # Common email settings
-    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Veyu <support@veyu.cc>')
-    SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
-    
-    # Timeout for SMTP connection (in seconds)
-    EMAIL_TIMEOUT = 10  # 10 seconds timeout
-    
-    # Additional SMTP settings for reliability
-    EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
-    EMAIL_SSL_KEYFILE = os.getenv('EMAIL_SSL_KEYFILE', None)
-    EMAIL_SSL_CERTFILE = os.getenv('EMAIL_SSL_CERTFILE', None)
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'email_debug.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.core.mail': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'utils.mail': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
+# Log email configuration
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"Using email backend: {EMAIL_BACKEND}")
+logger.info(f"Email host: {EMAIL_HOST}:{EMAIL_PORT}")
+logger.info(f"Using TLS: {EMAIL_USE_TLS}")
+logger.info(f"From email: {DEFAULT_FROM_EMAIL}")
 
 # Frontend URL for email verification and password reset links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://dev.veyu.cc')

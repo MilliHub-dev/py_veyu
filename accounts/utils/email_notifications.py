@@ -1,66 +1,123 @@
 from typing import Optional, Dict, Any, List
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from utils.mail import send_email
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
 User = get_user_model()
 
 def send_verification_email(user, verification_code: str) -> bool:
     """Send email verification code to user."""
-    return send_email(
-        subject="Verify Your Email - Veyu",
-        recipients=[user.email],
-        template="utils/templates/verification_email.html",
-        context={
-            "name": user.first_name or user.email,
-            "verification_code": verification_code,
-            "support_email": settings.DEFAULT_FROM_EMAIL,
-            "app_name": "Veyu"
-        },
-        message=f"Your verification code is: {verification_code}"
-    )
+    subject = "Verify Your Email - Veyu"
+    context = {
+        "name": user.first_name or user.email,
+        "verification_code": verification_code,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    # Render HTML content
+    html_message = render_to_string('emails/verification_email.html', context)
+    plain_message = f"Your verification code is: {verification_code}"
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+        return False
 
 def send_welcome_email(user) -> bool:
     """Send welcome email to new user."""
-    return send_email(
-        subject=f"Welcome to Veyu, {user.first_name or 'there'}!",
-        recipients=[user.email],
-        template="utils/templates/welcome_email.html",
-        context={
-            "user_name": user.first_name or 'there',
-            "buy_link": f"{settings.FRONTEND_URL}/buy/",
-            "rent_link": f"{settings.FRONTEND_URL}/rent/",
-            "mechanic_link": f"{settings.FRONTEND_URL}/mechanics/"
-        }
-    )
+    subject = f"Welcome to Veyu, {user.first_name or 'there'}!"
+    context = {
+        "user_name": user.first_name or 'there',
+        "buy_link": f"{settings.FRONTEND_URL}/buy/",
+        "rent_link": f"{settings.FRONTEND_URL}/rent/",
+        "mechanic_link": f"{settings.FRONTEND_URL}/mechanics/"
+    }
+    
+    # Render HTML content
+    html_message = render_to_string('emails/welcome_email.html', context)
+    plain_message = f"Welcome to Veyu! We're excited to have you on board, {user.first_name or 'there'}!"
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+        return False
 
 def send_password_reset_email(user, reset_link: str) -> bool:
     """Send password reset email with reset link."""
-    return send_email(
-        subject="Password Reset Request - Veyu",
-        recipients=[user.email],
-        template="utils/templates/password_reset.html",
-        context={
-            "user_name": user.first_name or 'there',
-            "reset_link": reset_link,
-            "support_email": settings.DEFAULT_FROM_EMAIL,
-            "app_name": "Veyu"
-        }
-    )
+    subject = "Password Reset Request - Veyu"
+    context = {
+        "user_name": user.first_name or 'there',
+        "reset_link": reset_link,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    # Render HTML content
+    html_message = render_to_string('emails/password_reset.html', context)
+    plain_message = f"Please click the following link to reset your password: {reset_link}"
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
+        return False
 
 def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
     """Send OTP code to user's email."""
-    return send_email(
-        subject="Your Verification Code - Veyu",
-        recipients=[user.email],
-        template="utils/templates/otp_email.html",
-        context={
-            "otp": otp_code,
-            "validity_minutes": validity_minutes,
-            "support_email": settings.DEFAULT_FROM_EMAIL,
-            "app_name": "Veyu"
-        }
-    )
+    subject = "Your Verification Code - Veyu"
+    context = {
+        "otp": otp_code,
+        "validity_minutes": validity_minutes,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    # Render HTML content
+    html_message = render_to_string('emails/otp_email.html', context)
+    plain_message = f"Your verification code is: {otp_code}\nThis code is valid for {validity_minutes} minutes."
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {user.email}: {str(e)}")
+        return False
 
 def send_business_verification_status(user, status: str, reason: str = "") -> bool:
     """Notify user about their business verification status."""
