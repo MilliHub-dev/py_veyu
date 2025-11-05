@@ -26,17 +26,22 @@ def send_verification_email(user, verification_code: str) -> bool:
     plain_message = f"Your verification code is: {verification_code}"
     
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
-        )
+        # Create a new connection for each email
+        from django.core import mail
+        with mail.get_connection() as connection:
+            msg = mail.EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+                connection=connection,
+            )
+            msg.attach_alternative(html_message, "text/html")
+            msg.send(fail_silently=False)
+        logger.info(f"Verification email sent to {user.email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
         return False
 
 def send_welcome_email(user) -> bool:
@@ -54,17 +59,22 @@ def send_welcome_email(user) -> bool:
     plain_message = f"Welcome to Veyu! We're excited to have you on board, {user.first_name or 'there'}!"
     
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
-        )
+        # Create a new connection for each email
+        from django.core import mail
+        with mail.get_connection() as connection:
+            msg = mail.EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+                connection=connection,
+            )
+            msg.attach_alternative(html_message, "text/html")
+            msg.send(fail_silently=False)
+        logger.info(f"Welcome email sent to {user.email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send welcome email to {user.email}: {str(e)}", exc_info=True)
         return False
 
 def send_password_reset_email(user, reset_link: str) -> bool:
@@ -82,17 +92,22 @@ def send_password_reset_email(user, reset_link: str) -> bool:
     plain_message = f"Please click the following link to reset your password: {reset_link}"
     
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
-        )
+        # Create a new connection for each email
+        from django.core import mail
+        with mail.get_connection() as connection:
+            msg = mail.EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+                connection=connection,
+            )
+            msg.attach_alternative(html_message, "text/html")
+            msg.send(fail_silently=False)
+        logger.info(f"Password reset email sent to {user.email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}", exc_info=True)
         return False
 
 def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
@@ -110,17 +125,22 @@ def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
     plain_message = f"Your verification code is: {otp_code}\nThis code is valid for {validity_minutes} minutes."
     
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
-        )
+        # Create a new connection for each email
+        from django.core import mail
+        with mail.get_connection() as connection:
+            msg = mail.EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+                connection=connection,
+            )
+            msg.attach_alternative(html_message, "text/html")
+            msg.send(fail_silently=False)
+        logger.info(f"OTP email sent to {user.email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send OTP email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send OTP email to {user.email}: {str(e)}", exc_info=True)
         return False
 
 def send_business_verification_status(user, status: str, reason: str = "") -> bool:
