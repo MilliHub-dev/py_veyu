@@ -161,18 +161,19 @@ class SignUpView(generics.CreateAPIView):
                 user.save()
 
                 if user_type == 'customer':
-                    Customer.objects.create(user=user, phone_number=data['phone_number'])
-                # Generate and save email verification code
-                verification_code = make_random_otp()
-                user.email_verification_code = verification_code
-                user.save()
+                    Customer.objects.create(user=user, phone_number=data.get('phone_number', ''))
+                
+                # Generate and save email verification OTP
+                otp = OTP.objects.create(valid_for=user, channel='email')
+                verification_code = otp.code
 
                 # Send verification and welcome emails
                 verification_sent = send_verification_email(user, verification_code)
                 welcome_sent = send_welcome_email(user)
                 
                 # Send OTP for phone verification if phone number exists
-                if user.phone_number:
+                phone_number = data.get('phone_number', '')
+                if phone_number:
                     otp_code = make_random_otp()
                     otp_sent = send_otp_email(user, otp_code)
                     if otp_sent:
@@ -180,7 +181,7 @@ class SignUpView(generics.CreateAPIView):
                         OTP.objects.create(
                             user=user,
                             code=otp_code,
-                            phone_number=user.phone_number,
+                            phone_number=phone_number,
                             purpose='phone_verification',
                             expires_at=timezone.now() + timezone.timedelta(minutes=30)
                         )
@@ -188,7 +189,7 @@ class SignUpView(generics.CreateAPIView):
                 # Prepare response data
                 user_data = {
                     "token": str(user.api_token),
-                    "email_verified": user.email_verified,
+                    "email_verified": user.verified_email,
                     "verification_sent": verification_sent,
                     "welcome_email_sent": welcome_sent
                 }

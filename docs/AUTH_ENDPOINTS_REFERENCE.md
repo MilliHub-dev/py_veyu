@@ -37,6 +37,8 @@ Authorization: Token <your_token>
 }
 ```
 
+**Note:** `phone_number` is optional and only stored for customer accounts.
+
 ### Request Fields
 | Field | Type | Required | Options | Description |
 |-------|------|----------|---------|-------------|
@@ -46,11 +48,12 @@ Authorization: Token <your_token>
 | `password` | string | Yes* | - | Password (required for provider=veyu) |
 | `confirm_password` | string | Yes* | - | Password confirmation |
 | `user_type` | string | Yes | `customer`, `mechanic`, `dealer` | Type of user account |
-| `provider` | string | Yes | `veyu`, `google`, `apple`, `facebook` | Authentication provider |
-| `phone_number` | string | No | - | Phone number with country code |
+| `provider` | string | Yes | `veyu`, `google` | Authentication provider |
+| `phone_number` | string | No** | - | Phone number with country code |
 | `action` | string | Yes | `create-account` | Action type |
 
-*Required only when `provider=veyu`
+*Required only when `provider=veyu`  
+**Optional - only stored for customer accounts
 
 ### Response (201 Created)
 ```json
