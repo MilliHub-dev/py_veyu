@@ -18,7 +18,7 @@ def send_verification_email(user, verification_code: str) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/verification_email.html', context)
+    html_message = render_to_string('verification_email.html', context)
     plain_message = f"Your verification code is: {verification_code}"
     
     try:
@@ -46,7 +46,7 @@ def send_welcome_email(user) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/welcome_email.html', context)
+    html_message = render_to_string('welcome_email.html', context)
     plain_message = f"Welcome to Veyu! We're excited to have you on board, {user.first_name or 'there'}!"
     
     try:
@@ -74,7 +74,7 @@ def send_password_reset_email(user, reset_link: str) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/password_reset.html', context)
+    html_message = render_to_string('password_reset.html', context)
     plain_message = f"Please click the following link to reset your password: {reset_link}"
     
     try:
@@ -102,7 +102,7 @@ def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/otp_email.html', context)
+    html_message = render_to_string('otp_email.html', context)
     plain_message = f"Your verification code is: {otp_code}\nThis code is valid for {validity_minutes} minutes."
     
     try:
@@ -134,7 +134,7 @@ def send_business_verification_status(user, status: str, reason: str = "") -> bo
         'app_name': 'Veyu'
     }
     
-    html_message = render_to_string('utils/templates/business_verification_status.html', context)
+    html_message = render_to_string('business_verification_status.html', context)
     plain_message = f"Your business verification has been {status}."
     if reason:
         plain_message += f" Reason: {reason}"
@@ -164,7 +164,7 @@ def send_booking_confirmation(user, booking_details: Dict[str, Any]) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/booking_confirmation.html', context)
+    html_message = render_to_string('booking_confirmation.html', context)
     plain_message = f"Your booking has been confirmed. Reference: {booking_details.get('booking_reference', '')}"
     
     try:
@@ -192,7 +192,7 @@ def send_inspection_scheduled(user, inspection_details: Dict[str, Any]) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/inspection_scheduled.html', context)
+    html_message = render_to_string('inspection_scheduled.html', context)
     plain_message = f"Your inspection has been scheduled. Reference: {inspection_details.get('inspection_reference', '')}"
     
     try:
@@ -220,7 +220,7 @@ def send_order_confirmation(user, order_details: Dict[str, Any]) -> bool:
     }
     
     # Render HTML content
-    html_message = render_to_string('utils/templates/order_confirmation.html', context)
+    html_message = render_to_string('order_confirmation.html', context)
     plain_message = f"Thank you for your order! Order Number: {order_details.get('order_number', '')}"
     
     try:
