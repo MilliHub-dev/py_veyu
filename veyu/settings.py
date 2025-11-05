@@ -410,23 +410,26 @@ else:
     if ZEPTOMAIL_API_KEY:
         EMAIL_BACKEND = 'utils.zeptomail.ZeptoMailBackend'
     else:
-        # Fallback to SMTP if ZeptoMail is not configured
+         # Fallback to SMTP if ZeptoMail is not configured
         logger.warning("ZEPTOMAIL_API_KEY not found. Falling back to SMTP.")
-        EMAIL_HOST = env.get_value('EMAIL_HOST', 'smtp.gmail.com')
-        EMAIL_PORT = env.get_value('EMAIL_PORT', 587)
-        EMAIL_USE_TLS = env.get_value('EMAIL_USE_TLS', True)
-        EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', '')
-        EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', '')
-    DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', 'Veyu <support@veyu.cc>')
-    SERVER_EMAIL = env.get_value('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+        EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+        EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+        EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+        EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+    
+    # Common email settings
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Veyu <support@veyu.cc>')
+    SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
     
     # Timeout for SMTP connection (in seconds)
     EMAIL_TIMEOUT = 10  # 10 seconds timeout
     
     # Additional SMTP settings for reliability
-    EMAIL_USE_SSL = env.get_value('EMAIL_USE_SSL', False)
-    EMAIL_SSL_KEYFILE = env.get_value('EMAIL_SSL_KEYFILE', None)
-    EMAIL_SSL_CERTFILE = env.get_value('EMAIL_SSL_CERTFILE', None)
+    EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
+    EMAIL_SSL_KEYFILE = os.getenv('EMAIL_SSL_KEYFILE', None)
+    EMAIL_SSL_CERTFILE = os.getenv('EMAIL_SSL_CERTFILE', None)
 
 # Frontend URL for email verification and password reset links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://dev.veyu.cc')
