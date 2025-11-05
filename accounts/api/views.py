@@ -1,6 +1,6 @@
 import json
 from django.shortcuts import render, get_object_or_404
-from django.utils.timezone import now
+from django.utils import timezone
 from django.db import transaction
 from django.contrib.auth import authenticate, login, logout
 from rest_framework.response import Response
