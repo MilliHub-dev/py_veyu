@@ -16,7 +16,8 @@ def send_verification_email(user, verification_code: str) -> bool:
             "verification_code": verification_code,
             "support_email": settings.DEFAULT_FROM_EMAIL,
             "app_name": "Veyu"
-        }
+        },
+        message=f"Your verification code is: {verification_code}"
     )
 
 def send_welcome_email(user) -> bool:
