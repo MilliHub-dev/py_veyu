@@ -8,6 +8,10 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /usr/src/app
 
+# Create logs directory with proper permissions
+RUN mkdir -p /usr/src/app/logs && \
+    chmod -R 777 /usr/src/app/logs
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     libpq-dev gcc python3-dev musl-dev \
