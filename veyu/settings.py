@@ -341,35 +341,42 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 
+# ===============================================
 # EMAIL CONFIGURATION
-if DEBUG:
-    # Use console backend in development
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    print("Using console email backend for development")
-else:
-    # Use SendGrid SMTP in production
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'smtp.sendgrid.net'
-    EMAIL_PORT = 587
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = 'apikey'  # This is always 'apikey' for SendGrid
-    EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')  # Make sure this is set in your production environment
-    DEFAULT_FROM_EMAIL = 'info.veyu@gmail.com'  # This should be a verified sender in SendGrid
-    
-    # Test email configuration
-    print("\n=== Email Configuration ===")
-    print(f"Using SendGrid SMTP for email")
-    print(f"EMAIL_HOST: {EMAIL_HOST}")
-    print(f"EMAIL_PORT: {EMAIL_PORT}")
-    print(f"EMAIL_USE_TLS: {EMAIL_USE_TLS}")
-    print(f"EMAIL_HOST_USER: {EMAIL_HOST_USER}")
-    print(f"DEFAULT_FROM_EMAIL: {DEFAULT_FROM_EMAIL}")
-    print("=========================\n")
+# ===============================================
+# Read email settings from environment variables with secure defaults
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-# Email settings
-EMAIL_TIMEOUT = 30  # Increased timeout to 30 seconds
-EMAIL_USE_SSL = False
-SERVER_EMAIL = DEFAULT_FROM_EMAIL
+# SMTP Configuration (SendGrid)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.sendgrid.net')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'apikey')  # 'apikey' for SendGrid
+EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY', '')  # Required for production
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com')
+SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+EMAIL_SUBJECT_PREFIX = '[Veyu] '  # Add prefix to all email subjects
+
+# Timeout settings
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '30'))  # seconds
+
+# Email verification settings
+EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links
+
+# In development, allow falling back to console backend if explicitly set
+if DEBUG and os.getenv('USE_CONSOLE_EMAIL', 'False').lower() == 'true':
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("\n=== WARNING: Using CONSOLE email backend for development ===")
+    print("Set USE_CONSOLE_EMAIL=False in production!\n")
+
+# Email rate limiting (using Django Ratelimit or similar middleware)
+EMAIL_RATE_LIMIT = os.getenv('EMAIL_RATE_LIMIT', '10/hour')  # e.g., '100/day' or '10/hour'
+
+# Email tracking (if using a service like SendGrid)
+EMAIL_TRACKING = os.getenv('EMAIL_TRACKING', 'True').lower() == 'true'
+
+# Email logging configuration (moved to LOGGING section below)
 
 # Logging configuration
 LOGGING = {
@@ -377,21 +384,53 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'json': {
+            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose' if DEBUG else 'json',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'filters': ['require_debug_false'],
             'formatter': 'verbose',
         },
         'file': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'email_debug.log'),
-            'formatter': 'verbose',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'json',
+        },
+        'email_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'emails.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'json',
         },
     },
     'loggers': {
@@ -400,9 +439,35 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-        'django.core.mail': {
+        'django.request': {
+            'handlers': ['mail_admins', 'file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.server': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['mail_admins', 'file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.template': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Email logging
+        'django.core.mail': {
+            'handlers': ['email_file', 'console' if DEBUG else 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': True,
         },
         'utils.mail': {
