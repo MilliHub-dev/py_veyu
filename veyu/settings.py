@@ -342,29 +342,34 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # EMAIL CONFIGURATION
-# Gmail SMTP Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-
-# Get email settings from environment variables with fallback to .env values
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
-SERVER_EMAIL = DEFAULT_FROM_EMAIL
+if DEBUG:
+    # Use console backend in development
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("Using console email backend for development")
+else:
+    # Use SendGrid SMTP in production
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.sendgrid.net'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = 'apikey'  # This is always 'apikey' for SendGrid
+    EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')  # Make sure this is set in your production environment
+    DEFAULT_FROM_EMAIL = 'info.veyu@gmail.com'  # This should be a verified sender in SendGrid
+    
+    # Test email configuration
+    print("\n=== Email Configuration ===")
+    print(f"Using SendGrid SMTP for email")
+    print(f"EMAIL_HOST: {EMAIL_HOST}")
+    print(f"EMAIL_PORT: {EMAIL_PORT}")
+    print(f"EMAIL_USE_TLS: {EMAIL_USE_TLS}")
+    print(f"EMAIL_HOST_USER: {EMAIL_HOST_USER}")
+    print(f"DEFAULT_FROM_EMAIL: {DEFAULT_FROM_EMAIL}")
+    print("=========================\n")
 
 # Email settings
 EMAIL_TIMEOUT = 30  # Increased timeout to 30 seconds
 EMAIL_USE_SSL = False
-
-# Print email settings for debugging (remove in production)
-print(f"Email Configuration:")
-print(f"EMAIL_HOST: {EMAIL_HOST}")
-print(f"EMAIL_PORT: {EMAIL_PORT}")
-print(f"EMAIL_USE_TLS: {EMAIL_USE_TLS}")
-print(f"EMAIL_HOST_USER: {EMAIL_HOST_USER}")
-print(f"DEFAULT_FROM_EMAIL: {DEFAULT_FROM_EMAIL}")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Logging configuration
 LOGGING = {
