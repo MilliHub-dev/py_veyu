@@ -14,4 +14,68 @@
 </h1>
 {% endblock branding %}
 
-
+{% block nav-sidebar %}
+{{ block.super }}
+<div class="module" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+    <h2 style="margin: 0 0 10px 0; padding: 10px; background: #417690; color: white; border-radius: 3px;">
+        🚗 Vehicle Inspections
+    </h2>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_vehicleinspection_changelist' %}" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #333; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#e9ecef'" 
+               onmouseout="this.style.background='transparent'">
+                📋 All Inspections
+            </a>
+        </li>
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_inspectiondocument_changelist' %}" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #333; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#e9ecef'" 
+               onmouseout="this.style.background='transparent'">
+                📄 Inspection Documents
+            </a>
+        </li>
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_inspectiondocument_changelist' %}?status__exact=signed" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #28a745; font-weight: bold; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#d4edda'" 
+               onmouseout="this.style.background='transparent'">
+                ✓ Signed Documents
+            </a>
+        </li>
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_digitalsignature_changelist' %}" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #333; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#e9ecef'" 
+               onmouseout="this.style.background='transparent'">
+                ✍️ Digital Signatures
+            </a>
+        </li>
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_inspectionphoto_changelist' %}" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #333; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#e9ecef'" 
+               onmouseout="this.style.background='transparent'">
+                📸 Inspection Photos
+            </a>
+        </li>
+        <li style="margin: 5px 0;">
+            <a href="{% url 'admin:inspections_inspectiontemplate_changelist' %}" 
+               style="display: block; padding: 8px 10px; text-decoration: none; color: #333; border-radius: 3px; transition: background 0.2s;"
+               onmouseover="this.style.background='#e9ecef'" 
+               onmouseout="this.style.background='transparent'">
+                📝 Templates
+            </a>
+        </li>
+    </ul>
+    
+    <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 3px; border-left: 3px solid #417690;">
+        <p style="margin: 0; font-size: 12px; color: #666;">
+            <strong>Quick Stats:</strong><br>
+            View and manage all vehicle inspection slips, signatures, and documents.
+        </p>
+    </div>
+</div>
+{% endblock nav-sidebar %}
