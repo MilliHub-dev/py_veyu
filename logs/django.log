@@ -1,0 +1,48 @@
+[2025-11-07 01:36:26] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:41:39] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:41:52] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:41:57] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:42:09] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:42:15] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:42:19] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:42:24] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:42:29] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:42:33] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:42:37] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:42:42] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:42:49] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:42:53] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:43:01] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:43:06] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:43:13] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:43:17] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:43:25] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:43:32] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:43:45] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:43:50] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:43:59] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2025-11-07 01:44:04] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:44:13] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\wallet\models.py changed, reloading.
+[2025-11-07 01:44:16] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:44:24] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\wallet\models.py changed, reloading.
+[2025-11-07 01:44:29] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:44:35] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\utils\models.py changed, reloading.
+[2025-11-07 01:44:39] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:45:26] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:49:35] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 01:54:14] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 09:40:38] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 09:43:55] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\accounts\models.py changed, reloading.
+[2025-11-07 09:44:01] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 09:44:16] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\accounts\models.py changed, reloading.
+[2025-11-07 09:44:21] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 09:47:35] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 09:51:13] INFO [django.channels.server:187] [32mHTTP GET / 301 [0.02, 127.0.0.1:53806][0m
+[2025-11-07 11:05:07] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 11:27:35] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\veyu\settings.py changed, reloading.
+[2025-11-07 11:27:39] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 11:48:28] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 11:49:40] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 11:53:17] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\veyu\settings.py changed, reloading.
+[2025-11-07 11:53:25] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-07 11:55:23] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader

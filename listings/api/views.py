@@ -343,7 +343,7 @@ class FeaturedListingsView(ListAPIView):
         approved=True,
         verified=True,
         vehicle__available=True,
-        boosted__active=True,
+        listing_boost__active=True,
         vehicle__dealer__verified_business=True,
         vehicle__dealer__verified_id=True,
     ).distinct()

@@ -158,9 +158,9 @@ def make_UUID():
     return uuid.uuid1()
 
 def make_random_otp():
-    rand = f'{random.randrange(100, 999)}{random.randrange(111, 999)}'
-    print(rand)
-    return rand
+    """Generate a secure 6-digit OTP using the improved OTP utility."""
+    from utils.otp import make_random_otp as secure_otp
+    return secure_otp(6)
 
 
 

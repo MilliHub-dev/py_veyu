@@ -32,3 +32,5 @@ git_access_token
 veyu-ssh-key.pem
 # uploads/
 
+.kiro
+.kiro.lock

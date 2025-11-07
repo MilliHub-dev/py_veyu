@@ -52,6 +52,7 @@ urlpatterns = [
     path('api/v1/wallet/', include('wallet.urls')),
     path('api/v1/admin/mechanics/', include('bookings.api.mechanic_urls', namespace='mechanics_api')),
     path('api/v1/admin/dealership/', include('listings.api.dealership_urls', namespace='dealership_api')),
+    path('api/v1/inspections/', include('inspections.urls', namespace='inspections_api')),
 
     # JWT Token Views
     path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

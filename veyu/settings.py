@@ -44,9 +44,74 @@ CSRF_TRUSTED_ORIGINS = [
 # Respect X-Forwarded-Proto from Render proxy
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Use secure cookies in production
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+# Enhanced Security Settings
+# =========================
+
+# Cookie Security
+SESSION_COOKIE_SECURE = not DEBUG  # HTTPS only in production
+CSRF_COOKIE_SECURE = not DEBUG     # HTTPS only in production
+SESSION_COOKIE_HTTPONLY = True     # Prevent JavaScript access
+CSRF_COOKIE_HTTPONLY = True        # Prevent JavaScript access
+SESSION_COOKIE_SAMESITE = 'Lax'    # CSRF protection
+CSRF_COOKIE_SAMESITE = 'Lax'       # CSRF protection
+
+# Session Security
+SESSION_COOKIE_AGE = 86400          # 24 hours
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Security Headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# HTTPS Settings (production)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Password Validation Enhancement
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {
+            'user_attributes': ('username', 'email', 'first_name', 'last_name'),
+            'max_similarity': 0.7,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+# Account Security Settings
+ACCOUNT_LOCKOUT_ENABLED = True
+ACCOUNT_LOCKOUT_MAX_ATTEMPTS = 5
+ACCOUNT_LOCKOUT_DURATION_MINUTES = 30
+
+# Rate Limiting Settings
+RATE_LIMITING_ENABLED = True
+RATE_LIMIT_LOGIN_ATTEMPTS = 5      # per minute
+RATE_LIMIT_SIGNUP_ATTEMPTS = 3     # per minute
+RATE_LIMIT_PASSWORD_RESET = 2      # per minute
+RATE_LIMIT_API_DEFAULT = 60        # per minute
+
+# JWT Security Enhancement
+JWT_AUTH_HEADER_PREFIX = 'Bearer'
+JWT_ALLOW_REFRESH = True
+JWT_REFRESH_EXPIRATION_DELTA = timedelta(days=7)
+JWT_AUTH_COOKIE = None  # Disable cookie-based JWT for API security
 
 
 # Application definition
@@ -63,6 +128,7 @@ INSTALLED_APPS = [
     'utils',
     'analytics',
     'docs',
+    'inspections',
 
 
     'daphne',
@@ -105,15 +171,31 @@ MIDDLEWARE = [
         'corsheaders.middleware.CorsMiddleware',
         'django.middleware.security.SecurityMiddleware',
         'whitenoise.middleware.WhiteNoiseMiddleware',
+        
+        # Security middleware (order matters)
+        'accounts.middleware.SecurityHeadersMiddleware',
+        'accounts.middleware.RateLimitMiddleware',
+        'accounts.middleware.SecurityLoggingMiddleware',
+        
         'django.contrib.sessions.middleware.SessionMiddleware',
         'django.middleware.common.CommonMiddleware',
+        
+        # CSRF middleware with API exemption
+        'accounts.middleware.CSRFExemptionMiddleware',
         'django.middleware.csrf.CsrfViewMiddleware',
+        
         'django.contrib.auth.middleware.AuthenticationMiddleware',
+        
+        # Account lockout middleware (after authentication)
+        'accounts.middleware.AccountLockoutMiddleware',
+        
         'django.contrib.messages.middleware.MessageMiddleware',
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
         # veyu Middleware
+        'utils.middleware.CorrelationIdMiddleware',
         'utils.middleware.UserTypeMiddleware',
+        'utils.middleware.GlobalExceptionMiddleware',
 
         # Downloaded Middleware
         'allauth.account.middleware.AccountMiddleware',
@@ -143,9 +225,15 @@ ASGI_APPLICATION = 'veyu.asgi.application'
 
 # Database
 # Prefer DATABASE_URL (Neon/PostgreSQL); fallback to SQLite in local dev
-DB_URL = env('DATABASE_URL', default='')
-if not DB_URL or not str(DB_URL).strip():
+# Force SQLite in DEBUG mode for local development (ignore DATABASE_URL if network issues)
+if DEBUG:
+    # Always use SQLite in DEBUG mode to avoid network issues
     DB_URL = f'sqlite:///{BASE_DIR / "local.db.sqlite3"}'
+    print(f"[DEBUG MODE] Using SQLite database at: {BASE_DIR / 'local.db.sqlite3'}")
+else:
+    DB_URL = env('DATABASE_URL', default='')
+    if not DB_URL or not str(DB_URL).strip():
+        DB_URL = f'sqlite:///{BASE_DIR / "local.db.sqlite3"}'
 
 ssl_required = False
 try:
@@ -158,10 +246,18 @@ except Exception:
 DATABASES = {
         'default': dj_database_url.parse(
             DB_URL,
-            conn_max_age=600,
+            conn_max_age=0,  # Don't persist connections (better for Neon pooler)
             ssl_require=ssl_required,
+            conn_health_checks=True,  # Enable connection health checks
         )
 }
+
+# Add connection options for PostgreSQL (Neon-compatible)
+if 'postgres' in DB_URL and not DEBUG:
+    DATABASES['default']['OPTIONS'] = {
+        'sslmode': 'require',  # Required for Neon
+        'connect_timeout': 10,
+    }
 
 # drf-yasg (Swagger) configuration
 SWAGGER_SETTINGS = {
@@ -287,12 +383,10 @@ REST_FRAMEWORK = {
             'django_filters.rest_framework.DjangoFilterBackend',
             ],
         'DEFAULT_AUTHENTICATION_CLASSES': [
-            'rest_framework.authentication.BasicAuthentication',
-            'rest_framework.authentication.SessionAuthentication',
-            'rest_framework.authentication.TokenAuthentication',
-            'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
-            'dj_rest_auth.jwt_auth.JWTAuthentication',
-            'rest_framework_simplejwt.authentication.JWTAuthentication',
+            'accounts.authentication.EnhancedJWTAuthentication',  # Enhanced JWT with blacklisting
+            'rest_framework.authentication.TokenAuthentication',  # Fallback for API tokens
+            'rest_framework.authentication.SessionAuthentication',  # For web interface
+            'rest_framework.authentication.BasicAuthentication',  # For admin/debug
             ]
         }
 
@@ -307,33 +401,43 @@ REST_AUTH = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    # Token lifetimes - more secure defaults
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Shorter access token lifetime
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Longer refresh token lifetime
+    'ROTATE_REFRESH_TOKENS': True,  # Enable refresh token rotation
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens
+    'UPDATE_LAST_LOGIN': True,  # Update last login on token refresh
 
+    # Algorithm and signing
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': config('DJANGO_SECRET_KEY'),
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
-    'ISSUER': None,
+    'ISSUER': 'veyu-platform',
 
+    # Header configuration
     'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'Authorization',
-    # 'AUTH_HEADER_NAME': 'Authorization',
-
-
-    # copied
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
 
+    # Token classes and claims
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
     'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
 
-
+    # User identification
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
+
+    # Additional security claims
+    'JTI_CLAIM': 'jti',  # JWT ID for blacklisting
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+# JWT Blacklist settings
+JWT_BLACKLIST_TIMEOUT = int(timedelta(days=7).total_seconds())  # Keep blacklisted tokens for 7 days
 
 # from corsheaders.conf import
 
@@ -378,7 +482,7 @@ EMAIL_TRACKING = os.getenv('EMAIL_TRACKING', 'True').lower() == 'true'
 
 # Email logging configuration (moved to LOGGING section below)
 
-# Logging configuration
+# Enhanced Logging configuration with structured JSON logging
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -392,8 +496,11 @@ LOGGING = {
             'style': '{',
         },
         'json': {
-            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
-            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+            'format': '%(asctime)s %(levelname)s %(name)s %(funcName)s:%(lineno)d %(message)s',
+        },
+        'structured': {
+            'format': '[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
     'filters': {
@@ -408,7 +515,7 @@ LOGGING = {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose' if DEBUG else 'json',
+            'formatter': 'structured',
         },
         'mail_admins': {
             'level': 'ERROR',
@@ -416,64 +523,208 @@ LOGGING = {
             'filters': ['require_debug_false'],
             'formatter': 'verbose',
         },
+        # Main application log
         'file': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
-            'maxBytes': 1024 * 1024 * 5,  # 5MB
-            'backupCount': 5,
-            'formatter': 'json',
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 10,
+            'formatter': 'structured',
         },
+        # Email-specific logs
         'email_file': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'emails.log'),
+            'filename': os.path.join(BASE_DIR, 'logs', 'email.log'),
             'maxBytes': 1024 * 1024 * 5,  # 5MB
             'backupCount': 5,
-            'formatter': 'json',
+            'formatter': 'structured',
+        },
+        # Authentication-specific logs
+        'auth_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'auth.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'structured',
+        },
+        # API-specific logs
+        'api_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'api.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 10,
+            'formatter': 'structured',
+        },
+        # Error-specific logs
+        'error_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'errors.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 15,
+            'formatter': 'structured',
+        },
+        # Security-specific logs
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'security.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 10,
+            'formatter': 'structured',
+        },
+        # Database-specific logs
+        'database_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'database.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'structured',
         },
     },
     'loggers': {
+        # Django core loggers
         'django': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': True,
         },
         'django.request': {
-            'handlers': ['mail_admins', 'file'],
+            'handlers': ['api_file', 'error_file', 'mail_admins'],
             'level': 'ERROR',
             'propagate': False,
         },
         'django.server': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'api_file'],
             'level': 'INFO',
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['mail_admins', 'file'],
+            'handlers': ['security_file', 'error_file', 'mail_admins'],
             'level': 'WARNING',
             'propagate': False,
         },
         'django.db.backends': {
-            'handlers': ['file'],
+            'handlers': ['database_file'],
             'level': 'WARNING',
             'propagate': False,
         },
         'django.template': {
-            'handlers': ['file'],
+            'handlers': ['error_file'],
             'level': 'WARNING',
             'propagate': False,
         },
+        
         # Email logging
         'django.core.mail': {
-            'handlers': ['email_file', 'console' if DEBUG else 'file'],
+            'handlers': ['email_file', 'console' if DEBUG else 'error_file'],
             'level': 'DEBUG' if DEBUG else 'INFO',
-            'propagate': True,
+            'propagate': False,
         },
         'utils.mail': {
-            'handlers': ['console', 'file'],
+            'handlers': ['email_file', 'console'],
             'level': 'DEBUG',
-            'propagate': True,
+            'propagate': False,
+        },
+        'utils.zeptomail': {
+            'handlers': ['email_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'accounts.utils.email_notifications': {
+            'handlers': ['email_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        
+        # Authentication logging
+        'accounts.api.views': {
+            'handlers': ['auth_file', 'api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'accounts.models': {
+            'handlers': ['auth_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'rest_framework_simplejwt': {
+            'handlers': ['auth_file', 'security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        
+        # API logging
+        'bookings.api': {
+            'handlers': ['api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'chat.api': {
+            'handlers': ['api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'feedback.api': {
+            'handlers': ['api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'listings.api': {
+            'handlers': ['api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'wallet.views': {
+            'handlers': ['api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        
+        # Error handling logging
+        'utils.error_handlers': {
+            'handlers': ['error_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'utils.middleware': {
+            'handlers': ['error_file', 'api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'veyu.error_handler': {
+            'handlers': ['error_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'veyu.middleware': {
+            'handlers': ['error_file', 'api_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        
+        # Business logic logging
+        'utils.otp': {
+            'handlers': ['auth_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'utils.sms': {
+            'handlers': ['auth_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        
+        # Root logger for application
+        'veyu': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
         },
     },
 }
@@ -488,6 +739,14 @@ logger.info(f"From email: {DEFAULT_FROM_EMAIL}")
 
 # Frontend URL for email verification and password reset links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://dev.veyu.cc')
+
+# CACHES Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 # DJANGO CHANNELS
 CHANNEL_LAYERS = {

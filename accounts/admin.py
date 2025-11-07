@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from .models import (
     Account,
     Customer,
@@ -81,36 +82,70 @@ class OTPAdmin(admin.ModelAdmin):
     ]
 
 
+class BusinessVerificationSubmissionForm(forms.ModelForm):
+    class Meta:
+        model = BusinessVerificationSubmission
+        fields = '__all__'
+        widgets = {
+            'rejection_reason': forms.Textarea(attrs={
+                'rows': 4, 
+                'cols': 80,
+                'placeholder': 'Provide specific feedback for rejection. This will be sent to the user via email.'
+            }),
+            'admin_notes': forms.Textarea(attrs={
+                'rows': 3, 
+                'cols': 80,
+                'placeholder': 'Internal notes for admin use only (not visible to user)'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            # Add helpful text for status changes
+            if self.instance.status == 'pending':
+                self.fields['status'].help_text = 'Changing to "verified" will approve and notify the user. Changing to "rejected" will reject and send the rejection reason.'
+            elif self.instance.status == 'verified':
+                self.fields['status'].help_text = 'This verification has been approved. Changing status will send a new notification.'
+            elif self.instance.status == 'rejected':
+                self.fields['status'].help_text = 'This verification was rejected. You can change to "pending" to allow re-review.'
+
+
 class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
+    form = BusinessVerificationSubmissionForm
     list_display = [
         'business_name',
         'business_type',
         'status_badge',
-        'date_created',
+        'submission_date',
         'reviewed_by',
-        'view_documents'
+        'view_documents',
+        'business_profile_link'
     ]
-    list_filter = ['status', 'business_type', 'date_created']
+    list_filter = ['status', 'business_type', 'date_created', 'reviewed_by']
     search_fields = ['business_name', 'business_email', 'cac_number', 'tin_number']
-    readonly_fields = ['date_created', 'last_updated', 'reviewed_by', 'reviewed_at']
-    actions = ['approve_verification', 'reject_verification']
+    readonly_fields = ['date_created', 'last_updated', 'uuid', 'business_profile_info']
+    actions = ['approve_verification', 'reject_verification', 'mark_as_pending']
+    list_per_page = 25
+    date_hierarchy = 'date_created'
     
     fieldsets = (
         ('Business Information', {
             'fields': ('business_type', 'business_name', 'business_address', 
-                      'business_email', 'business_phone')
+                      'business_email', 'business_phone', 'business_profile_info')
         }),
         ('Registration Details', {
             'fields': ('cac_number', 'tin_number')
         }),
         ('Documents', {
-            'fields': ('cac_document', 'tin_document', 'proof_of_address', 'business_license')
+            'fields': ('cac_document', 'tin_document', 'proof_of_address', 'business_license'),
+            'description': 'Click on document links to view/download files'
         }),
         ('Verification Status', {
             'fields': ('status', 'rejection_reason', 'admin_notes')
         }),
         ('Review Information', {
-            'fields': ('reviewed_by', 'reviewed_at', 'date_created', 'last_updated'),
+            'fields': ('reviewed_by', 'reviewed_at', 'date_created', 'last_updated', 'uuid'),
             'classes': ('collapse',)
         }),
     )
@@ -129,17 +164,46 @@ class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
         )
     status_badge.short_description = 'Status'
     
+    def submission_date(self, obj):
+        return obj.date_created.strftime('%Y-%m-%d %H:%M')
+    submission_date.short_description = 'Submitted'
+    submission_date.admin_order_field = 'date_created'
+    
+    def business_profile_link(self, obj):
+        business = obj.business_profile
+        if business:
+            if obj.business_type == 'dealership':
+                url = reverse('admin:accounts_dealership_change', args=[business.pk])
+                return format_html('<a href="{}" target="_blank">View Profile</a>', url)
+            elif obj.business_type == 'mechanic':
+                url = reverse('admin:accounts_mechanic_change', args=[business.pk])
+                return format_html('<a href="{}" target="_blank">View Profile</a>', url)
+        return '-'
+    business_profile_link.short_description = 'Business Profile'
+    
+    def business_profile_info(self, obj):
+        business = obj.business_profile
+        if business:
+            info = f"User: {business.user.email}<br>"
+            info += f"Phone: {business.phone_number or 'Not provided'}<br>"
+            info += f"Verified Business: {'Yes' if business.verified_business else 'No'}<br>"
+            if hasattr(business, 'location') and business.location:
+                info += f"Location: {business.location.city}, {business.location.state}"
+            return format_html(info)
+        return 'No profile found'
+    business_profile_info.short_description = 'Profile Information'
+    
     def view_documents(self, obj):
         docs = []
         if obj.cac_document:
-            docs.append(f'<a href="{obj.cac_document.url}" target="_blank">CAC</a>')
+            docs.append(f'<a href="{obj.cac_document.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">CAC</a>')
         if obj.tin_document:
-            docs.append(f'<a href="{obj.tin_document.url}" target="_blank">TIN</a>')
+            docs.append(f'<a href="{obj.tin_document.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">TIN</a>')
         if obj.proof_of_address:
-            docs.append(f'<a href="{obj.proof_of_address.url}" target="_blank">Address</a>')
+            docs.append(f'<a href="{obj.proof_of_address.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">Address</a>')
         if obj.business_license:
-            docs.append(f'<a href="{obj.business_license.url}" target="_blank">License</a>')
-        return format_html(' | '.join(docs)) if docs else '-'
+            docs.append(f'<a href="{obj.business_license.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">License</a>')
+        return format_html(''.join(docs)) if docs else format_html('<span style="color: #999;">No documents</span>')
     view_documents.short_description = 'Documents'
     
     def approve_verification(self, request, queryset):
@@ -147,18 +211,69 @@ class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
         for submission in queryset.filter(status='pending'):
             submission.approve(request.user)
             count += 1
-        self.message_user(request, f'{count} verification(s) approved successfully.')
+        
+        if count > 0:
+            self.message_user(request, f'{count} verification(s) approved successfully. Notification emails have been sent.')
+        else:
+            self.message_user(request, 'No pending verifications were found to approve.', level='warning')
     approve_verification.short_description = 'Approve selected verifications'
     
     def reject_verification(self, request, queryset):
-        # This would ideally open a form to enter rejection reason
-        # For now, we'll use a default message
+        # For bulk rejection, use a default message but encourage individual review
         count = 0
         for submission in queryset.filter(status='pending'):
-            submission.reject(request.user, 'Please review and resubmit with correct information.')
+            default_reason = 'Your submission requires additional review. Please ensure all documents are clear and complete, then resubmit.'
+            submission.reject(request.user, default_reason)
             count += 1
-        self.message_user(request, f'{count} verification(s) rejected. Note: Add rejection reason in the admin form.')
-    reject_verification.short_description = 'Reject selected verifications'
+        
+        if count > 0:
+            self.message_user(
+                request, 
+                f'{count} verification(s) rejected with default reason. For specific feedback, edit individual submissions and add detailed rejection reasons.',
+                level='warning'
+            )
+        else:
+            self.message_user(request, 'No pending verifications were found to reject.', level='warning')
+    reject_verification.short_description = 'Reject selected verifications (with default reason)'
+    
+    def mark_as_pending(self, request, queryset):
+        count = 0
+        for submission in queryset.exclude(status='pending'):
+            submission.status = 'pending'
+            submission.reviewed_by = None
+            submission.reviewed_at = None
+            submission.rejection_reason = None
+            submission.save()
+            count += 1
+        
+        if count > 0:
+            self.message_user(request, f'{count} verification(s) marked as pending for re-review.')
+        else:
+            self.message_user(request, 'No verifications were updated (already pending or no selection).', level='warning')
+    mark_as_pending.short_description = 'Mark as pending for re-review'
+    
+    def save_model(self, request, obj, form, change):
+        """Handle status changes when saving individual objects"""
+        if change:  # Only for existing objects
+            # Get the original object to compare status
+            try:
+                original = BusinessVerificationSubmission.objects.get(pk=obj.pk)
+                old_status = original.status
+                new_status = obj.status
+                
+                # If status is changing to verified or rejected, set review info
+                if old_status != new_status and new_status in ['verified', 'rejected']:
+                    obj.reviewed_by = request.user
+                    obj.reviewed_at = timezone.now()
+                    
+                    # For rejection, ensure there's a reason
+                    if new_status == 'rejected' and not obj.rejection_reason:
+                        obj.rejection_reason = 'Please review your submission and ensure all documents are complete and accurate.'
+                
+            except BusinessVerificationSubmission.DoesNotExist:
+                pass
+        
+        super().save_model(request, obj, form, change)
 
 
 # Register your models here.

@@ -613,36 +613,44 @@ class BusinessVerificationSubmissionSerializer(serializers.ModelSerializer):
             try:
                 dealership = Dealership.objects.get(user=user)
                 validated_data['dealership'] = dealership
+                validated_data['mechanic'] = None
             except Dealership.DoesNotExist:
                 raise serializers.ValidationError("Dealership profile not found for this user")
         elif business_type == 'mechanic':
             try:
                 mechanic = Mechanic.objects.get(user=user)
                 validated_data['mechanic'] = mechanic
+                validated_data['dealership'] = None
             except Mechanic.DoesNotExist:
                 raise serializers.ValidationError("Mechanic profile not found for this user")
+        else:
+            raise serializers.ValidationError("Invalid business_type. Must be 'dealership' or 'mechanic'")
         
-        # Check if submission already exists
-        if business_type == 'dealership' and hasattr(validated_data['dealership'], 'verification_submission'):
-            # Update existing submission
-            submission = validated_data['dealership'].verification_submission
-            for key, value in validated_data.items():
-                if key not in ['dealership', 'mechanic']:
-                    setattr(submission, key, value)
-            submission.status = 'pending'  # Reset to pending on resubmission
-            submission.save()
-            return submission
-        elif business_type == 'mechanic' and hasattr(validated_data['mechanic'], 'verification_submission'):
-            submission = validated_data['mechanic'].verification_submission
-            for key, value in validated_data.items():
-                if key not in ['dealership', 'mechanic']:
-                    setattr(submission, key, value)
-            submission.status = 'pending'
-            submission.save()
-            return submission
+        # Set status to pending for new submissions
+        validated_data['status'] = 'pending'
         
         # Create new submission
         return BusinessVerificationSubmission.objects.create(**validated_data)
+    
+    def update(self, instance, validated_data):
+        """Update existing submission and reset status to pending"""
+        # Don't allow changing business type or profile links
+        validated_data.pop('business_type', None)
+        validated_data.pop('dealership', None)
+        validated_data.pop('mechanic', None)
+        
+        # Reset status to pending on update
+        validated_data['status'] = 'pending'
+        validated_data['reviewed_by'] = None
+        validated_data['reviewed_at'] = None
+        validated_data['rejection_reason'] = None
+        
+        # Update fields
+        for key, value in validated_data.items():
+            setattr(instance, key, value)
+        
+        instance.save()
+        return instance
 
 
 class BusinessVerificationStatusSerializer(serializers.Serializer):

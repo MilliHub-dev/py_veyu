@@ -1,4 +1,6 @@
 import json
+import os
+import logging
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -92,6 +94,9 @@ from rest_framework.parsers import (
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class SignUpView(generics.CreateAPIView):
@@ -438,6 +443,7 @@ class BusinessVerificationView(views.APIView):
     """
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, JWTAuthentication]
+    parser_classes = [MultiPartParser, JSONParser]
     
     @swagger_auto_schema(
         operation_summary="Get Business Verification Status",
@@ -669,6 +675,7 @@ class BusinessVerificationView(views.APIView):
     def post(self, request):
         """Submit or update business verification details"""
         from accounts.api.serializers import BusinessVerificationSubmissionSerializer
+        from accounts.models import BusinessVerificationSubmission, Dealership, Mechanic
         
         # Validate user type
         if request.user.user_type not in ['dealer', 'mechanic']:
@@ -677,24 +684,85 @@ class BusinessVerificationView(views.APIView):
                 'message': 'Only dealers and mechanics can submit business verification'
             }, status=400)
         
-        serializer = BusinessVerificationSubmissionSerializer(
-            data=request.data,
-            context={'request': request}
-        )
+        # Validate business profile exists
+        try:
+            if request.user.user_type == 'dealer':
+                business_profile = Dealership.objects.get(user=request.user)
+                business_type = 'dealership'
+            else:
+                business_profile = Mechanic.objects.get(user=request.user)
+                business_type = 'mechanic'
+        except (Dealership.DoesNotExist, Mechanic.DoesNotExist):
+            return Response({
+                'error': True,
+                'message': f'Please complete your {request.user.user_type} profile before submitting verification'
+            }, status=400)
+        
+        # Add business_type to request data if not provided
+        data = request.data.copy()
+        if 'business_type' not in data:
+            data['business_type'] = business_type
+        
+        # Validate file uploads using the new validation system
+        from accounts.utils.document_validation import validate_business_documents
+        
+        file_validation_errors = validate_business_documents(request.FILES)
+        if file_validation_errors:
+            return Response({
+                'error': True,
+                'message': 'Document validation failed',
+                'errors': file_validation_errors
+            }, status=400)
+        
+        # Check if submission already exists
+        existing_submission = None
+        try:
+            existing_submission = business_profile.verification_submission
+        except BusinessVerificationSubmission.DoesNotExist:
+            pass
+        
+        if existing_submission:
+            # Update existing submission
+            serializer = BusinessVerificationSubmissionSerializer(
+                existing_submission,
+                data=data,
+                context={'request': request},
+                partial=True
+            )
+        else:
+            # Create new submission
+            serializer = BusinessVerificationSubmissionSerializer(
+                data=data,
+                context={'request': request}
+            )
         
         if serializer.is_valid():
             submission = serializer.save()
+            
+            # Send notification email about submission
+            try:
+                from accounts.utils.email_notifications import send_business_verification_status
+                send_business_verification_status(
+                    request.user, 
+                    'submitted', 
+                    'Your business verification has been submitted and is pending review.'
+                )
+            except Exception as e:
+                logger.error(f"Failed to send verification submission email: {str(e)}")
+            
             return Response({
                 'error': False,
                 'message': 'Business verification submitted successfully. Admin will review your submission.',
                 'data': serializer.data
-            }, status=201)
+            }, status=201 if not existing_submission else 200)
         
         return Response({
             'error': True,
             'message': 'Validation failed',
             'errors': serializer.errors
         }, status=400)
+    
+
 
 
 
@@ -704,39 +772,115 @@ class VerifyEmailView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication, JWTAuthentication]
 
-    def post(self, request:Request):
+    def post(self, request: Request):
         data = request.data
         serializer = VerifyEmailSerializer(data=data)
-        if serializer.is_valid():
-            validated_data = serializer.validated_data
-            if validated_data['action'] == 'request-code':
-                code = OTP.objects.create(valid_for=request.user)
-                #  send a signal to the receiver
-                otp_requested.send('email', user=request.user, otp=code)
-                return Response({
-                    'error': False,
-                    'message': 'OTP sent to your inbox'
-                }, status=status.HTTP_200_OK)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            elif validated_data['action'] == 'confirm-code':
-                try:
-                    otp = OTP.objects.get(code=data['code'])
-                    if otp.valid_for == request.user:
-                        valid = otp.verify(data['code'], user=request.user)
-                        if valid:
-                            return Response({
-                                'error': False,
-                                'message': f'Successfully verified your email'
-                            }, status=status.HTTP_200_OK)
-                        raise Exception('Invalid OTP')
-                except Exception as error:
-                    raise error
+        validated_data = serializer.validated_data
+        
+        if validated_data['action'] == 'request-code':
+            try:
+                from utils.otp_manager import otp_manager
+                
+                # Get client information for security logging
+                ip_address = request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                # Request OTP using enhanced manager
+                otp_request = otp_manager.request_otp(
+                    user=request.user,
+                    channel='email',
+                    purpose='verification',
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
+                if not otp_request['success']:
                     return Response({
                         'error': True,
-                        'message': 'Invalid OTP'
+                        'message': otp_request['message'],
+                        'rate_limit': otp_request.get('rate_limit'),
+                        'cooldown': otp_request.get('cooldown')
+                    }, status=status.HTTP_429_TOO_MANY_REQUESTS if 'limit' in otp_request['message'] else status.HTTP_400_BAD_REQUEST)
+                
+                # Send OTP email using enhanced manager
+                send_result = otp_manager.send_otp_email(request.user, otp_request['otp'])
+                
+                if send_result['success']:
+                    expires_in = int((otp_request['otp'].expires_at - timezone.now()).total_seconds() / 60)
+                    return Response({
+                        'error': False,
+                        'message': send_result['message'],
+                        'expires_in_minutes': expires_in,
+                        'delivery_tracking': send_result.get('tracking', {})
+                    }, status=status.HTTP_200_OK)
+                else:
+                    # Mark OTP as used if sending failed
+                    otp_request['otp'].mark_as_used()
+                    return Response({
+                        'error': True,
+                        'message': send_result['message'],
+                        'delivery_tracking': send_result.get('tracking', {})
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+            except Exception as error:
+                logger.error(f"Error requesting email OTP for user {request.user.email}: {str(error)}")
+                return Response({
+                    'error': True,
+                    'message': 'An error occurred while sending OTP. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        elif validated_data['action'] == 'confirm-code':
+            try:
+                from utils.otp_manager import otp_manager
+                
+                otp_code = data.get('code', '').strip()
+                
+                if not otp_code:
+                    return Response({
+                        'error': True,
+                        'message': 'OTP code is required'
                     }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
+                
+                # Get client information for security logging
+                ip_address = request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                # Verify OTP using enhanced manager
+                verify_result = otp_manager.verify_otp(
+                    user=request.user,
+                    otp_code=otp_code,
+                    channel='email',
+                    purpose='verification',
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
+                if verify_result['success']:
+                    return Response({
+                        'error': False,
+                        'message': verify_result['message']
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        'error': True,
+                        'message': verify_result['message']
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                    
+            except Exception as error:
+                logger.error(f"Error verifying email OTP for user {request.user.email}: {str(error)}")
+                return Response({
+                    'error': True,
+                    'message': 'An error occurred during verification. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'error': True,
+            'message': 'Invalid action'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyPhoneNumberView(APIView):
@@ -744,40 +888,123 @@ class VerifyPhoneNumberView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = VerifyPhoneNumberSerializer
 
-    def post(self, request:Request):
+    def post(self, request: Request):
         data = request.data
         serializer = VerifyPhoneNumberSerializer(data=data)
-        if serializer.is_valid():
-            validated_data = serializer.validated_data
-            if validated_data['action'] == 'request-code':
-                code = OTP.objects.create(valid_for=request.user, channel='sms')
-                send_sms(
-                    message=f"Hi {request.user.first_name}, here's your OTP: {code.code}",
-                    recipient=data['phone_number']
-                )
-                return Response({
-                    'error': False,
-                    'message': 'OTP sent to your inbox'
-                }, status=status.HTTP_200_OK)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            elif validated_data['action'] == 'confirm-code':
-                try:
-                    otp = OTP.objects.get(code=data['code'])
-                    valid = otp.verify(data['code'], 'sms')
-                    if valid:
-                        return Response({
-                            'error': False,
-                            'message': f'Successfully verified your phone number'
-                        }, status=status.HTTP_200_OK)
-                    raise Exception('Invalid OTP')
-                except Exception as error:
-                    print(error)
+        validated_data = serializer.validated_data
+        
+        if validated_data['action'] == 'request-code':
+            try:
+                from utils.otp_manager import otp_manager
+                
+                phone_number = data.get('phone_number', '').strip()
+                
+                if not phone_number:
                     return Response({
                         'error': True,
-                        'message': 'Invalid OTP'
+                        'message': 'Phone number is required'
                     }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return(Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST))
+                
+                # Get client information for security logging
+                ip_address = request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                # Request OTP using enhanced manager
+                otp_request = otp_manager.request_otp(
+                    user=request.user,
+                    channel='sms',
+                    purpose='phone_verification',
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
+                if not otp_request['success']:
+                    return Response({
+                        'error': True,
+                        'message': otp_request['message'],
+                        'rate_limit': otp_request.get('rate_limit'),
+                        'cooldown': otp_request.get('cooldown')
+                    }, status=status.HTTP_429_TOO_MANY_REQUESTS if 'limit' in otp_request['message'] else status.HTTP_400_BAD_REQUEST)
+                
+                # Send OTP SMS using enhanced manager
+                send_result = otp_manager.send_otp_sms(request.user, otp_request['otp'], phone_number)
+                
+                if send_result['success']:
+                    expires_in = int((otp_request['otp'].expires_at - timezone.now()).total_seconds() / 60)
+                    return Response({
+                        'error': False,
+                        'message': send_result['message'],
+                        'expires_in_minutes': expires_in,
+                        'delivery_tracking': send_result.get('tracking', {})
+                    }, status=status.HTTP_200_OK)
+                else:
+                    # Mark OTP as used if sending failed
+                    otp_request['otp'].mark_as_used()
+                    return Response({
+                        'error': True,
+                        'message': send_result['message'],
+                        'delivery_tracking': send_result.get('tracking', {})
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+            except Exception as error:
+                logger.error(f"Error requesting SMS OTP for user {request.user.email}: {str(error)}")
+                return Response({
+                    'error': True,
+                    'message': 'An error occurred while sending OTP. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        elif validated_data['action'] == 'confirm-code':
+            try:
+                from utils.otp_manager import otp_manager
+                
+                otp_code = data.get('code', '').strip()
+                
+                if not otp_code:
+                    return Response({
+                        'error': True,
+                        'message': 'OTP code is required'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Get client information for security logging
+                ip_address = request.META.get('REMOTE_ADDR')
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                # Verify OTP using enhanced manager
+                verify_result = otp_manager.verify_otp(
+                    user=request.user,
+                    otp_code=otp_code,
+                    channel='sms',
+                    purpose='phone_verification',
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
+                if verify_result['success']:
+                    return Response({
+                        'error': False,
+                        'message': verify_result['message']
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        'error': True,
+                        'message': verify_result['message']
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                    
+            except Exception as error:
+                logger.error(f"Error verifying SMS OTP for user {request.user.email}: {str(error)}")
+                return Response({
+                    'error': True,
+                    'message': 'An error occurred during verification. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'error': True,
+            'message': 'Invalid action'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class NotificationView(APIView):

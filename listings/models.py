@@ -28,7 +28,7 @@ VEHICLE_FEATURES = [
 
 class VehicleImage(DbModel):
     image = CloudinaryField('image', folder='vehicles/images/', blank=True, null=True)
-    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE, related_name='vehicle_images')
 
     def save(self, *args, **kwargs):
         # if not self.id:
@@ -42,8 +42,19 @@ class VehicleImage(DbModel):
     def __str__(self):
         # Return the public_id or URL of the Cloudinary image
         if hasattr(self.image, 'public_id'):
-            return self.image.public_id
-        return str(self.image)
+            return f"Image for {self.vehicle.name}: {self.image.public_id}"
+        return f"Image for {self.vehicle.name}: {str(self.image)}"
+    
+    def __repr__(self):
+        return f"<VehicleImage: {self.vehicle.name} - {self.image}>"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['vehicle']),
+        ]
+        ordering = ['id']
+        verbose_name = 'Vehicle Image'
+        verbose_name_plural = 'Vehicle Images'
 
 
 class Vehicle(DbModel):
@@ -63,7 +74,7 @@ class Vehicle(DbModel):
         ('hybrid', 'Hybrid'),
     ]
 
-    dealer = models.ForeignKey('accounts.Dealership', blank=True, null=True, on_delete=models.SET_NULL, related_name='dealer')
+    dealer = models.ForeignKey('accounts.Dealership', blank=True, null=True, on_delete=models.SET_NULL, related_name='owned_vehicles')
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, blank=True, null=True)
     brand = models.CharField(max_length=200)
@@ -78,18 +89,47 @@ class Vehicle(DbModel):
     for_rent = models.BooleanField(default=False)
     available = models.BooleanField(default=True)
 
-    images = models.ManyToManyField(VehicleImage, blank=True, related_name='images')
+    images = models.ManyToManyField(VehicleImage, blank=True, related_name='vehicle_gallery')
     video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
     tags = ArrayField(blank=True, null=True, data_type=str, default=list)
     features = ArrayField(blank=True, null=True, data_type=str, default=list)
     custom_duty = models.BooleanField(default=False)
 
-    last_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental')
-    current_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='current_rental')
-    rentals = models.ManyToManyField('RentalOrder', blank=True, related_name='rentals')
+    last_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='last_rental_vehicle')
+    current_rental = models.ForeignKey('RentalOrder', blank=True, null=True, on_delete=models.SET_NULL, related_name='current_rental_vehicle')
+    rentals = models.ManyToManyField('RentalOrder', blank=True, related_name='rental_vehicles')
 
     def __str__(self):
-        return self.name or 'Unnamed Vehicle'
+        availability = "Available" if self.available else "Unavailable"
+        return f"{self.name or 'Unnamed Vehicle'} ({self.brand} {self.model or ''}) - {availability}".strip()
+    
+    def __repr__(self):
+        return f"<Vehicle: {self.name} - {self.brand} {self.model}>"
+    
+    @property
+    def full_name(self):
+        """Returns full vehicle name with brand and model"""
+        parts = [self.brand]
+        if self.model:
+            parts.append(self.model)
+        if self.name and self.name not in ' '.join(parts):
+            parts.append(f"({self.name})")
+        return ' '.join(parts)
+    
+    @property
+    def total_images(self):
+        """Returns total number of images"""
+        return self.images.count()
+    
+    @property
+    def rental_status(self):
+        """Returns current rental status"""
+        if self.current_rental:
+            return "Currently Rented"
+        elif self.for_rent:
+            return "Available for Rent"
+        else:
+            return "Not for Rent"
 
     def save(self, *args, **kwargs):
         # Ensure tags and features are lists before saving
@@ -104,6 +144,20 @@ class Vehicle(DbModel):
 
     def trips(self):
         return self.rentals.count()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['dealer']),
+            models.Index(fields=['brand', 'model']),
+            models.Index(fields=['condition']),
+            models.Index(fields=['fuel_system']),
+            models.Index(fields=['transmission']),
+            models.Index(fields=['for_sale', 'for_rent']),
+            models.Index(fields=['available']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['date_created']),
+        ]
+        ordering = ['-date_created']
 
 
 class Car(Vehicle):
@@ -177,14 +231,42 @@ def float_decimal(dig, dec_places=2):
 
 
 class OrderInspection(DbModel):
-    order = models.ForeignKey('Order', on_delete=models.CASCADE)
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='inspections')
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='order_inspections')
     inspection_date = models.DateField(blank=True, null=True)
     inspection_time = models.TimeField(blank=True, null=True)
     completed = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Scheduled Inspection for {self.order.order_item.title}"
+        status = "Completed" if self.completed else "Scheduled"
+        item_name = self.order.order_item.title if self.order.order_item else 'Unknown Item'
+        return f"{status} Inspection for {item_name} - {self.customer.user.name}"
+    
+    def __repr__(self):
+        return f"<OrderInspection: Order #{self.order.id} - {self.customer.user.email}>"
+    
+    @property
+    def is_scheduled(self):
+        """Check if inspection has a scheduled date and time"""
+        return bool(self.inspection_date and self.inspection_time)
+    
+    @property
+    def days_until_inspection(self):
+        """Returns days until inspection (negative if overdue)"""
+        if self.inspection_date:
+            return (self.inspection_date - now().date()).days
+        return None
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['order']),
+            models.Index(fields=['customer']),
+            models.Index(fields=['inspection_date']),
+            models.Index(fields=['completed']),
+        ]
+        ordering = ['inspection_date', 'inspection_time']
+        verbose_name = 'Order Inspection'
+        verbose_name_plural = 'Order Inspections'
 
 
 class Order(DbModel):
@@ -204,13 +286,13 @@ class Order(DbModel):
         'financial-aid': 'Financing Aid',
     }
 
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='customer_orders')
     order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
-    order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE)
+    order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE, related_name='listing_orders')
     payment_option = models.CharField(max_length=20, choices=PAYMENT_OPTION, default="Not Available")
     paid = models.BooleanField(default=False)
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
-    applied_coupons = models.ManyToManyField('Coupon', blank=True)
+    applied_coupons = models.ManyToManyField('Coupon', blank=True, related_name='coupon_orders')
     # for rentals
 
     @property
@@ -241,7 +323,40 @@ class Order(DbModel):
         return amt
 
     def __str__(self):
-        return f"Order #{self.id} - {self.ORDER_TYPES.get(self.order_type, 'Unknown')}"
+        item_name = self.order_item.title if self.order_item else 'No Item'
+        payment_status = "Paid" if self.paid else "Unpaid"
+        return f"Order #{self.id}: {self.ORDER_TYPES.get(self.order_type, 'Unknown')} - {item_name} ({payment_status})"
+    
+    def __repr__(self):
+        return f"<Order: #{self.id} - {self.order_type} - {self.customer.user.email}>"
+    
+    @property
+    def total_amount(self):
+        """Returns formatted total amount"""
+        return f"₦{self.total:,.2f}"
+    
+    @property
+    def days_since_order(self):
+        """Returns days since order was placed"""
+        return (now().date() - self.date_created.date()).days
+    
+    @property
+    def coupon_count(self):
+        """Returns number of applied coupons"""
+        return self.applied_coupons.count()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['customer']),
+            models.Index(fields=['order_type']),
+            models.Index(fields=['order_status']),
+            models.Index(fields=['paid']),
+            models.Index(fields=['date_created']),
+            models.Index(fields=['order_item']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Order'
+        verbose_name_plural = 'Orders'
 
 
 
@@ -255,35 +370,96 @@ class RentalOrder(Order):
     
 
     def __str__(self):
-        return f'{self.customer.account.email}  - Order #{self.order.id}'
+        recurring_text = " (Recurring)" if self.is_recurring else ""
+        return f'Rental Order #{self.id}: {self.customer.user.name}{recurring_text} - {self.get_payment_cycle_display()}'
+    
+    def __repr__(self):
+        return f"<RentalOrder: #{self.id} - {self.customer.user.email}>"
+    
+    @property
+    def rental_duration_days(self):
+        """Returns rental duration in days"""
+        if self.rent_from and self.rent_until:
+            return (self.rent_until - self.rent_from).days
+        return 0
+    
+    @property
+    def is_active_rental(self):
+        """Check if rental is currently active"""
+        if not (self.rent_from and self.rent_until):
+            return False
+        today = now().date()
+        return self.rent_from <= today <= self.rent_until
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_recurring']),
+            models.Index(fields=['payment_cycle']),
+            models.Index(fields=['rent_from', 'rent_until']),
+            models.Index(fields=['next_payment']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Rental Order'
+        verbose_name_plural = 'Rental Orders'
 
 
 class PurchaseOrder(Order):
 
     def __str__(self):
-        return f'{self.customer.account.email}  - Order #{self.order.id}'
+        return f'Purchase Order #{self.id}: {self.customer.user.name} - {self.get_order_status_display()}'
+    
+    def __repr__(self):
+        return f"<PurchaseOrder: #{self.id} - {self.customer.user.email}>"
 
 
 
 class Coupon(DbModel):
     # veyu can issue coupons that are valid in all dealerships
     issuer = models.CharField(max_length=20, default='dealership') # veyu | dealership
-    valid_in = models.ManyToManyField('accounts.Dealership', blank=True)
+    valid_in = models.ManyToManyField('accounts.Dealership', blank=True, related_name='valid_coupons')
     expires = models.DateTimeField(blank=True, null=True)
-    users = models.ManyToManyField('accounts.Customer', blank=True)
+    users = models.ManyToManyField('accounts.Customer', blank=True, related_name='available_coupons')
     discount_type = models.CharField(max_length=20, default='flat') # flat | percentage
     discount_value = models.DecimalField(decimal_places=2, default=0.00, max_digits=12)
-    code = models.CharField(blank=True, null=True, max_length=20)
+    code = models.CharField(blank=True, null=True, max_length=20, unique=True)
 
     def __str__(self):
-        return self.code
+        discount_text = f"{self.discount_value}%" if self.discount_type == 'percentage' else f"₦{self.discount_value}"
+        return f"Coupon {self.code}: {discount_text} off - {self.dealership}"
+    
+    def __repr__(self):
+        return f"<Coupon: {self.code} - {self.discount_value} {self.discount_type}>"
+    
+    @property
+    def is_expired(self):
+        """Check if coupon has expired"""
+        if self.expires:
+            return now() > self.expires
+        return False
+    
+    @property
+    def formatted_discount(self):
+        """Returns formatted discount value"""
+        if self.discount_type == 'percentage':
+            return f"{self.discount_value}% off"
+        else:
+            return f"₦{self.discount_value:,.2f} off"
 
     @property
     def dealership(self):
         if self.issuer == 'veyu':
             return 'Veyu'
         else:
-            return self.valid_in.first().business_name
+            first_dealership = self.valid_in.first()
+            return first_dealership.business_name if first_dealership else 'Unknown'
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['issuer']),
+            models.Index(fields=['expires']),
+            models.Index(fields=['discount_type']),
+        ]
 
 
 class Listing(DbModel):
@@ -292,19 +468,41 @@ class Listing(DbModel):
     listing_type = models.CharField(max_length=20, choices=LISTING_TYPES, default='sale')
     verified = models.BooleanField(default=False)
     approved = models.BooleanField(default=False)
-    approved_by = models.ForeignKey('accounts.Account', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_by')
-    created_by = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='created_by')
-    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
+    approved_by = models.ForeignKey('accounts.Account', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_listings')
+    created_by = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='created_listings')
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE, related_name='vehicle_listings')
     price = models.DecimalField(decimal_places=2, max_digits=12, blank=True, null=True)
     title = models.CharField(max_length=400, blank=True, null=True)
-    viewers = models.ManyToManyField('accounts.Account', limit_choices_to={'user_type': 'customer'}, blank=True, related_name='viewers')
-    offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='offers')
-    testdrives = models.ManyToManyField('TestDriveRequest', blank=True, related_name='testdrives')
+    viewers = models.ManyToManyField('accounts.Account', limit_choices_to={'user_type': 'customer'}, blank=True, related_name='viewed_listings')
+    offers = models.ManyToManyField('PurchaseOffer', blank=True, related_name='listing_offers')
+    testdrives = models.ManyToManyField('TestDriveRequest', blank=True, related_name='listing_testdrives')
     payment_cycle = models.CharField(max_length=20, choices=PAYMENT_CYCLES, default='week', blank=True,)
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f'{self.title}'
+        status = "Published" if self.published else "Draft"
+        price_text = f"₦{self.price:,.2f}" if self.price else "Price not set"
+        return f"{self.title} ({self.get_listing_type_display()}) - {price_text} [{status}]"
+    
+    def __repr__(self):
+        return f"<Listing: {self.title} - {self.listing_type}>"
+    
+    @property
+    def total_views(self):
+        """Returns total number of viewers"""
+        return self.viewers.count()
+    
+    @property
+    def total_offers(self):
+        """Returns total number of offers"""
+        return self.offers.count()
+    
+    @property
+    def formatted_price(self):
+        """Returns formatted price with currency"""
+        if self.price:
+            return f"₦{self.price:,.2f}"
+        return "Price not set"
 
     @property
     def published(self) -> bool: return self.verified
@@ -317,10 +515,22 @@ class Listing(DbModel):
         if not self.title and self.vehicle:
             self.title = self.vehicle.name
         super().save(*args, **kwargs)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['listing_type']),
+            models.Index(fields=['verified', 'approved']),
+            models.Index(fields=['created_by']),
+            models.Index(fields=['vehicle']),
+            models.Index(fields=['price']),
+            models.Index(fields=['date_created']),
+            models.Index(fields=['title']),
+        ]
+        ordering = ['-date_created']
 
 
 class ListingBoost(DbModel):
-    listing = models.OneToOneField('Listing', on_delete=models.CASCADE, related_name='boosted')
+    listing = models.OneToOneField('Listing', on_delete=models.CASCADE, related_name='listing_boost')
     start_date = models.DateField()
     end_date = models.DateField()
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)  # Track payment amount
@@ -336,31 +546,143 @@ class ListingBoost(DbModel):
 
     def __str__(self):
         status = "Active" if self.is_active() else "Expired"
-        return f"{self.listing.title} - {status} ({self.start_date} to {self.end_date})"
+        return f"Boost: {self.listing.title} - {status} (₦{self.amount_paid:,.2f})"
+    
+    def __repr__(self):
+        return f"<ListingBoost: {self.listing.title} - {self.start_date} to {self.end_date}>"
+    
+    @property
+    def days_remaining(self):
+        """Returns days remaining for the boost"""
+        if not self.is_active():
+            return 0
+        return (self.end_date - now().date()).days
+    
+    @property
+    def duration_days(self):
+        """Returns total duration in days"""
+        return (self.end_date - self.start_date).days
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['listing']),
+            models.Index(fields=['start_date', 'end_date']),
+            models.Index(fields=['active']),
+        ]
+        ordering = ['-start_date']
+        verbose_name = 'Listing Boost'
+        verbose_name_plural = 'Listing Boosts'
 
 
 class PurchaseOffer(DbModel):
-    bidder = models.ForeignKey('accounts.Customer', models.CASCADE, related_name='bidder')
-    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='listing')
+    bidder = models.ForeignKey('accounts.Customer', models.CASCADE, related_name='purchase_offers')
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='purchase_offers')
     amount = models.DecimalField(decimal_places=2, max_digits=12)
+    
+    def __str__(self):
+        return f"Offer by {self.bidder.user.name} - ₦{self.amount:,.2f} for {self.listing.title}"
+    
+    def __repr__(self):
+        return f"<PurchaseOffer: {self.bidder.user.email} - ₦{self.amount}>"
+    
+    @property
+    def formatted_amount(self):
+        """Returns formatted offer amount"""
+        return f"₦{self.amount:,.2f}"
+    
+    @property
+    def days_since_offer(self):
+        """Returns days since offer was made"""
+        return (now().date() - self.date_created.date()).days
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['bidder']),
+            models.Index(fields=['listing']),
+            models.Index(fields=['amount']),
+            models.Index(fields=['date_created']),
+        ]
+        ordering = ['-amount', '-date_created']
+        verbose_name = 'Purchase Offer'
+        verbose_name_plural = 'Purchase Offers'
 
 
 class TestDriveRequest(DbModel):
-    requested_by = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    requested_to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE)
-    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='testdrive_requests')
+    requested_to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='received_testdrive_requests')
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='testdrive_requests')
     granted = models.BooleanField(default=False)
     testdrive_complete = models.BooleanField(default=False)
+    
+    def __str__(self):
+        status = "Completed" if self.testdrive_complete else ("Granted" if self.granted else "Pending")
+        return f"Test Drive: {self.requested_by.user.name} → {self.listing.title} ({status})"
+    
+    def __repr__(self):
+        return f"<TestDriveRequest: {self.requested_by.user.email} - {self.listing.title}>"
+    
+    @property
+    def status_display(self):
+        """Returns human-readable status"""
+        if self.testdrive_complete:
+            return "Completed"
+        elif self.granted:
+            return "Approved - Pending Drive"
+        else:
+            return "Awaiting Approval"
+    
+    @property
+    def days_since_request(self):
+        """Returns days since request was made"""
+        return (now().date() - self.date_created.date()).days
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['requested_by']),
+            models.Index(fields=['requested_to']),
+            models.Index(fields=['listing']),
+            models.Index(fields=['granted']),
+            models.Index(fields=['testdrive_complete']),
+            models.Index(fields=['date_created']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Test Drive Request'
+        verbose_name_plural = 'Test Drive Requests'
 
 
 class TradeInRequest(DbModel):
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE)
-    to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE)
-    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='tradein_requests')
+    to = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='received_tradein_requests')
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE, related_name='tradein_requests')
     estimated_value = models.DecimalField(decimal_places=2, max_digits=12)
     comments = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f'Trade-in Request from {self.customer.account.email}'
+        return f'Trade-in: {self.vehicle.name} by {self.customer.user.name} → {self.to.business_name} (₦{self.estimated_value:,.2f})'
+    
+    def __repr__(self):
+        return f"<TradeInRequest: {self.customer.user.email} - ₦{self.estimated_value}>"
+    
+    @property
+    def formatted_value(self):
+        """Returns formatted estimated value"""
+        return f"₦{self.estimated_value:,.2f}"
+    
+    @property
+    def days_since_request(self):
+        """Returns days since request was made"""
+        return (now().date() - self.date_created.date()).days
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['customer']),
+            models.Index(fields=['to']),
+            models.Index(fields=['vehicle']),
+            models.Index(fields=['estimated_value']),
+            models.Index(fields=['date_created']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Trade-in Request'
+        verbose_name_plural = 'Trade-in Requests'
 
 

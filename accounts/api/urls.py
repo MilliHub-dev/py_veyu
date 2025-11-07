@@ -9,6 +9,16 @@ from .views import (
     NotificationView,
 )
 from .test_views import TestEmailView
+from .document_views import (
+    serve_verification_document,
+    get_document_requirements,
+    get_user_verification_documents,
+)
+from .otp_security_views import (
+    OTPSecurityStatusView,
+    OTPSecurityActionsView,
+    OTPSystemStatusView,
+)
 
 # Import authentication URLs
 from .auth_urls import urlpatterns as auth_urls
@@ -22,6 +32,14 @@ urlpatterns = [
     # Business verification
     path('verify-business/', BusinessVerificationView.as_view(), name='verify-business'),
     
+    # Document management
+    path('verification/documents/<int:submission_id>/<str:document_type>/', 
+         serve_verification_document, name='serve-verification-document'),
+    path('verification/requirements/', 
+         get_document_requirements, name='document-requirements'),
+    path('verification/my-documents/', 
+         get_user_verification_documents, name='my-verification-documents'),
+    
     # User profile
     path('profile/', UpdateProfileView.as_view(), name='update-profile'),
     
@@ -33,6 +51,11 @@ urlpatterns = [
     
     # Test email endpoint (for development)
     path('test-email/', TestEmailView.as_view(), name='test-email'),
+    
+    # OTP Security endpoints
+    path('otp/security/status/', OTPSecurityStatusView.as_view(), name='otp-security-status'),
+    path('otp/security/actions/', OTPSecurityActionsView.as_view(), name='otp-security-actions'),
+    path('otp/system/status/', OTPSystemStatusView.as_view(), name='otp-system-status'),
     
     # Django REST Auth URLs
     path('auth/', include('dj_rest_auth.urls')),

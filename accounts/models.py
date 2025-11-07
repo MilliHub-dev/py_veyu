@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Group, PermissionsMixin
 from django.contrib.auth.hashers import make_password
+from django.core.validators import RegexValidator, EmailValidator, MinLengthValidator, MaxLengthValidator
+from django.core.exceptions import ValidationError
 from utils.models import DbModel
 from django.utils import timezone
 from django.utils.timesince import timeuntil, timesince
@@ -9,6 +11,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
 from cloudinary.models import CloudinaryField
+import re
 
 
 class AccountManager(BaseUserManager):
@@ -62,12 +65,36 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         'apple': 'Apple',
     }
 
-    email = models.EmailField(blank=False, unique=True)
-    first_name = models.CharField(max_length=150, blank=False)
-    last_name = models.CharField(max_length=150, blank=False)
+    email = models.EmailField(
+        blank=False, 
+        unique=True,
+        validators=[EmailValidator(message="Enter a valid email address")]
+    )
+    first_name = models.CharField(
+        max_length=150, 
+        blank=False,
+        validators=[
+            MinLengthValidator(2, message="First name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.]+$',
+                message="First name can only contain letters, spaces, hyphens, apostrophes, and periods"
+            )
+        ]
+    )
+    last_name = models.CharField(
+        max_length=150, 
+        blank=False,
+        validators=[
+            MinLengthValidator(2, message="Last name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.]+$',
+                message="Last name can only contain letters, spaces, hyphens, apostrophes, and periods"
+            )
+        ]
+    )
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=False)
-    api_token = models.CharField(max_length=64, blank=True, null=True)
+    api_token = models.CharField(max_length=64, blank=True, null=True, unique=True)
 
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='veyu')
 
@@ -84,8 +111,51 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     EMAIL_FIELD = "email"
     USERNAME_FIELD = 'email'
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['user_type']),
+            models.Index(fields=['provider']),
+            models.Index(fields=['verified_email']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['is_staff']),
+            models.Index(fields=['date_joined']),
+            models.Index(fields=['api_token']),
+        ]
+        ordering = ['-date_joined']
+
+    def clean(self):
+        """Custom validation for Account model"""
+        super().clean()
+        
+        # Validate email format
+        if self.email:
+            email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_regex, self.email):
+                raise ValidationError({'email': 'Enter a valid email address'})
+        
+        # Validate names don't contain only spaces
+        if self.first_name and self.first_name.strip() == '':
+            raise ValidationError({'first_name': 'First name cannot be empty or contain only spaces'})
+        
+        if self.last_name and self.last_name.strip() == '':
+            raise ValidationError({'last_name': 'Last name cannot be empty or contain only spaces'})
+        
+        # Validate user_type and provider combinations
+        if self.provider != 'veyu' and self.user_type in ['admin', 'staff']:
+            raise ValidationError({'provider': 'Admin and staff accounts must use Veyu provider'})
 
     def save(self, *args, **kwargs):
+        # Clean before saving
+        self.full_clean()
+        
+        # Normalize names
+        if self.first_name:
+            self.first_name = self.first_name.strip().title()
+        if self.last_name:
+            self.last_name = self.last_name.strip().title()
+        
         if not self.api_token:
             super().save(using=None)
             # Generate/ensure DRF Token then store the key string to avoid FK dependency
@@ -109,21 +179,37 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     @property
     def name(self):
-        return f'{self.first_name} {self.last_name if self.last_name else ""}'
+        return f'{self.first_name} {self.last_name if self.last_name else ""}'.strip()
 
     @property
     def last_seen(self):
         if self.last_login:
             return timesince(self.last_login)
         return None
+    
+    @property
+    def full_name(self):
+        """Returns the full name of the user"""
+        return self.name
+    
+    @property
+    def display_name(self):
+        """Returns display name for UI purposes"""
+        return self.name or self.email.split('@')[0]
+    
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+    
+    def __repr__(self):
+        return f"<Account: {self.email} - {self.get_user_type_display()}>"
 
 
 class UserProfile(DbModel):
     ID_TYPES = [
         ('nin', 'National Identification'),
-        ('drivers-license', 'National Identification'),
-        ('voters-card', 'National Identification'),
-        ('passport', 'National Identification'),
+        ('drivers-license', 'Driver\'s License'),
+        ('voters-card', 'Voter\'s Card'),
+        ('passport', 'International Passport'),
     ]
     APPROVAL_STATUS = {
         'pending': 'Pending Approval',
@@ -136,24 +222,76 @@ class UserProfile(DbModel):
         'completed': 'Account Approved',
     }
     
-    user = models.OneToOneField(Account, on_delete=models.CASCADE)
-    phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
+    user = models.OneToOneField(Account, on_delete=models.CASCADE, related_name='%(class)s_profile')
+    phone_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True, 
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[1-9]\d{1,14}$',
+                message="Enter a valid phone number in international format (e.g., +234XXXXXXXXXX)"
+            )
+        ]
+    )
     id_type = models.CharField(max_length=200, default='nin', choices=ID_TYPES, blank=True, null=True)
     verified_phone_number = models.BooleanField(default=False)
     verified_id = models.BooleanField(default=False)
-    payout_info = models.ManyToManyField('PayoutInformation', blank=True,)
-    verification_ref = models.CharField(max_length=50, blank=True, null=True)
+    payout_info = models.ManyToManyField('PayoutInformation', blank=True, related_name='%(class)s_profiles')
+    verification_ref = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z0-9\-_]+$',
+                message="Verification reference can only contain uppercase letters, numbers, hyphens, and underscores"
+            )
+        ]
+    )
     verification_status = models.CharField(max_length=20, default='unverified', choices=VERIFICATION_STATUS)
     account_status = models.CharField(max_length=20, default='pending', choices=APPROVAL_STATUS)
 
-    location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True)
-    documents = models.ManyToManyField('Document', blank=True)
+    location = models.ForeignKey("Location", on_delete=models.SET_NULL, blank=True, null=True, related_name='%(class)s_locations')
+    documents = models.ManyToManyField('Document', blank=True, related_name='%(class)s_documents')
     # primary_billing_info = models.ForeignKey("BillingInformation", blank=True, null=True, on_delete=models.CASCADE)
-    billing_info = models.ManyToManyField("BillingInformation", blank=True)
+    billing_info = models.ManyToManyField("BillingInformation", blank=True, related_name='%(class)s_billing')
 
+
+    def clean(self):
+        """Custom validation for UserProfile"""
+        super().clean()
+        
+        # Validate phone number format if provided
+        if self.phone_number:
+            # Remove spaces and common separators for validation
+            clean_phone = re.sub(r'[\s\-\(\)]', '', self.phone_number)
+            if not re.match(r'^\+?[1-9]\d{1,14}$', clean_phone):
+                raise ValidationError({'phone_number': 'Enter a valid phone number'})
+        
+        # Validate verification status logic
+        if self.verified_phone_number and not self.phone_number:
+            raise ValidationError({'verified_phone_number': 'Cannot verify phone number without providing one'})
+        
+        if self.verification_status == 'completed' and not (self.verified_phone_number or self.user.verified_email):
+            raise ValidationError({'verification_status': 'Cannot mark as completed without email or phone verification'})
+
+    def save(self, *args, **kwargs):
+        # Clean before saving
+        self.full_clean()
+        
+        # Normalize phone number
+        if self.phone_number:
+            self.phone_number = re.sub(r'[\s\-\(\)]', '', self.phone_number)
+        
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return self.user.name
+        return f"{self.user.name} - {self.get_verification_status_display()}"
+    
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.user.email}>"
 
     @classmethod
     def me(cls, obj_id):
@@ -167,7 +305,6 @@ class UserProfile(DbModel):
                 obj = None
         return obj
 
-
     def verify_phone_number(self):
         self.verified_phone_number = True
         self.save()
@@ -175,24 +312,57 @@ class UserProfile(DbModel):
 
     @property
     def verifed_email(self) -> bool:
-        return self.user.verified_email()
+        return self.user.verified_email
 
     def verify_email(self):
         self.user.verify_email()
 
     class Meta:
         abstract = True
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['verification_status']),
+            models.Index(fields=['account_status']),
+        ]
 
 
 class Customer(UserProfile):
     image = CloudinaryField('profile_image', folder='users/profiles/', blank=True, null=True)
-    cart = models.ManyToManyField("listings.Listing", blank=True, related_name="cart")
-    favorites = models.ManyToManyField("listings.Listing", blank=True, related_name="favorites")
-    service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='service_history')
-    orders = models.ManyToManyField('listings.Order', blank=True, related_name='orders')
+    cart = models.ManyToManyField("listings.Listing", blank=True, related_name="customer_cart")
+    favorites = models.ManyToManyField("listings.Listing", blank=True, related_name="customer_favorites")
+    service_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='customer_service_history')
+    orders = models.ManyToManyField('listings.Order', blank=True, related_name='customer_orders')
 
     def __str__(self):
-        return self.user.email
+        return f"{self.user.name} (Customer)"
+    
+    def __repr__(self):
+        return f"<Customer: {self.user.email} - {self.get_verification_status_display()}>"
+    
+    @property
+    def cart_count(self):
+        """Returns the number of items in the customer's cart"""
+        return self.cart.count()
+    
+    @property
+    def favorites_count(self):
+        """Returns the number of favorite listings"""
+        return self.favorites.count()
+    
+    @property
+    def total_orders(self):
+        """Returns the total number of orders placed"""
+        return self.orders.count()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['verified_phone_number']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Customer Profile'
+        verbose_name_plural = 'Customer Profiles'
 
 
 def slugify(text:str) -> str:
@@ -211,31 +381,134 @@ class Mechanic(UserProfile):
         'top': 'Top Rated',
     }
     
-    about = models.TextField(blank=True, null=True)
-    business_name = models.CharField(max_length=300, blank=True, null=True)
-    slug = models.SlugField(blank=True, null=True)
+    about = models.TextField(
+        blank=True, 
+        null=True,
+        validators=[MaxLengthValidator(2000, message="About section cannot exceed 2000 characters")]
+    )
+    business_name = models.CharField(
+        max_length=300, 
+        blank=True, 
+        null=True,
+        validators=[
+            MinLengthValidator(2, message="Business name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z0-9\s\-\'\.&]+$',
+                message="Business name can only contain letters, numbers, spaces, hyphens, apostrophes, periods, and ampersands"
+            )
+        ]
+    )
+    slug = models.SlugField(blank=True, null=True, unique=True)
     logo = CloudinaryField('mechanic_logo', folder='mechanics/logos/', blank=True, null=True)
     level = models.CharField(max_length=20, default='new', choices=LEVELS)
-    headline = models.CharField(max_length=200, blank=True, null=True)
+    headline = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        validators=[MaxLengthValidator(200, message="Headline cannot exceed 200 characters")]
+    )
     available = models.BooleanField(default=True)
-    services = models.ManyToManyField('bookings.ServiceOffering', blank=True)
-    current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.CASCADE, related_name='current_job')
-    reviews = models.ManyToManyField('feedback.Review', blank=True,)
-    job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='job_history')
+    services = models.ManyToManyField('bookings.ServiceOffering', blank=True, related_name='mechanic_services')
+    current_job = models.ForeignKey('bookings.ServiceBooking', null=True, blank=True, on_delete=models.SET_NULL, related_name='current_mechanic')
+    reviews = models.ManyToManyField('feedback.Review', blank=True, related_name='mechanic_reviews')
+    job_history = models.ManyToManyField('bookings.ServiceBooking', blank=True, related_name='mechanic_job_history')
     business_type = models.CharField(max_length=50, choices=MECHANIC_TYPE, default='business')
     verified_business = models.BooleanField(default=False) # cac / business verification
-    contact_email = models.EmailField(blank=True, null=True)
-    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    contact_email = models.EmailField(
+        blank=True, 
+        null=True,
+        validators=[EmailValidator(message="Enter a valid email address")]
+    )
+    contact_phone = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[1-9]\d{1,14}$',
+                message="Enter a valid phone number"
+            )
+        ]
+    )
 
 
-    def __str__(self) -> str:
-        return self.business_name or self.user.name
+    def clean(self):
+        """Custom validation for Mechanic"""
+        super().clean()
+        
+        # Business type validation
+        if self.business_type == 'business' and not self.business_name:
+            raise ValidationError({'business_name': 'Business name is required for registered businesses'})
+        
+        # Contact validation
+        if self.contact_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.contact_email):
+            raise ValidationError({'contact_email': 'Enter a valid email address'})
+        
+        # Availability validation
+        if not self.available and self.current_job:
+            raise ValidationError({'available': 'Cannot be unavailable while having a current job'})
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            if self.business_name:
-                self.slug = slugify(self.business_name)
+        # Clean before saving
+        self.full_clean()
+        
+        # Generate slug if business name provided
+        if not self.slug and self.business_name:
+            self.slug = slugify(self.business_name)
+        
+        # Normalize business name
+        if self.business_name:
+            self.business_name = self.business_name.strip()
+        
         super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.business_name or self.user.name} (Mechanic)"
+    
+    def __repr__(self):
+        return f"<Mechanic: {self.business_name or self.user.email} - {self.get_level_display()}>"
+    
+    @property
+    def total_services(self):
+        """Returns the total number of services offered"""
+        return self.services.count()
+    
+    @property
+    def completed_jobs(self):
+        """Returns the number of completed jobs"""
+        return self.job_history.filter(completed=True).count()
+    
+    @property
+    def average_rating(self):
+        """Returns the average rating from reviews"""
+        if self.reviews.exists():
+            total_rating = sum(review.avg_rating for review in self.reviews.all())
+            return round(total_rating / self.reviews.count(), 1)
+        return 0.0
+    
+    @property
+    def availability_status(self):
+        """Returns human-readable availability status"""
+        if not self.available:
+            return "Unavailable"
+        elif self.current_job:
+            return "Busy"
+        else:
+            return "Available"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['business_name']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['level']),
+            models.Index(fields=['available']),
+            models.Index(fields=['verified_business']),
+            models.Index(fields=['business_type']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Mechanic Profile'
+        verbose_name_plural = 'Mechanic Profiles'
 
     def rating(self):
         return '0.0'
@@ -266,7 +539,32 @@ class MechanicBoost(DbModel):
 
     def __str__(self):
         status = "Active" if self.is_active() else "Expired"
-        return f"{self.mechanic.business_name} - {status} ({self.start_date} to {self.end_date})"
+        return f"Boost: {self.mechanic.business_name or self.mechanic.user.name} - {status}"
+    
+    def __repr__(self):
+        return f"<MechanicBoost: {self.mechanic.business_name} - {self.start_date} to {self.end_date}>"
+    
+    @property
+    def days_remaining(self):
+        """Returns the number of days remaining for the boost"""
+        if not self.is_active():
+            return 0
+        return (self.end_date - now().date()).days
+    
+    @property
+    def duration_days(self):
+        """Returns the total duration of the boost in days"""
+        return (self.end_date - self.start_date).days
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['mechanic']),
+            models.Index(fields=['start_date', 'end_date']),
+            models.Index(fields=['active']),
+        ]
+        ordering = ['-start_date']
+        verbose_name = 'Mechanic Boost'
+        verbose_name_plural = 'Mechanic Boosts'
 
 
 
@@ -278,17 +576,71 @@ class Dealership(UserProfile):
         'top': 'Top Dealer',
     }
     
-    about = models.TextField(blank=True, null=True)
-    slug = models.SlugField(blank=True, null=True)
+    about = models.TextField(
+        blank=True, 
+        null=True,
+        validators=[MaxLengthValidator(2000, message="About section cannot exceed 2000 characters")]
+    )
+    slug = models.SlugField(blank=True, null=True, unique=True)
     logo = CloudinaryField('logo', folder='dealerships/logos/', blank=True, null=True)
-    business_name = models.CharField(max_length=300, blank=True, null=True)
-    headline = models.CharField(max_length=200, blank=True, null=True)
-    contact_email = models.EmailField(blank=True, null=True)
-    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    business_name = models.CharField(
+        max_length=300, 
+        blank=True, 
+        null=True,
+        validators=[
+            MinLengthValidator(2, message="Business name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z0-9\s\-\'\.&]+$',
+                message="Business name can only contain letters, numbers, spaces, hyphens, apostrophes, periods, and ampersands"
+            )
+        ]
+    )
+    headline = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        validators=[MaxLengthValidator(200, message="Headline cannot exceed 200 characters")]
+    )
+    contact_email = models.EmailField(
+        blank=True, 
+        null=True,
+        validators=[EmailValidator(message="Enter a valid email address")]
+    )
+    contact_phone = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[1-9]\d{1,14}$',
+                message="Enter a valid phone number"
+            )
+        ]
+    )
 
     # verifications
-    cac_number = models.CharField(max_length=200, blank=True, null=True)
-    tin_number = models.CharField(max_length=200, blank=True, null=True)
+    cac_number = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z]{2}\d{6,8}$',
+                message="Enter a valid CAC number (e.g., RC123456)"
+            )
+        ]
+    )
+    tin_number = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{8}-\d{4}$',
+                message="Enter a valid TIN number (format: 12345678-1234)"
+            )
+        ]
+    )
 
     level = models.CharField(max_length=20, default='new', choices=LEVELS)
 
@@ -296,10 +648,10 @@ class Dealership(UserProfile):
     verified_tin = models.BooleanField(default=False) # verified tax number
     verified_location = models.BooleanField(default=False) # verified proof of address
 
-    listings = models.ManyToManyField('listings.Listing', blank=True, related_name='listings')
-    vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='vehicles')
-    reviews = models.ManyToManyField('feedback.Review', blank=True,)
-    orders = models.ManyToManyField('listings.Order', blank=True,)
+    listings = models.ManyToManyField('listings.Listing', blank=True, related_name='dealership_listings')
+    vehicles = models.ManyToManyField('listings.Vehicle', blank=True, related_name='dealership_vehicles')
+    reviews = models.ManyToManyField('feedback.Review', blank=True, related_name='dealership_reviews')
+    orders = models.ManyToManyField('listings.Order', blank=True, related_name='dealership_orders')
 
     # service scope
     offers_rental = models.BooleanField(default=False) # rents?
@@ -307,17 +659,84 @@ class Dealership(UserProfile):
     offers_drivers = models.BooleanField(default=False) # provide driver services
     offers_trade_in = models.BooleanField(default=False) # can customers trade in
 
-    class Meta:
-        verbose_name = 'Dealership'
-
-    def __str__(self):
-        return self.business_name or self.user.name
+    def clean(self):
+        """Custom validation for Dealership"""
+        super().clean()
+        
+        # Business name validation
+        if not self.business_name:
+            raise ValidationError({'business_name': 'Business name is required for dealerships'})
+        
+        # Contact validation
+        if self.contact_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.contact_email):
+            raise ValidationError({'contact_email': 'Enter a valid email address'})
+        
+        # Service validation - at least one service must be offered
+        if not any([self.offers_rental, self.offers_purchase, self.offers_drivers, self.offers_trade_in]):
+            raise ValidationError('Dealership must offer at least one service')
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            if self.business_name:
-                self.slug = slugify(self.business_name)
+        # Clean before saving
+        self.full_clean()
+        
+        # Generate slug if business name provided
+        if not self.slug and self.business_name:
+            self.slug = slugify(self.business_name)
+        
+        # Normalize business name
+        if self.business_name:
+            self.business_name = self.business_name.strip()
+        
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.business_name or self.user.name} (Dealership)"
+    
+    def __repr__(self):
+        return f"<Dealership: {self.business_name or self.user.email} - {self.get_level_display()}>"
+    
+    @property
+    def total_listings(self):
+        """Returns the total number of listings"""
+        return self.listings.count()
+    
+    @property
+    def total_vehicles(self):
+        """Returns the total number of vehicles"""
+        return self.vehicles.count()
+    
+    @property
+    def completed_orders(self):
+        """Returns the number of completed orders"""
+        return self.orders.filter(order_status='completed').count()
+    
+    @property
+    def verification_completeness(self):
+        """Returns verification completeness percentage"""
+        verifications = [
+            self.verified_business,
+            self.verified_tin,
+            self.verified_location,
+            bool(self.cac_number),
+            bool(self.tin_number)
+        ]
+        completed = sum(verifications)
+        return round((completed / len(verifications)) * 100, 1)
+    
+    class Meta:
+        verbose_name = 'Dealership'
+        verbose_name_plural = 'Dealerships'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['business_name']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['level']),
+            models.Index(fields=['verified_business']),
+            models.Index(fields=['offers_rental', 'offers_purchase']),
+            models.Index(fields=['cac_number']),
+            models.Index(fields=['tin_number']),
+        ]
+        ordering = ['-date_created']
 
     def rating(self):
         avg = 0
@@ -351,19 +770,92 @@ class Dealership(UserProfile):
 
 
 class PayoutInformation(DbModel):
-    user = models.ForeignKey('Account', on_delete=models.CASCADE)
-    channel = models.CharField(max_length=200, default='bank')
-    bank_name = models.CharField(max_length=200)
-    account_holder_name = models.CharField(max_length=200)
-    account_number = models.CharField(max_length=10)
+    CHANNEL_CHOICES = [
+        ('bank', 'Bank Transfer'),
+        ('mobile_money', 'Mobile Money'),
+        ('wallet', 'Digital Wallet'),
+    ]
+    
+    user = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='payout_accounts')
+    channel = models.CharField(max_length=200, default='bank', choices=CHANNEL_CHOICES)
+    bank_name = models.CharField(
+        max_length=200,
+        validators=[
+            MinLengthValidator(2, message="Bank name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.&]+$',
+                message="Bank name can only contain letters, spaces, hyphens, apostrophes, periods, and ampersands"
+            )
+        ]
+    )
+    account_holder_name = models.CharField(
+        max_length=200,
+        validators=[
+            MinLengthValidator(2, message="Account holder name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.]+$',
+                message="Account holder name can only contain letters, spaces, hyphens, apostrophes, and periods"
+            )
+        ]
+    )
+    account_number = models.CharField(
+        max_length=20,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{10,20}$',
+                message="Account number must be 10-20 digits"
+            )
+        ]
+    )
+
+    def clean(self):
+        """Custom validation for PayoutInformation"""
+        super().clean()
+        
+        # Validate account number format based on channel
+        if self.channel == 'bank' and self.account_number:
+            if not re.match(r'^\d{10}$', self.account_number):
+                raise ValidationError({'account_number': 'Bank account number must be exactly 10 digits'})
+
+    def save(self, *args, **kwargs):
+        # Clean before saving
+        self.full_clean()
+        
+        # Normalize names
+        if self.account_holder_name:
+            self.account_holder_name = self.account_holder_name.strip().title()
+        if self.bank_name:
+            self.bank_name = self.bank_name.strip().title()
+        
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f'{self.account_holder_name} @ {self.bank_name}'
+        return f'{self.account_holder_name} - {self.bank_name} ({self.get_channel_display()})'
+    
+    def __repr__(self):
+        return f"<PayoutInfo: {self.user.email} - {self.bank_name} {self.account_number[-4:]}>"
+    
+    @property
+    def masked_account_number(self):
+        """Returns masked account number for security"""
+        if len(self.account_number) > 4:
+            return f"****{self.account_number[-4:]}"
+        return self.account_number
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['channel']),
+            models.Index(fields=['account_number']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Payout Information'
+        verbose_name_plural = 'Payout Information'
 
 
 class BillingInformation(DbModel):
-    user = models.ForeignKey('Account', on_delete=models.CASCADE)
-    billing_address = models.ForeignKey('Location', on_delete=models.CASCADE)
+    user = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='billing_accounts')
+    billing_address = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='billing_locations')
     card_holder_name = models.CharField(max_length=200)
     card_number = models.CharField(max_length=20)
     card_exp_month = models.CharField(max_length=2)
@@ -372,60 +864,377 @@ class BillingInformation(DbModel):
     is_primary = models.BooleanField(default=False)
 
     def __str__(self) -> str:
-        return f"{self.user.name}'s card <{self.id}>"
+        return f"{self.card_holder_name} - ****{self.card_number[-4:] if len(self.card_number) > 4 else self.card_number}"
+    
+    def __repr__(self):
+        return f"<BillingInfo: {self.user.email} - {self.card_holder_name}>"
+    
+    @property
+    def masked_card_number(self):
+        """Returns masked card number for security"""
+        if len(self.card_number) > 4:
+            return f"****-****-****-{self.card_number[-4:]}"
+        return self.card_number
+    
+    @property
+    def expiry_date(self):
+        """Returns formatted expiry date"""
+        return f"{self.card_exp_month}/{self.card_exp_year}"
+    
+    @property
+    def is_expired(self):
+        """Check if the card has expired"""
+        try:
+            from datetime import datetime
+            current_year = datetime.now().year
+            current_month = datetime.now().month
+            exp_year = int(self.card_exp_year)
+            exp_month = int(self.card_exp_month)
+            
+            if exp_year < current_year:
+                return True
+            elif exp_year == current_year and exp_month < current_month:
+                return True
+            return False
+        except (ValueError, TypeError):
+            return True
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['is_primary']),
+        ]
+        ordering = ['-is_primary', '-date_created']
+        verbose_name = 'Billing Information'
+        verbose_name_plural = 'Billing Information'
 
 
 class Location(DbModel):
-    user = models.ForeignKey('Account', on_delete=models.CASCADE)
-    country = models.CharField(max_length=2, default='NG')
-    state = models.CharField(max_length=200)
-    city = models.CharField(max_length=200, blank=True, null=True)
-    address = models.CharField(max_length=300)
-    zip_code = models.CharField(max_length=6, blank=True, null=True)
-    lat = models.CharField(max_length=20, blank=True, null=True)
-    lng = models.CharField(max_length=20, blank=True, null=True)
-    google_place_id = models.CharField(max_length=20, blank=True, null=True)
+    COUNTRY_CHOICES = [
+        ('NG', 'Nigeria'),
+        ('GH', 'Ghana'),
+        ('KE', 'Kenya'),
+        ('ZA', 'South Africa'),
+    ]
+    
+    user = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='locations')
+    country = models.CharField(max_length=2, default='NG', choices=COUNTRY_CHOICES)
+    state = models.CharField(
+        max_length=200,
+        validators=[
+            MinLengthValidator(2, message="State name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.]+$',
+                message="State name can only contain letters, spaces, hyphens, apostrophes, and periods"
+            )
+        ]
+    )
+    city = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-\'\.]+$',
+                message="City name can only contain letters, spaces, hyphens, apostrophes, and periods"
+            )
+        ]
+    )
+    address = models.CharField(
+        max_length=300,
+        validators=[
+            MinLengthValidator(5, message="Address must be at least 5 characters long")
+        ]
+    )
+    zip_code = models.CharField(
+        max_length=10, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{3,10}$',
+                message="Zip code must be 3-10 digits"
+            )
+        ]
+    )
+    lat = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^-?([0-8]?[0-9]|90)(\.[0-9]{1,7})?$',
+                message="Enter a valid latitude (-90 to 90)"
+            )
+        ]
+    )
+    lng = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        blank=True, 
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^-?(1[0-7][0-9]|[0-9]?[0-9])(\.[0-9]{1,7})?$',
+                message="Enter a valid longitude (-180 to 180)"
+            )
+        ]
+    )
+    google_place_id = models.CharField(max_length=100, blank=True, null=True)
+
+    def clean(self):
+        """Custom validation for Location"""
+        super().clean()
+        
+        # Validate coordinates if provided
+        if self.lat is not None:
+            try:
+                lat_val = float(self.lat)
+                if not (-90 <= lat_val <= 90):
+                    raise ValidationError({'lat': 'Latitude must be between -90 and 90'})
+            except (ValueError, TypeError):
+                raise ValidationError({'lat': 'Enter a valid latitude'})
+        
+        if self.lng is not None:
+            try:
+                lng_val = float(self.lng)
+                if not (-180 <= lng_val <= 180):
+                    raise ValidationError({'lng': 'Longitude must be between -180 and 180'})
+            except (ValueError, TypeError):
+                raise ValidationError({'lng': 'Enter a valid longitude'})
+
+    def save(self, *args, **kwargs):
+        # Clean before saving
+        self.full_clean()
+        
+        # Normalize location names
+        if self.state:
+            self.state = self.state.strip().title()
+        if self.city:
+            self.city = self.city.strip().title()
+        if self.address:
+            self.address = self.address.strip()
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        parts = []
+        if self.city:
+            parts.append(self.city)
+        parts.append(self.state)
+        parts.append(self.get_country_display())
+        return f"{', '.join(parts)} - {self.user.name}"
+    
+    def __repr__(self):
+        return f"<Location: {self.user.email} - {self.city or 'Unknown'}, {self.state}>"
+    
+    @property
+    def full_address(self):
+        """Returns the complete formatted address"""
+        parts = [self.address]
+        if self.city:
+            parts.append(self.city)
+        parts.append(self.state)
+        parts.append(self.get_country_display())
+        if self.zip_code:
+            parts.append(self.zip_code)
+        return ', '.join(parts)
+    
+    @property
+    def has_coordinates(self):
+        """Check if location has GPS coordinates"""
+        return self.lat is not None and self.lng is not None
+    
+    @property
+    def coordinates(self):
+        """Returns coordinates as a tuple (lat, lng) or None"""
+        if self.has_coordinates:
+            return (float(self.lat), float(self.lng))
+        return None
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['country', 'state']),
+            models.Index(fields=['city']),
+            models.Index(fields=['lat', 'lng']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Location'
+        verbose_name_plural = 'Locations'
 
     def __str__(self):
-        return f'{self.country}' +', '+ f'{self.state}'
+        return f'{self.country}, {self.state}'
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['country', 'state']),
+            models.Index(fields=['city']),
+            models.Index(fields=['lat', 'lng']),
+        ]
 
 
 
 class OTP(DbModel):
-    valid_for = models.ForeignKey('Account', on_delete=models.CASCADE)
-    code = models.CharField(max_length=7, default=make_random_otp)
+    valid_for = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='otps')
+    code = models.CharField(max_length=8, default=make_random_otp)
     used = models.BooleanField(default=False)
-    channel = models.CharField(max_length=20, default='email', choices=(('email', 'Email'), ('sms', 'SMS'))) # email | sms
+    channel = models.CharField(max_length=20, default='email', choices=(('email', 'Email'), ('sms', 'SMS')))
+    expires_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    max_attempts = models.PositiveIntegerField(default=3)
+    purpose = models.CharField(max_length=50, default='verification', choices=(
+        ('verification', 'Account Verification'),
+        ('password_reset', 'Password Reset'),
+        ('login', 'Login Verification'),
+        ('phone_verification', 'Phone Verification'),
+    ))
 
     class Meta:
         verbose_name = 'One Time Pin (OTP)'
         verbose_name_plural = 'One Time Pins (OTPs)'
+        indexes = [
+            models.Index(fields=['valid_for', 'channel', 'used']),
+            models.Index(fields=['expires_at']),
+            models.Index(fields=['code', 'used']),
+            models.Index(fields=['purpose', 'channel']),
+            models.Index(fields=['date_created']),
+        ]
+        ordering = ['-date_created']
+
+    def clean(self):
+        """Custom validation for OTP"""
+        super().clean()
+        
+        # Validate OTP code format
+        if self.code and not re.match(r'^\d{4,8}$', self.code):
+            raise ValidationError({'code': 'OTP code must be 4-8 digits'})
+        
+        # Validate max attempts
+        if self.max_attempts < 1 or self.max_attempts > 10:
+            raise ValidationError({'max_attempts': 'Max attempts must be between 1 and 10'})
+        
+        # Validate attempts don't exceed max
+        if self.attempts > self.max_attempts:
+            raise ValidationError({'attempts': 'Attempts cannot exceed max attempts'})
+
+    def save(self, *args, **kwargs):
+        # Clean before saving
+        self.full_clean()
+        
+        # Set expiration time if not set (10 minutes from creation)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        """Check if the OTP has expired."""
+        if not self.expires_at:
+            return True
+        return timezone.now() > self.expires_at
+
+    def is_valid_for_verification(self):
+        """Check if OTP is valid for verification (not used, not expired, attempts not exceeded)."""
+        return (
+            not self.used and 
+            not self.is_expired() and 
+            self.attempts < self.max_attempts
+        )
 
     def verify(self, code, user=None):
-        if self.code == code:
-            if user and user == self.valid_for: # for verifying user_profiles
-                if self.channel == 'email':
-                    user.verified_email = True
-                    user.save()
-                elif self.channel == 'sms':
-                    user.user_profile.verified_phone_number = True
-                    user.user_profile.save()
-                self.delete()
-                return True    
-        return False
-
+        """Verify the OTP code and update user verification status if successful."""
+        from utils.otp import validate_otp_format
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Increment attempt counter
+        self.attempts += 1
+        self.save()
+        
+        # Validate format first
+        if not validate_otp_format(code):
+            logger.warning(f"Invalid OTP format attempted for user {self.valid_for.email}")
+            return False
+        
+        # Check if OTP is still valid
+        if not self.is_valid_for_verification():
+            logger.warning(f"Invalid OTP verification attempt for user {self.valid_for.email}: expired or max attempts reached")
+            return False
+        
+        # Check if code matches
+        if self.code != code:
+            logger.warning(f"Incorrect OTP code attempted for user {self.valid_for.email}")
+            return False
+        
+        # Check if user matches (if provided)
+        if user and user != self.valid_for:
+            logger.warning(f"OTP user mismatch for {self.valid_for.email}")
+            return False
+        
+        # Mark as used
+        self.used = True
+        self.save()
+        
+        # Update user verification status
+        try:
+            if self.channel == 'email' and self.purpose == 'verification':
+                self.valid_for.verified_email = True
+                self.valid_for.save()
+                logger.info(f"Email verified for user {self.valid_for.email}")
+            elif self.channel == 'sms' and self.purpose == 'phone_verification':
+                user_profile = self.get_user_profile()
+                if user_profile:
+                    user_profile.verified_phone_number = True
+                    user_profile.save()
+                    logger.info(f"Phone verified for user {self.valid_for.email}")
+        except Exception as e:
+            logger.error(f"Error updating verification status for user {self.valid_for.email}: {str(e)}")
+        
+        return True
 
     def get_user_profile(self):
-        if self.valid_for.user_type == 'customer':
-            return Customer.objects.get(user=self.valid_for)
-        if self.valid_for.user_type == 'dealer':
-            return Dealer.objects.get(user=self.valid_for)
-        if self.valid_for.user_type == 'mechanic':
-            return Mechanic.objects.get(user=self.valid_for)
+        """Get the user profile based on user type."""
+        try:
+            if self.valid_for.user_type == 'customer':
+                return Customer.objects.get(user=self.valid_for)
+            elif self.valid_for.user_type == 'dealer':
+                return Dealership.objects.get(user=self.valid_for)
+            elif self.valid_for.user_type == 'mechanic':
+                return Mechanic.objects.get(user=self.valid_for)
+        except (Customer.DoesNotExist, Dealership.DoesNotExist, Mechanic.DoesNotExist):
+            pass
         return None
 
+    def mark_as_used(self):
+        """Mark the OTP as used."""
+        self.used = True
+        self.save()
+
     def __str__(self) -> str:
-        return self.code
+        status = "Used" if self.used else ("Expired" if self.is_expired() else "Active")
+        return f"OTP {self.code} for {self.valid_for.name} ({self.get_channel_display()}) - {status}"
+    
+    def __repr__(self):
+        return f"<OTP: {self.code} - {self.valid_for.email} - {self.get_purpose_display()}>"
+    
+    @property
+    def time_remaining(self):
+        """Returns time remaining before expiration"""
+        if self.is_expired():
+            return "Expired"
+        if self.expires_at:
+            remaining = self.expires_at - timezone.now()
+            minutes = int(remaining.total_seconds() / 60)
+            return f"{minutes} minutes" if minutes > 0 else "Less than 1 minute"
+        return "No expiration set"
+    
+    @property
+    def attempts_remaining(self):
+        """Returns number of attempts remaining"""
+        return max(0, self.max_attempts - self.attempts)
 
 
 class File(DbModel):
@@ -445,7 +1254,41 @@ class File(DbModel):
             'jpeg': 'Image Document',
             'png': 'Image Document',
         }
-        return types[ext] or f"Unknown Document type => {ext}"
+        return types.get(ext, f"Unknown Document type => {ext}")
+    
+    def __str__(self):
+        return f"{self.name or 'Unnamed File'} ({self.file_type()})"
+    
+    def __repr__(self):
+        return f"<File: {self.name or self.file.name}>"
+    
+    @property
+    def file_size(self):
+        """Returns file size in human readable format"""
+        try:
+            size = self.file.size
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    return f"{size:.1f} {unit}"
+                size /= 1024.0
+            return f"{size:.1f} TB"
+        except (AttributeError, OSError):
+            return "Unknown size"
+    
+    @property
+    def file_extension(self):
+        """Returns the file extension"""
+        if self.file and self.file.name:
+            return self.file.name.split('.')[-1].upper()
+        return "Unknown"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['name']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'File'
+        verbose_name_plural = 'Files'
 
 
 class Document(DbModel):
@@ -455,9 +1298,35 @@ class Document(DbModel):
         ('proof-of-address', "Proof of Address"),
     ]
 
-    owner = models.ForeignKey('Account', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='owned_documents')
     doctype = models.CharField(max_length=200, choices=DOCTYPES)
-    files = models.ManyToManyField('File', blank=True)
+    files = models.ManyToManyField('File', blank=True, related_name='document_files')
+    
+    def __str__(self):
+        file_count = self.files.count()
+        return f"{self.get_doctype_display()} for {self.owner.name} ({file_count} file{'s' if file_count != 1 else ''})"
+    
+    def __repr__(self):
+        return f"<Document: {self.get_doctype_display()} - {self.owner.email}>"
+    
+    @property
+    def total_files(self):
+        """Returns the total number of files attached"""
+        return self.files.count()
+    
+    @property
+    def has_files(self):
+        """Check if document has any files attached"""
+        return self.files.exists()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['doctype']),
+        ]
+        ordering = ['-date_created']
+        verbose_name = 'Document'
+        verbose_name_plural = 'Documents'
 
 
 
@@ -487,21 +1356,86 @@ class BusinessVerificationSubmission(DbModel):
     status = models.CharField(max_length=20, default='pending', choices=VERIFICATION_STATUS_CHOICES)
     
     # Business details
-    business_name = models.CharField(max_length=300)
-    cac_number = models.CharField(max_length=200, blank=True, null=True, help_text="Corporate Affairs Commission Number")
-    tin_number = models.CharField(max_length=200, blank=True, null=True, help_text="Tax Identification Number")
-    business_address = models.TextField()
-    business_email = models.EmailField()
-    business_phone = models.CharField(max_length=20)
+    business_name = models.CharField(
+        max_length=300,
+        validators=[
+            MinLengthValidator(2, message="Business name must be at least 2 characters long"),
+            RegexValidator(
+                regex=r'^[a-zA-Z0-9\s\-\'\.&]+$',
+                message="Business name can only contain letters, numbers, spaces, hyphens, apostrophes, periods, and ampersands"
+            )
+        ]
+    )
+    cac_number = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        help_text="Corporate Affairs Commission Number",
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z]{2}\d{6,8}$',
+                message="Enter a valid CAC number (e.g., RC123456)"
+            )
+        ]
+    )
+    tin_number = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        help_text="Tax Identification Number",
+        validators=[
+            RegexValidator(
+                regex=r'^\d{8}-\d{4}$',
+                message="Enter a valid TIN number (format: 12345678-1234)"
+            )
+        ]
+    )
+    business_address = models.TextField(
+        validators=[
+            MinLengthValidator(10, message="Business address must be at least 10 characters long")
+        ]
+    )
+    business_email = models.EmailField(
+        validators=[EmailValidator(message="Enter a valid email address")]
+    )
+    business_phone = models.CharField(
+        max_length=20,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[1-9]\d{1,14}$',
+                message="Enter a valid phone number"
+            )
+        ]
+    )
     
-    # Documents (uploaded files)
-    cac_document = models.FileField(upload_to='verification/cac/', blank=True, null=True)
-    tin_document = models.FileField(upload_to='verification/tin/', blank=True, null=True)
-    proof_of_address = models.FileField(upload_to='verification/address/', blank=True, null=True)
-    business_license = models.FileField(upload_to='verification/license/', blank=True, null=True)
+    # Documents (uploaded files) - using secure upload paths
+    cac_document = models.FileField(
+        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
+        blank=True, 
+        null=True,
+        help_text="CAC registration certificate (PDF, JPG, PNG - max 5MB)"
+    )
+    tin_document = models.FileField(
+        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
+        blank=True, 
+        null=True,
+        help_text="TIN certificate (PDF, JPG, PNG - max 5MB)"
+    )
+    proof_of_address = models.FileField(
+        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
+        blank=True, 
+        null=True,
+        help_text="Proof of business address (PDF, JPG, PNG - max 5MB)"
+    )
+    business_license = models.FileField(
+        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
+        blank=True, 
+        null=True,
+        help_text="Business license or permit (PDF, JPG, PNG - max 5MB)"
+    )
     
     # Admin review
-    reviewed_by = models.ForeignKey('Account', on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_verifications')
+    reviewed_by = models.ForeignKey('Account', on_delete=models.SET_NULL, null=True, blank=True, related_name='admin_reviewed_verifications')
     reviewed_at = models.DateTimeField(null=True, blank=True)
     admin_notes = models.TextField(blank=True, null=True, help_text="Internal notes from admin review")
     rejection_reason = models.TextField(blank=True, null=True, help_text="Reason for rejection (shown to user)")
@@ -512,7 +1446,42 @@ class BusinessVerificationSubmission(DbModel):
         ordering = ['-date_created']
     
     def __str__(self):
-        return f"{self.business_name} - {self.get_status_display()}"
+        return f"{self.business_name} ({self.get_business_type_display()}) - {self.get_status_display()}"
+    
+    def __repr__(self):
+        return f"<BusinessVerification: {self.business_name} - {self.status}>"
+    
+    @property
+    def documents_uploaded(self):
+        """Returns count of uploaded documents"""
+        docs = [self.cac_document, self.tin_document, self.proof_of_address, self.business_license]
+        return sum(1 for doc in docs if doc)
+    
+    @property
+    def required_documents_count(self):
+        """Returns total number of required documents"""
+        return 4  # CAC, TIN, Proof of Address, Business License
+    
+    @property
+    def documents_completion_percentage(self):
+        """Returns percentage of documents uploaded"""
+        return round((self.documents_uploaded / self.required_documents_count) * 100, 1)
+    
+    @property
+    def is_complete(self):
+        """Check if all required information is provided"""
+        return (
+            self.business_name and
+            self.business_address and
+            self.business_email and
+            self.business_phone and
+            self.documents_uploaded >= 2  # At least 2 documents required
+        )
+    
+    @property
+    def days_since_submission(self):
+        """Returns days since submission"""
+        return (now().date() - self.date_created.date()).days
     
     @property
     def business_profile(self):
@@ -521,6 +1490,7 @@ class BusinessVerificationSubmission(DbModel):
     
     def approve(self, admin_user):
         """Approve the verification and update the business profile"""
+        old_status = self.status
         self.status = 'verified'
         self.reviewed_by = admin_user
         self.reviewed_at = now()
@@ -531,14 +1501,82 @@ class BusinessVerificationSubmission(DbModel):
         if business:
             business.verified_business = True
             business.save()
+        
+        # Send notification email if status changed
+        if old_status != 'verified':
+            self._send_status_notification()
     
     def reject(self, admin_user, reason):
         """Reject the verification"""
+        old_status = self.status
         self.status = 'rejected'
         self.reviewed_by = admin_user
         self.reviewed_at = now()
         self.rejection_reason = reason
         self.save()
+        
+        # Send notification email if status changed
+        if old_status != 'rejected':
+            self._send_status_notification()
+    
+    def _send_status_notification(self):
+        """Send status change notification email"""
+        try:
+            from accounts.utils.email_notifications import send_business_verification_status
+            
+            # Get the user from the business profile
+            business = self.business_profile
+            if business and business.user:
+                send_business_verification_status(
+                    user=business.user,
+                    status=self.status,
+                    reason=self.rejection_reason or '',
+                    business_name=self.business_name
+                )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send verification status notification: {str(e)}")
+    
+    def clean(self):
+        """Custom validation for BusinessVerificationSubmission"""
+        super().clean()
+        
+        # Validate business type matches profile
+        if self.business_type == 'dealership' and not self.dealership:
+            raise ValidationError({'dealership': 'Dealership profile is required for dealership verification'})
+        
+        if self.business_type == 'mechanic' and not self.mechanic:
+            raise ValidationError({'mechanic': 'Mechanic profile is required for mechanic verification'})
+        
+        # Validate email format
+        if self.business_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.business_email):
+            raise ValidationError({'business_email': 'Enter a valid email address'})
+
+    def save(self, *args, **kwargs):
+        """Override save to track status changes"""
+        # Clean before saving
+        self.full_clean()
+        
+        # Normalize business details
+        if self.business_name:
+            self.business_name = self.business_name.strip()
+        if self.business_address:
+            self.business_address = self.business_address.strip()
+        
+        # Track if this is a status change
+        if self.pk:
+            try:
+                old_instance = BusinessVerificationSubmission.objects.get(pk=self.pk)
+                if old_instance.status != self.status and self.status in ['verified', 'rejected']:
+                    # Status changed to final state, send notification
+                    super().save(*args, **kwargs)
+                    self._send_status_notification()
+                    return
+            except BusinessVerificationSubmission.DoesNotExist:
+                pass
+        
+        super().save(*args, **kwargs)
 
 
 # use as ref to old imports for now

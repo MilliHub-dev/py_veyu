@@ -11,6 +11,25 @@ class DbModel(models.Model):
     date_created = models.DateTimeField(auto_now=True, auto_now_add=False)
     last_updated = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        """Default string representation for all models"""
+        return f"{self.__class__.__name__} #{self.id}"
+    
+    def __repr__(self):
+        """Default repr for all models"""
+        return f"<{self.__class__.__name__}: {self.id}>"
+    
+    @property
+    def age_in_days(self):
+        """Returns age of the record in days"""
+        from django.utils import timezone
+        return (timezone.now().date() - self.date_created.date()).days
+    
+    @property
+    def short_uuid(self):
+        """Returns shortened UUID for display"""
+        return str(self.uuid)[:8]
+
     class Meta:
         abstract = True
 
