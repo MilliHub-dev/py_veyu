@@ -65,15 +65,15 @@ class SignupSerializer(Serializer):
         style={'placeholder': 'Doe'}
     )
     password = CharField(
-        required=True, 
+        required=False,  # Not required for social auth
         min_length=8,
         max_length=128,
         write_only=True,
-        help_text="Strong password (min 8 characters)",
+        help_text="Strong password (min 8 characters, required for Veyu accounts)",
         style={'input_type': 'password', 'placeholder': '••••••••'}
     )
     confirm_password = CharField(
-        required=True,
+        required=False,  # Not required for social auth
         write_only=True,
         help_text="Password confirmation (must match password)",
         style={'input_type': 'password', 'placeholder': '••••••••'}
@@ -111,8 +111,16 @@ class SignupSerializer(Serializer):
 
     def validate(self, attrs):
         """Validate password confirmation and user type."""
-        if attrs.get('password') != attrs.get('confirm_password'):
-            raise serializers.ValidationError("Passwords do not match.")
+        provider = attrs.get('provider', 'veyu')
+        
+        # Password is required for Veyu accounts
+        if provider == 'veyu':
+            if not attrs.get('password'):
+                raise serializers.ValidationError("Password is required for Veyu accounts.")
+            if not attrs.get('confirm_password'):
+                raise serializers.ValidationError("Password confirmation is required.")
+            if attrs.get('password') != attrs.get('confirm_password'):
+                raise serializers.ValidationError("Passwords do not match.")
         
         if attrs.get('user_type') not in ['customer', 'mechanic', 'dealer']:
             raise serializers.ValidationError("Invalid user type.")

@@ -202,22 +202,25 @@ class EnhancedSignUpView(APIView):
         user_type = validated_data['user_type']
         provider = validated_data.get('provider', 'veyu')
         
-        # Create the user account
-        user = Account.objects.create(
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            email=validated_data['email'],
-            provider=provider,
-            user_type=user_type
-        )
-        
-        # Set password for Veyu accounts
+        # Create the user account with password
         if provider == 'veyu':
-            user.set_password(validated_data['password'])
+            user = Account.objects.create_user(
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                provider=provider,
+                user_type=user_type
+            )
         else:
-            user.set_unusable_password()
-        
-        user.save()
+            user = Account.objects.create_user(
+                email=validated_data['email'],
+                password=None,
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                provider=provider,
+                user_type=user_type
+            )
         
         # Create user type specific profile
         if user_type == 'customer':

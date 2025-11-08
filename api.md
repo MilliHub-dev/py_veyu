@@ -2,8 +2,8 @@
 
 ## Base URL
 ```
-Production: https://api.veyu.cc
-Development: http://localhost:8000
+Production: https://dev.veyu.cc
+Development: http://127.0.0.1:8000
 ```
 
 ## Authentication
@@ -70,15 +70,15 @@ POST /api/v1/accounts/signup/
 {
   "email": "user@example.com",
   "password": "SecurePass123!",
-  "password_confirm": "SecurePass123!",
+  "confirm_password": "SecurePass123!",
   "first_name": "John",
   "last_name": "Doe",
   "phone_number": "+2348012345678",
   "user_type": "customer|dealer|mechanic",
-  "business_name": "Optional for dealers/mechanics",
-  "accept_terms": true
+  "provider": "veyu"
 }
 ```
+**Note:** `password` and `confirm_password` are required for `provider: "veyu"` but optional for social auth providers.
 **Response:**
 ```json
 {
