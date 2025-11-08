@@ -46,6 +46,86 @@ def retry_on_failure(max_retries=3, delay=1):
         return wrapper
     return decorator
 
+def test_email_connection() -> Dict[str, Any]:
+    """
+    Test email connection with current settings and return detailed results.
+    """
+    result = {
+        'success': False,
+        'backend': getattr(settings, 'EMAIL_BACKEND', 'Not configured'),
+        'message': '',
+        'connection_time': 0,
+        'error': None
+    }
+    
+    try:
+        if 'smtp' not in result['backend'].lower():
+            result['message'] = f"Not using SMTP backend: {result['backend']}"
+            result['success'] = True
+            return result
+        
+        # Test SMTP connection with timeout
+        import smtplib
+        import socket
+        
+        host = getattr(settings, 'EMAIL_HOST', '')
+        port = getattr(settings, 'EMAIL_PORT', 587)
+        timeout = getattr(settings, 'EMAIL_TIMEOUT', 15)
+        use_tls = getattr(settings, 'EMAIL_USE_TLS', False)
+        use_ssl = getattr(settings, 'EMAIL_USE_SSL', False)
+        username = getattr(settings, 'EMAIL_HOST_USER', '')
+        password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+        
+        if not host:
+            result['error'] = 'EMAIL_HOST not configured'
+            return result
+        
+        start_time = time.time()
+        
+        try:
+            # Create SSL context with more lenient certificate verification
+            import ssl
+            context = ssl.create_default_context()
+            
+            # For SendGrid and other providers with certificate issues
+            if 'sendgrid' in host.lower():
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            
+            if use_ssl:
+                smtp = smtplib.SMTP_SSL(host, port, timeout=timeout, context=context)
+            else:
+                smtp = smtplib.SMTP(host, port, timeout=timeout)
+            
+            if use_tls and not use_ssl:
+                smtp.starttls(context=context)
+            
+            if username and password:
+                smtp.login(username, password)
+            
+            smtp.quit()
+            
+            result['connection_time'] = time.time() - start_time
+            result['success'] = True
+            result['message'] = f"SMTP connection successful in {result['connection_time']:.2f}s"
+            
+        except socket.timeout:
+            result['error'] = f"Connection timeout after {timeout}s"
+        except smtplib.SMTPAuthenticationError as e:
+            result['error'] = f"Authentication failed: {str(e)}"
+        except smtplib.SMTPConnectError as e:
+            result['error'] = f"Connection failed: {str(e)}"
+        except Exception as e:
+            result['error'] = f"SMTP error: {str(e)}"
+        
+        logger.info(f"Email connection test: {'SUCCESS' if result['success'] else 'FAILED'} - {result.get('message', result.get('error', ''))}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error testing email connection: {str(e)}", exc_info=True)
+        result['error'] = f"Test error: {str(e)}"
+        return result
+
 def send_email(
     subject: str, 
     recipients: List[str], 
@@ -252,6 +332,10 @@ The {app_name} Team
 
 def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, max_retries: int = 3, delay: int = 1) -> bool:
     """Internal function to send email with retry logic and comprehensive logging."""
+    import socket
+    import ssl
+    from smtplib import SMTPException, SMTPServerDisconnected
+    
     last_exception = None
     email_id = f"{int(time.time())}_{email.to[0].split('@')[0] if email.to else 'unknown'}"
     
@@ -259,6 +343,14 @@ def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, m
     
     for attempt in range(1, max_retries + 1):
         try:
+            # Create a fresh connection for each attempt to avoid connection reuse issues
+            if hasattr(email, 'connection') and email.connection:
+                try:
+                    email.connection.close()
+                except:
+                    pass
+                email.connection = None
+            
             start_time = time.time()
             email.send(fail_silently=False)
             delivery_time = time.time() - start_time
@@ -270,21 +362,78 @@ def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, m
             _log_email_delivery_status(email_id, email.to[0], 'delivered', attempt, delivery_time)
             return True
             
-        except Exception as e:
+        except (socket.timeout, TimeoutError) as e:
             last_exception = e
-            error_type = type(e).__name__
-            error_msg = f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_type}: {str(e)}"
+            error_msg = f"TimeoutError: timed out"
             
             if attempt < max_retries:
                 sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
-                logger.warning(f"{error_msg}. Retrying in {sleep_time}s...")
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
                 time.sleep(sleep_time)
             else:
-                logger.error(error_msg)
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
+                # Try fallback backend on final timeout
+                if _try_fallback_email(email, email_id):
+                    return True
+                    
+        except ssl.SSLError as e:
+            last_exception = e
+            error_msg = f"SSLCertVerificationError: {str(e)}"
+            
+            if attempt < max_retries:
+                sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
+                # Try fallback backend on SSL failure
+                if _try_fallback_email(email, email_id):
+                    return True
+                    
+        except SMTPServerDisconnected as e:
+            last_exception = e
+            error_msg = f"SMTPServerDisconnected: {str(e) if str(e) else 'Server not connected'}"
+            
+            if attempt < max_retries:
+                sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
+                # Try fallback backend on disconnection
+                if _try_fallback_email(email, email_id):
+                    return True
+                    
+        except SMTPException as e:
+            last_exception = e
+            error_type = type(e).__name__
+            error_msg = f"{error_type}: {str(e)}"
+            
+            if attempt < max_retries:
+                sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
+                # Try fallback backend on final SMTP failure
+                if _try_fallback_email(email, email_id):
+                    return True
+                    
+        except Exception as e:
+            last_exception = e
+            error_type = type(e).__name__
+            error_msg = f"{error_type}: {str(e)}"
+            
+            if attempt < max_retries:
+                sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
     
     # If we get here, all retries failed
     final_error = f"[Email {email_id}] All {max_retries} delivery attempts failed. Last error: {str(last_exception)}"
-    logger.error(final_error, exc_info=True)
+    logger.error(final_error)
     
     # Log failed delivery for monitoring
     _log_email_delivery_status(email_id, email.to[0] if email.to else 'unknown', 'failed', max_retries, 0, str(last_exception))
@@ -297,6 +446,56 @@ def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, m
         raise last_exception from None
         
     return False
+
+def _try_fallback_email(email: EmailMultiAlternatives, email_id: str) -> bool:
+    """Try to send email using fallback backend when primary fails."""
+    try:
+        # Check if fallback is enabled
+        if not getattr(settings, 'EMAIL_FALLBACK_ENABLED', True):
+            logger.debug(f"[Email {email_id}] Fallback email disabled")
+            return False
+            
+        fallback_backend = getattr(settings, 'EMAIL_FALLBACK_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+        
+        logger.info(f"[Email {email_id}] Attempting fallback delivery using {fallback_backend}")
+        
+        # Create new connection with fallback backend
+        from django.core.mail import get_connection
+        fallback_connection = get_connection(backend=fallback_backend)
+        
+        # Create new email with fallback connection
+        fallback_email = EmailMultiAlternatives(
+            subject=email.subject,
+            body=email.body,
+            from_email=email.from_email,
+            to=email.to,
+            cc=email.cc,
+            bcc=email.bcc,
+            connection=fallback_connection,
+            headers=email.extra_headers
+        )
+        
+        # Copy alternatives (HTML content)
+        for content, mimetype in email.alternatives:
+            fallback_email.attach_alternative(content, mimetype)
+        
+        # Copy attachments
+        for attachment in email.attachments:
+            fallback_email.attach(attachment)
+        
+        # Send using fallback
+        start_time = time.time()
+        fallback_email.send(fail_silently=False)
+        delivery_time = time.time() - start_time
+        
+        logger.info(f"[Email {email_id}] Successfully delivered via fallback in {delivery_time:.2f}s")
+        _log_email_delivery_status(email_id, email.to[0], 'delivered_fallback', 1, delivery_time)
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"[Email {email_id}] Fallback delivery also failed: {str(e)}", exc_info=True)
+        return False
 
 def _log_email_delivery_status(email_id: str, recipient: str, status: str, attempts: int, 
                               delivery_time: float = 0, error_message: str = None):
@@ -635,15 +834,24 @@ def test_smtp_connection() -> Dict[str, Any]:
         start_time = time.time()
         
         try:
+            # Create SSL context with more lenient certificate verification
+            import ssl
+            context = ssl.create_default_context()
+            
+            # For SendGrid and other providers with certificate issues
+            if 'sendgrid' in host.lower():
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            
             # Choose SMTP class based on SSL setting
             if use_ssl:
-                smtp = smtplib.SMTP_SSL(host, port, timeout=timeout)
+                smtp = smtplib.SMTP_SSL(host, port, timeout=timeout, context=context)
             else:
                 smtp = smtplib.SMTP(host, port, timeout=timeout)
             
             # Enable TLS if configured
             if use_tls and not use_ssl:
-                smtp.starttls()
+                smtp.starttls(context=context)
             
             # Authenticate if credentials provided
             if username and password:

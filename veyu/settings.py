@@ -449,7 +449,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 # EMAIL CONFIGURATION
 # ===============================================
 # Read email settings from environment variables with secure defaults
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'utils.email_backends.ReliableSMTPBackend')
 
 # SMTP Configuration (SendGrid)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.sendgrid.net')
@@ -462,8 +462,19 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com')
 SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = '[Veyu] '  # Add prefix to all email subjects
 
-# Timeout settings
-EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '30'))  # seconds
+# Timeout settings - reduced for faster failure detection
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))  # seconds - reduced from 30
+
+# Connection retry settings
+EMAIL_MAX_RETRIES = int(os.getenv('EMAIL_MAX_RETRIES', '3'))
+EMAIL_RETRY_DELAY = int(os.getenv('EMAIL_RETRY_DELAY', '2'))  # seconds between retries
+
+# SSL Configuration for email
+EMAIL_SSL_VERIFY = os.getenv('EMAIL_SSL_VERIFY', 'False').lower() == 'true'  # Disable SSL verification for SendGrid compatibility
+
+# Fallback email backend for when SMTP fails
+EMAIL_FALLBACK_BACKEND = os.getenv('EMAIL_FALLBACK_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_FALLBACK_ENABLED = os.getenv('EMAIL_FALLBACK_ENABLED', 'True').lower() == 'true'
 
 # Email verification settings
 EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links

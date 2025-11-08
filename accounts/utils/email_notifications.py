@@ -138,14 +138,22 @@ def send_verification_email(user, verification_code: str) -> bool:
     }
     
     try:
-        # Use the enhanced send_email function with template resolution
-        return send_email(
+        # Use the enhanced send_email function with template resolution and improved error handling
+        success = send_email(
             subject=subject,
             recipients=[user.email],
             template='verification_email.html',
             context=context,
             fail_silently=False
         )
+        
+        if success:
+            logger.info(f"Verification email sent successfully to {user.email}")
+        else:
+            logger.warning(f"Verification email failed to send to {user.email}")
+            
+        return success
+        
     except Exception as e:
         logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
         return False
