@@ -449,7 +449,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 # EMAIL CONFIGURATION
 # ===============================================
 # Read email settings from environment variables with secure defaults
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'utils.email_backends.ReliableSMTPBackend')
+# Use adaptive backend that automatically handles network issues
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'utils.email_detector.AdaptiveEmailBackend')
 
 # SMTP Configuration (Gmail by default, SendGrid as alternative)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
@@ -479,11 +480,14 @@ EMAIL_FALLBACK_ENABLED = os.getenv('EMAIL_FALLBACK_ENABLED', 'True').lower() == 
 # Email verification settings
 EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links
 
-# In development, allow falling back to console backend if explicitly set
-if DEBUG and os.getenv('USE_CONSOLE_EMAIL', 'False').lower() == 'true':
+# Handle console email backend configuration
+if os.getenv('USE_CONSOLE_EMAIL', 'False').lower() == 'true':
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    print("\n=== WARNING: Using CONSOLE email backend for development ===")
-    print("Set USE_CONSOLE_EMAIL=False in production!\n")
+    if DEBUG:
+        print("\n=== INFO: Using CONSOLE email backend for development ===")
+    else:
+        print("\n=== INFO: Using CONSOLE email backend for production (no SMTP access) ===")
+        print("Emails will be logged to console instead of being sent via SMTP\n")
 
 # Email rate limiting (using Django Ratelimit or similar middleware)
 EMAIL_RATE_LIMIT = os.getenv('EMAIL_RATE_LIMIT', '10/hour')  # e.g., '100/day' or '10/hour'

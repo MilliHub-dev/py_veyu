@@ -121,6 +121,14 @@ class ReliableSMTPBackend(DjangoSMTPBackend):
                 self.ssl_context.verify_mode = ssl.CERT_NONE
                 return self.open()  # Recursive retry
             raise
+        except OSError as e:
+            if e.errno == 101:  # Network is unreachable
+                logger.error(f"Network unreachable - cannot connect to SMTP server: {e}")
+                # In production, this might indicate network configuration issues
+                raise ConnectionError("Network unreachable - check server network configuration")
+            else:
+                logger.error(f"Network error during SMTP connection: {e}")
+                raise
         except Exception as e:
             logger.error(f"Unexpected error during SMTP connection: {e}")
             raise

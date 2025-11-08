@@ -419,6 +419,25 @@ def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, m
                 if _try_fallback_email(email, email_id):
                     return True
                     
+        except OSError as e:
+            last_exception = e
+            if e.errno == 101:  # Network is unreachable
+                error_msg = f"OSError: [Errno 101] Network is unreachable"
+                logger.error(f"[Email {email_id}] Network unreachable - attempting fallback immediately")
+                # Don't retry network unreachable errors, go straight to fallback
+                if _try_fallback_email(email, email_id):
+                    return True
+                break  # Exit retry loop for network errors
+            else:
+                error_msg = f"OSError: {str(e)}"
+                
+            if attempt < max_retries:
+                sleep_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                logger.warning(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}. Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"[Email {email_id}] Attempt {attempt}/{max_retries} failed: {error_msg}")
+                
         except Exception as e:
             last_exception = e
             error_type = type(e).__name__
