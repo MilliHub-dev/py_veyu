@@ -39,6 +39,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     )
     
     class Meta:
+        ref_name = 'VeyuPasswordResetRequestSerializer'  # Unique ref_name to avoid conflict with dj_rest_auth
         swagger_schema_fields = {
             "example": {
                 "email": "user@example.com"
@@ -75,6 +76,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         return attrs
     
     class Meta:
+        ref_name = 'VeyuPasswordResetConfirmSerializer'  # Unique ref_name to avoid conflict with dj_rest_auth
         swagger_schema_fields = {
             "example": {
                 "token": "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
