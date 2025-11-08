@@ -50,13 +50,20 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
             'vehicle', 'inspector', 'customer__user', 'dealer__user'
         ).order_by('-inspection_date')
         
+        # Handle swagger schema generation with fake view
+        if getattr(self, 'swagger_fake_view', False):
+            return queryset
+        
         # Filter by user role
         user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
         if hasattr(user, 'customer'):
             queryset = queryset.filter(customer=user.customer)
         elif hasattr(user, 'dealership'):
             queryset = queryset.filter(dealer=user.dealership)
-        elif user.user_type == 'mechanic':
+        elif getattr(user, 'user_type', None) == 'mechanic':
             queryset = queryset.filter(inspector=user)
         
         # Additional filters
@@ -77,7 +84,7 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         """Set default values when creating inspection"""
         # Auto-assign inspector if user is a mechanic
-        if self.request.user.user_type == 'mechanic':
+        if getattr(self.request.user, 'user_type', None) == 'mechanic':
             serializer.save(inspector=self.request.user)
         else:
             serializer.save()
@@ -95,13 +102,20 @@ class VehicleInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):
             'vehicle', 'inspector', 'customer__user', 'dealer__user'
         ).prefetch_related('photos', 'documents__signatures')
         
+        # Handle swagger schema generation with fake view
+        if getattr(self, 'swagger_fake_view', False):
+            return queryset
+        
         # Filter by user permissions
         user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
         if hasattr(user, 'customer'):
             queryset = queryset.filter(customer=user.customer)
         elif hasattr(user, 'dealership'):
             queryset = queryset.filter(dealer=user.dealership)
-        elif user.user_type == 'mechanic':
+        elif getattr(user, 'user_type', None) == 'mechanic':
             queryset = queryset.filter(inspector=user)
         
         return queryset
@@ -402,7 +416,7 @@ class InspectionStatsView(APIView):
                 queryset = VehicleInspection.objects.filter(customer=user.customer)
             elif hasattr(user, 'dealership'):
                 queryset = VehicleInspection.objects.filter(dealer=user.dealership)
-            elif user.user_type == 'mechanic':
+            elif getattr(user, 'user_type', None) == 'mechanic':
                 queryset = VehicleInspection.objects.filter(inspector=user)
             else:
                 queryset = VehicleInspection.objects.all()

@@ -413,6 +413,7 @@ class LoginSerializer(Serializer):
     )
 
     class Meta:
+        ref_name = 'VeyuLoginSerializer'  # Unique ref_name to avoid conflict with dj_rest_auth
         swagger_schema_fields = {
             "example": {
                 "email": "john.doe@example.com",
