@@ -423,7 +423,7 @@ def _send_email_with_retry(email: EmailMultiAlternatives, fail_silently: bool, m
             last_exception = e
             if e.errno == 101:  # Network is unreachable
                 error_msg = f"OSError: [Errno 101] Network is unreachable"
-                logger.error(f"[Email {email_id}] Network unreachable - attempting fallback immediately")
+                logger.warning(f"[Email {email_id}] Network unreachable - attempting fallback immediately")
                 # Don't retry network unreachable errors, go straight to fallback
                 if _try_fallback_email(email, email_id):
                     return True
