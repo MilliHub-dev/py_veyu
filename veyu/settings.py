@@ -451,13 +451,13 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Read email settings from environment variables with secure defaults
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'utils.email_backends.ReliableSMTPBackend')
 
-# SMTP Configuration (SendGrid)
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.sendgrid.net')
+# SMTP Configuration (Gmail by default, SendGrid as alternative)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'apikey')  # 'apikey' for SendGrid
-EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY', '')  # Required for production
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com'))
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # Gmail app password or SendGrid API key
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com')
 SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = '[Veyu] '  # Add prefix to all email subjects

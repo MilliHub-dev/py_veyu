@@ -101,3 +101,33 @@ socket.gaierror: [Errno 11001] getaddrinfo failed
 [2025-11-08 16:04:51] INFO [utils.mail:782] Email configuration validation completed: VALID
 [2025-11-08 16:04:53] INFO [utils.mail:886] SMTP connection test: SUCCESS
 [2025-11-08 16:04:53] INFO [utils.mail:944] Email backend health check: HEALTHY
+[2025-11-08 16:16:51] INFO [utils.mail:782] Email configuration validation completed: VALID
+[2025-11-08 16:16:54] INFO [utils.mail:121] Email connection test: SUCCESS - SMTP connection successful in 3.09s
+[2025-11-08 16:16:54] DEBUG [utils.mail:160] Preparing email to ['ekeminieffiong22@gmail.com'] with subject: Test Email from Veyu
+[2025-11-08 16:16:54] DEBUG [utils.mail:192] [Email 1762615014_ekeminieffiong22] Sending email to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:16:54] INFO [utils.mail:342] [Email 1762615014_ekeminieffiong22] Starting email delivery to ['ekeminieffiong22@gmail.com'] (max 3 attempts)
+[2025-11-08 16:16:54] DEBUG [utils.mail:30] Configuring SSL context for SendGrid compatibility
+[2025-11-08 16:16:54] DEBUG [utils.mail:36] SSL certificate verification disabled via settings
+[2025-11-08 16:16:56] DEBUG [utils.mail:91] SMTP connection established to smtp.sendgrid.net:587
+[2025-11-08 16:16:57] ERROR [utils.mail:176] SMTP data error: (550, b'The from address does not match a verified Sender Identity. Mail cannot be sent until this error is resolved. Visit https://sendgrid.com/docs/for-developers/sending-email/sender-identity/ to see the Sender Identity requirements')
+[2025-11-08 16:16:57] INFO [utils.mail:358] [Email 1762615014_ekeminieffiong22] Successfully delivered on attempt 1/3 in 3.37s to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:16:57] INFO [utils.mail.delivery:517] Email delivery status: {'email_id': '1762615014_ekeminieffiong22', 'recipient': 'ekeminieffiong22@gmail.com', 'status': 'delivered', 'attempts': 1, 'delivery_time': 3.365577459335327, 'timestamp': 1762615017.604706}
+[2025-11-08 16:16:57] INFO [utils.mail:198] [Email 1762615014_ekeminieffiong22] Successfully sent to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:25:47] INFO [utils.mail:782] Email configuration validation completed: VALID
+[2025-11-08 16:25:49] INFO [utils.mail:121] Email connection test: SUCCESS - SMTP connection successful in 1.79s
+[2025-11-08 16:28:31] INFO [utils.mail:782] Email configuration validation completed: VALID
+[2025-11-08 16:28:32] INFO [utils.mail:121] Email connection test: SUCCESS - SMTP connection successful in 1.60s
+[2025-11-08 16:30:02] INFO [utils.mail:782] Email configuration validation completed: VALID
+[2025-11-08 16:30:04] INFO [utils.mail:121] Email connection test: SUCCESS - SMTP connection successful in 2.02s
+[2025-11-08 16:30:39] INFO [utils.mail:782] Email configuration validation completed: VALID
+[2025-11-08 16:30:41] INFO [utils.mail:121] Email connection test: SUCCESS - SMTP connection successful in 1.90s
+[2025-11-08 16:30:41] DEBUG [utils.mail:160] Preparing email to ['ekeminieffiong22@gmail.com'] with subject: Test Email from Veyu
+[2025-11-08 16:30:41] DEBUG [utils.mail:192] [Email 1762615841_ekeminieffiong22] Sending email to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:30:41] INFO [utils.mail:342] [Email 1762615841_ekeminieffiong22] Starting email delivery to ['ekeminieffiong22@gmail.com'] (max 3 attempts)
+[2025-11-08 16:30:41] DEBUG [utils.mail:37] Configuring SSL context for Gmail compatibility
+[2025-11-08 16:30:41] DEBUG [utils.mail:47] SSL certificate verification enabled via settings
+[2025-11-08 16:30:43] DEBUG [utils.mail:106] SMTP connection established to smtp.gmail.com:587
+[2025-11-08 16:30:44] DEBUG [utils.mail:181] Message sent successfully to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:30:45] INFO [utils.mail:358] [Email 1762615841_ekeminieffiong22] Successfully delivered on attempt 1/3 in 3.77s to ['ekeminieffiong22@gmail.com']
+[2025-11-08 16:30:45] INFO [utils.mail.delivery:517] Email delivery status: {'email_id': '1762615841_ekeminieffiong22', 'recipient': 'ekeminieffiong22@gmail.com', 'status': 'delivered', 'attempts': 1, 'delivery_time': 3.7705399990081787, 'timestamp': 1762615845.2146935}
+[2025-11-08 16:30:45] INFO [utils.mail:198] [Email 1762615841_ekeminieffiong22] Successfully sent to ['ekeminieffiong22@gmail.com']

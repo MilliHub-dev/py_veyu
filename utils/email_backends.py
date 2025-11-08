@@ -25,17 +25,32 @@ class ReliableSMTPBackend(DjangoSMTPBackend):
         try:
             self.ssl_context = ssl.create_default_context()
             
-            # For SendGrid and other providers with certificate issues
-            if hasattr(settings, 'EMAIL_HOST') and 'sendgrid' in settings.EMAIL_HOST.lower():
-                logger.debug("Configuring SSL context for SendGrid compatibility")
-                self.ssl_context.check_hostname = False
-                self.ssl_context.verify_mode = ssl.CERT_NONE
+            # Provider-specific SSL configuration
+            if hasattr(settings, 'EMAIL_HOST'):
+                host = settings.EMAIL_HOST.lower()
+                
+                if 'sendgrid' in host:
+                    logger.debug("Configuring SSL context for SendGrid compatibility")
+                    self.ssl_context.check_hostname = False
+                    self.ssl_context.verify_mode = ssl.CERT_NONE
+                elif 'gmail' in host:
+                    logger.debug("Configuring SSL context for Gmail compatibility")
+                    self.ssl_context.check_hostname = True
+                    self.ssl_context.verify_mode = ssl.CERT_REQUIRED
+                    # Gmail requires proper SSL verification
+                else:
+                    logger.debug("Using default SSL context")
             
             # Allow configuration override
-            if hasattr(settings, 'EMAIL_SSL_VERIFY') and not settings.EMAIL_SSL_VERIFY:
-                logger.debug("SSL certificate verification disabled via settings")
-                self.ssl_context.check_hostname = False
-                self.ssl_context.verify_mode = ssl.CERT_NONE
+            if hasattr(settings, 'EMAIL_SSL_VERIFY'):
+                if settings.EMAIL_SSL_VERIFY:
+                    logger.debug("SSL certificate verification enabled via settings")
+                    self.ssl_context.check_hostname = True
+                    self.ssl_context.verify_mode = ssl.CERT_REQUIRED
+                else:
+                    logger.debug("SSL certificate verification disabled via settings")
+                    self.ssl_context.check_hostname = False
+                    self.ssl_context.verify_mode = ssl.CERT_NONE
                 
         except Exception as e:
             logger.warning(f"Failed to setup SSL context: {e}")
