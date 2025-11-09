@@ -446,48 +446,20 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # ===============================================
-# EMAIL CONFIGURATION
+# EMAIL CONFIGURATION - Simple Gmail SMTP
 # ===============================================
-# Read email settings from environment variables with secure defaults
-# Use adaptive backend that automatically handles network issues
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'utils.email_detector.AdaptiveEmailBackend')
-
-# SMTP Configuration (Gmail by default, SendGrid as alternative)
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com'))
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # Gmail app password or SendGrid API key
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'info.veyu@gmail.com')
-SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
-EMAIL_SUBJECT_PREFIX = '[Veyu] '  # Add prefix to all email subjects
-
-# Timeout settings - reduced for faster failure detection
-EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))  # seconds - reduced from 30
-
-# Connection retry settings
-EMAIL_MAX_RETRIES = int(os.getenv('EMAIL_MAX_RETRIES', '3'))
-EMAIL_RETRY_DELAY = int(os.getenv('EMAIL_RETRY_DELAY', '2'))  # seconds between retries
-
-# SSL Configuration for email
-EMAIL_SSL_VERIFY = os.getenv('EMAIL_SSL_VERIFY', 'False').lower() == 'true'  # Disable SSL verification for SendGrid compatibility
-
-# Fallback email backend for when SMTP fails
-EMAIL_FALLBACK_BACKEND = os.getenv('EMAIL_FALLBACK_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-EMAIL_FALLBACK_ENABLED = os.getenv('EMAIL_FALLBACK_ENABLED', 'True').lower() == 'true'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'info.veyu@gmail.com'
+EMAIL_HOST_PASSWORD = 'cztucvsscfmqvobx'  # Gmail app password
+DEFAULT_FROM_EMAIL = 'info.veyu@gmail.com'
 
 # Email verification settings
 EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links
 
-# Handle console email backend configuration
-if os.getenv('USE_CONSOLE_EMAIL', 'False').lower() == 'true':
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    if DEBUG:
-        print("\n=== INFO: Using CONSOLE email backend for development ===")
-    else:
-        print("\n=== INFO: Using CONSOLE email backend for production (no SMTP access) ===")
-        print("Emails will be logged to console instead of being sent via SMTP\n")
+# Simple email configuration - no complex logic
 
 # Email rate limiting (using Django Ratelimit or similar middleware)
 EMAIL_RATE_LIMIT = os.getenv('EMAIL_RATE_LIMIT', '10/hour')  # e.g., '100/day' or '10/hour'
