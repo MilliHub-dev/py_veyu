@@ -448,7 +448,7 @@ class UpdateProfileView(views.APIView):
             'error': True,
             'message': 'Validation failed',
             'errors': serializer.errors
-     )atus=400   }, st
+        }, status=400)
 
 
 class BusinessVerificationView(views.APIView):
