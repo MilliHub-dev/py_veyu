@@ -31,6 +31,7 @@ urlpatterns = [
     
     # Business verification
     path('verify-business/', BusinessVerificationView.as_view(), name='verify-business'),
+    path('verification-status/', BusinessVerificationView.as_view(), name='verification-status'),
     
     # Document management
     path('verification/documents/<int:submission_id>/<str:document_type>/', 

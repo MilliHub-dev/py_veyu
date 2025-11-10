@@ -92,12 +92,18 @@ class DealershipView(APIView):
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
 
     def get(self, request):
-        dealership = Dealership.objects.get(user=request.user)
-        data = {
-            'error': False,
-            'data': self.serializer_class(dealership, context={'request': request}).data
-        }
-        return Response(data, 200)
+        try:
+            dealership = Dealership.objects.get(user=request.user)
+            data = {
+                'error': False,
+                'data': self.serializer_class(dealership, context={'request': request}).data
+            }
+            return Response(data, 200)
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found. Please complete your dealership profile setup.'
+            }, status=404)
 
 
 class DashboardView(APIView):

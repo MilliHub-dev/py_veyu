@@ -423,17 +423,32 @@ class UpdateProfileView(views.APIView):
     def get_user_profile(self,request):
         user = request.user
         user_type = user.user_type
-        user_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer, 'agent': Agent}.get(user_type)
+        user_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer}.get(user_type)
+        if not user_model:
+            return None
         return get_object_or_404(user_model, user=user)
 
     def put(self, request:Request):
         user_type = request.user.user_type
         profile = self.get_user_profile(request)
+        
+        if not profile:
+            return Response({
+                'error': True,
+                'message': f'Invalid user type: {user_type}'
+            }, status=400)
+        
         serializer = get_user_serializer(user_type=user_type)
         serializer = serializer(profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+        
+        return Response({
+            'error': True,
+            'message': 'Validation failed',
+            'errors': serializer.errors
+     )atus=400   }, st
 
 
 class BusinessVerificationView(views.APIView):
