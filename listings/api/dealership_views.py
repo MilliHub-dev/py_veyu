@@ -817,12 +817,18 @@ class SettingsView(APIView):
         tags=['Dealership']
     )
     def get(self, request):
-        dealer = Dealership.objects.get(user=request.user)
-        data = {
-            'error': False,
-            'data': DealerSerializer(dealer, context={'request': request}).data
-        }
-        return Response(data, status=200)
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            data = {
+                'error': False,
+                'data': DealerSerializer(dealer, context={'request': request}).data
+            }
+            return Response(data, status=200)
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found. Please complete your dealership profile setup.'
+            }, status=404)
 
     @swagger_auto_schema(
         operation_summary="Update dealership settings",
@@ -847,29 +853,47 @@ class SettingsView(APIView):
         tags=['Dealership']
     )
     def post(self, request):
-        data = request.data
-        dealer = Dealership.objects.get(user=request.user)
+        try:
+            data = request.data
+            dealer = Dealership.objects.get(user=request.user)
 
-        print("New Services:", data['services'])
-        print("Old Services:", dealer.services)
-        
-        if data.get('new-logo', None):
-            dealer.logo = data['new-logo']
-        dealer.business_name = data['business_name']
-        dealer.about = data['about']
-        dealer.slug = data.get('slug', None)
-        dealer.headline = data['headline']
-        dealer.offers_purchase = 'Car Sale' in data['services']
-        dealer.offers_rental = 'Car Leasing' in data['services']
-        dealer.offers_drivers = 'Drivers' in data['services']
-        dealer.contact_phone = data['contact_phone']
-        dealer.contact_email = data['contact_email']
-        dealer.save()
-        
-        data = {
-            'error': False,
-            'data': DealerSerializer(dealer, context={'request': request}).data
-        }
-        return Response(data, 200)
+            print("New Services:", data['services'])
+            print("Old Services:", dealer.services)
+            
+            if data.get('new-logo', None):
+                dealer.logo = data['new-logo']
+            dealer.business_name = data['business_name']
+            dealer.about = data['about']
+            dealer.slug = data.get('slug', None)
+            dealer.headline = data['headline']
+            dealer.offers_purchase = 'Car Sale' in data['services']
+            dealer.offers_rental = 'Car Leasing' in data['services']
+            dealer.offers_drivers = 'Drivers' in data['services']
+            dealer.contact_phone = data['contact_phone']
+            dealer.contact_email = data['contact_email']
+            dealer.save()
+            
+            data = {
+                'error': False,
+                'data': DealerSerializer(dealer, context={'request': request}).data
+            }
+            return Response(data, 200)
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found. Please complete your dealership profile setup.'
+            }, status=404)
+        except KeyError as e:
+            return Response({
+                'error': True,
+                'message': f'Missing required field: {str(e)}'
+            }, status=400)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': True,
+                'message': f'An error occurred: {str(e)}'
+            }, status=500)
 
 
