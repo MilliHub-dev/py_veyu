@@ -12,6 +12,45 @@ All API endpoints (except public endpoints) require JWT authentication:
 Authorization: Bearer <access_token>
 ```
 
+## Common Error Responses
+
+All endpoints follow a consistent error response format:
+
+### Success Response Format
+```json
+{
+  "error": false,
+  "message": "Operation successful",
+  "data": { }
+}
+```
+
+### Error Response Format
+```json
+{
+  "error": true,
+  "message": "Error description",
+  "errors": { }
+}
+```
+
+### HTTP Status Codes
+- `200 OK`: Successful GET/PUT request
+- `201 Created`: Resource created successfully
+- `400 Bad Request`: Invalid request data or validation error
+- `401 Unauthorized`: Authentication required or invalid token
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Resource not found (e.g., "Dealership profile not found")
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Server error
+
+### Common Error Messages
+- `"Dealership profile not found. Please complete your dealership profile setup."` - User needs to create dealership profile
+- `"Invalid user type: {type}"` - Unsupported user type (only customer, dealer, mechanic supported)
+- `"Validation failed"` - Request data validation errors (check `errors` field)
+- `"Missing required field: {field}"` - Required field not provided
+- `"Only dealers and mechanics can submit business verification"` - Endpoint restricted to business users
+
 ### Token Endpoints
 
 #### Obtain Token Pair
@@ -205,11 +244,11 @@ POST /api/v1/accounts/password/reset/confirm/
 
 ### 1.4 Profile Management
 
-#### Get/Update Profile
+#### Update Profile
 ```http
-GET/PUT /api/v1/accounts/profile/
+PUT /api/v1/accounts/profile/
 ```
-**Update Request:**
+**Request:**
 ```json
 {
   "first_name": "John",
@@ -219,8 +258,50 @@ GET/PUT /api/v1/accounts/profile/
   "profile_picture": "base64_image_or_url"
 }
 ```
+**Response:**
+```json
+{
+  "id": "uuid",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone_number": "+2348012345678",
+  "address": "123 Main St, Lagos",
+  "profile_picture": "url"
+}
+```
+**Error Response (400):**
+```json
+{
+  "error": true,
+  "message": "Invalid user type: agent"
+}
+```
+**Error Response (400 - Validation):**
+```json
+{
+  "error": true,
+  "message": "Validation failed",
+  "errors": {
+    "phone_number": ["Enter a valid phone number"]
+  }
+}
+```
 
 ### 1.5 Business Verification
+
+#### Get Verification Status
+```http
+GET /api/v1/accounts/verification-status/
+```
+**Response:**
+```json
+{
+  "status": "pending|verified|rejected|not_submitted",
+  "status_display": "Pending Review",
+  "submission_date": "2025-10-20T14:30:00Z",
+  "rejection_reason": null
+}
+```
 
 #### Submit Business Verification
 ```http
@@ -228,14 +309,39 @@ POST /api/v1/accounts/verify-business/
 ```
 **Request (multipart/form-data):**
 ```
+business_type: "dealership|mechanic"
 business_name: "AutoMax Dealers Ltd"
-business_registration_number: "RC123456"
-tax_identification_number: "TIN987654"
+cac_number: "RC123456"
+tin_number: "12345678-0001"
 business_address: "45 Commercial Ave, Lagos"
-business_type: "dealership|mechanic_shop"
-cac_certificate: <file>
-tax_clearance: <file>
+business_email: "info@automax.com"
+business_phone: "+2348012345678"
+cac_document: <file>
+tin_document: <file>
 proof_of_address: <file>
+business_license: <file>
+```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Business verification submitted successfully. Admin will review your submission.",
+  "data": {
+    "id": 1,
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_type": "dealership",
+    "status": "pending",
+    "business_name": "AutoMax Dealers Ltd",
+    "cac_number": "RC123456",
+    "tin_number": "12345678-0001",
+    "business_address": "45 Commercial Ave, Lagos",
+    "business_email": "info@automax.com",
+    "business_phone": "+2348012345678",
+    "rejection_reason": null,
+    "date_created": "2025-10-20T14:30:00Z",
+    "business_verification_status": "Pending Review"
+  }
+}
 ```
 
 #### Get Document Requirements
@@ -415,6 +521,31 @@ POST /api/v1/listings/checkout/inspection/
 ```http
 GET /api/v1/admin/dealership/
 ```
+**Response:**
+```json
+{
+  "error": false,
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_name": "AutoMax Dealers",
+    "logo": "https://res.cloudinary.com/...",
+    "about": "Leading car dealership",
+    "headline": "Your trusted car partner",
+    "contact_email": "info@automax.com",
+    "contact_phone": "+2348012345678",
+    "verified_business": true,
+    "verified_id": true,
+    "business_verification_status": "verified"
+  }
+}
+```
+**Error Response (404):**
+```json
+{
+  "error": true,
+  "message": "Dealership profile not found. Please complete your dealership profile setup."
+}
+```
 
 #### Get Dashboard Stats
 ```http
@@ -483,10 +614,65 @@ GET /api/v1/admin/dealership/orders/
 
 ### 3.4 Settings
 
-#### Get/Update Settings
+#### Get Dealership Settings
 ```http
-GET/PUT /api/v1/admin/dealership/settings/
+GET /api/v1/admin/dealership/settings/
 ```
+**Response:**
+```json
+{
+  "error": false,
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_name": "AutoMax Dealers",
+    "logo": "https://res.cloudinary.com/...",
+    "about": "Leading car dealership in Lagos",
+    "headline": "Your trusted car partner",
+    "contact_email": "info@automax.com",
+    "contact_phone": "+2348012345678",
+    "offers_purchase": true,
+    "offers_rentals": true,
+    "offers_drivers": false,
+    "verified_business": true,
+    "level": "top"
+  }
+}
+```
+
+#### Update Dealership Settings
+```http
+POST /api/v1/admin/dealership/settings/
+```
+**Request (multipart/form-data):**
+```
+new-logo: <file> (optional)
+business_name: "AutoMax Dealers Ltd"
+about: "Leading car dealership in Lagos..."
+slug: "automax-dealers" (optional)
+headline: "Your trusted car partner"
+services: ["Car Sale", "Car Leasing", "Drivers"]
+contact_phone: "+2348012345678"
+contact_email: "info@automax.com"
+```
+**Response:**
+```json
+{
+  "error": false,
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_name": "AutoMax Dealers Ltd",
+    "logo": "https://res.cloudinary.com/...",
+    "about": "Leading car dealership in Lagos...",
+    "headline": "Your trusted car partner",
+    "contact_email": "info@automax.com",
+    "contact_phone": "+2348012345678",
+    "offers_purchase": true,
+    "offers_rentals": true,
+    "offers_drivers": true
+  }
+}
+```
+**Note:** Logo upload is supported via the `new-logo` field in multipart/form-data format.
 
 ---
 

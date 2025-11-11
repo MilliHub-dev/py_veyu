@@ -453,7 +453,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'info.veyu@gmail.com'
-EMAIL_HOST_PASSWORD = 'cztucvsscfmqvobx'  # Gmail app password
+EMAIL_HOST_PASSWORD = 'chbsjptintrwzwtu'  # Gmail app password
 DEFAULT_FROM_EMAIL = 'info.veyu@gmail.com'
 
 # Email verification settings

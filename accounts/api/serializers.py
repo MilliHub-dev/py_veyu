@@ -417,6 +417,7 @@ class LoginSerializer(Serializer):
     provider = CharField(
         required=False,
         default='veyu',
+        allow_blank=True,
         help_text="Authentication provider: veyu, google, apple, facebook"
     )
 
@@ -434,7 +435,12 @@ class LoginSerializer(Serializer):
         """Authenticate user and return user object."""
         email = attrs.get('email')
         password = attrs.get('password')
-        provider = attrs.get('provider', 'veyu')
+        provider = attrs.get('provider') or 'veyu'  # Ensure default value
+        
+        # Set provider in attrs if not present
+        if 'provider' not in attrs or not attrs['provider']:
+            attrs['provider'] = 'veyu'
+            provider = 'veyu'
 
         try:
             user = Account.objects.get(email=email)
