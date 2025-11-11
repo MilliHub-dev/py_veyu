@@ -446,15 +446,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # ===============================================
-# EMAIL CONFIGURATION - Simple Gmail SMTP
+# EMAIL CONFIGURATION - Brevo SMTP
 # ===============================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'info.veyu@gmail.com'
-EMAIL_HOST_PASSWORD = 'chbsjptintrwzwtu'  # Gmail app password
-DEFAULT_FROM_EMAIL = 'info.veyu@gmail.com'
+EMAIL_HOST = env.get_value('EMAIL_HOST', default='smtp-relay.brevo.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', default='noreply@veyu.cc')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Email verification settings
 EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links
