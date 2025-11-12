@@ -1,12 +1,431 @@
-{% extends "emails/base.html" %}
-{% block content %}
-  <h2>Wallet Transaction Alert</h2>
-  <p>Hello {{ user_name }},</p>
-  <p>A new wallet transaction was recorded:</p>
-  <ul>
-    <li>Type: {{ transaction_type }}</li>
-    <li>Amount: {{ amount }}</li>
-    <li>Details: {{ details }}</li>
-    <li>Date: {{ timestamp }}</li>
-  </ul>
-{% endblock %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Transaction - {{ app_name|default:'Veyu' }}</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --secondary-color: #6366F1;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --text-color: #1F2937;
+            --text-muted: #6B7280;
+            --border-color: #E5E7EB;
+            --bg-light: #F9FAFB;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #F3F4F6;
+            margin: 0;
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 1rem;
+        }
+        
+        .content {
+            padding: 2.5rem 2rem;
+        }
+        
+        h1, h2 {
+            color: #111827;
+            margin-top: 0;
+            line-height: 1.3;
+        }
+        
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+        
+        p {
+            margin: 1rem 0;
+            color: var(--text-color);
+            font-size: 1rem;
+            line-height: 1.625;
+        }
+        
+        .transaction-card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 2px solid var(--border-color);
+        }
+        
+        .transaction-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .transaction-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .transaction-icon.credit {
+            background: #D1FAE5;
+            color: var(--success-color);
+        }
+        
+        .transaction-icon.debit {
+            background: #FEE2E2;
+            color: var(--danger-color);
+        }
+        
+        .transaction-icon.transfer {
+            background: #DBEAFE;
+            color: #3B82F6;
+        }
+        
+        .transaction-type {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .transaction-type.credit {
+            color: var(--success-color);
+        }
+        
+        .transaction-type.debit {
+            color: var(--danger-color);
+        }
+        
+        .transaction-type.transfer {
+            color: #3B82F6;
+        }
+        
+        .amount-display {
+            text-align: center;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            background: white;
+            border-radius: 8px;
+            border: 2px dashed var(--border-color);
+        }
+        
+        .amount-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        
+        .amount-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0;
+        }
+        
+        .amount-value.credit {
+            color: var(--success-color);
+        }
+        
+        .amount-value.debit {
+            color: var(--danger-color);
+        }
+        
+        .transaction-details {
+            margin: 1.5rem 0;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-color);
+            text-align: right;
+        }
+        
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        
+        .balance-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+        
+        .balance-amount {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .status-badge.success {
+            background: #D1FAE5;
+            color: var(--success-color);
+        }
+        
+        .status-badge.pending {
+            background: #FEF3C7;
+            color: var(--warning-color);
+        }
+        
+        .status-badge.failed {
+            background: #FEE2E2;
+            color: var(--danger-color);
+        }
+        
+        .button {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white !important;
+            text-decoration: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 1rem 0;
+            transition: all 0.2s ease;
+        }
+        
+        .button:hover {
+            background: #4338CA;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.3);
+        }
+        
+        .info-box {
+            background: #EFF6FF;
+            border-left: 4px solid #3B82F6;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            margin: 0.5rem 0;
+            color: #1E40AF;
+            font-size: 0.875rem;
+        }
+        
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .footer p {
+            margin: 0.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        @media (max-width: 640px) {
+            .content {
+                padding: 1.5rem 1rem;
+            }
+            
+            .transaction-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .transaction-icon {
+                margin-bottom: 1rem;
+            }
+            
+            .amount-value {
+                font-size: 2rem;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                text-align: left;
+            }
+            
+            .detail-value {
+                text-align: left;
+                margin-top: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+            <h2 style="color: white; margin: 0;">Wallet Transaction</h2>
+        </div>
+        
+        <div class="content">
+            <h1>Transaction Notification</h1>
+            <p>Hello {{ user_name|default:'there' }},</p>
+            <p>A transaction has been processed on your {{ app_name|default:'Veyu' }} wallet.</p>
+            
+            <div class="transaction-card">
+                <div class="transaction-header">
+                    <div class="transaction-icon {{ transaction_type|lower|default:'credit' }}">
+                        {% if transaction_type|lower == 'credit' or transaction_type|lower == 'deposit' %}
+                            ↓
+                        {% elif transaction_type|lower == 'debit' or transaction_type|lower == 'withdrawal' %}
+                            ↑
+                        {% else %}
+                            ⇄
+                        {% endif %}
+                    </div>
+                    <div>
+                        <p class="transaction-type {{ transaction_type|lower|default:'credit' }}">
+                            {{ transaction_type|default:'Credit'|title }}
+                        </p>
+                        <span class="status-badge {{ status|lower|default:'success' }}">
+                            {{ status|default:'Completed'|title }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="amount-display">
+                    <div class="amount-label">Amount</div>
+                    <h2 class="amount-value {{ transaction_type|lower|default:'credit' }}">
+                        {% if transaction_type|lower == 'credit' or transaction_type|lower == 'deposit' %}
+                            +
+                        {% elif transaction_type|lower == 'debit' or transaction_type|lower == 'withdrawal' %}
+                            -
+                        {% endif %}
+                        {{ amount|default:'₦0.00' }}
+                    </h2>
+                </div>
+                
+                <div class="transaction-details">
+                    {% if reference %}
+                    <div class="detail-row">
+                        <span class="detail-label">Reference</span>
+                        <span class="detail-value">{{ reference }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if description %}
+                    <div class="detail-row">
+                        <span class="detail-label">Description</span>
+                        <span class="detail-value">{{ description }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if timestamp %}
+                    <div class="detail-row">
+                        <span class="detail-label">Date & Time</span>
+                        <span class="detail-value">{{ timestamp }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if payment_method %}
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Method</span>
+                        <span class="detail-value">{{ payment_method }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if balance %}
+            <div class="balance-card">
+                <div class="balance-label">Current Wallet Balance</div>
+                <h2 class="balance-amount">{{ balance }}</h2>
+            </div>
+            {% endif %}
+            
+            {% if transaction_type|lower == 'credit' or transaction_type|lower == 'deposit' %}
+            <div class="info-box">
+                <p><strong>💡 What's Next?</strong></p>
+                <p>Your funds are now available in your wallet. You can use them to purchase vehicles, pay for services, or transfer to other users.</p>
+            </div>
+            {% elif transaction_type|lower == 'debit' or transaction_type|lower == 'withdrawal' %}
+            <div class="info-box">
+                <p><strong>💡 Transaction Complete</strong></p>
+                <p>The amount has been deducted from your wallet. If you didn't authorize this transaction, please contact support immediately.</p>
+            </div>
+            {% endif %}
+            
+            <div style="text-align: center; margin: 2rem 0;">
+                <a href="{{ wallet_url|default:'https://veyu.cc/wallet' }}" class="button">View Wallet</a>
+            </div>
+            
+            <p style="margin-top: 2rem;">If you have any questions about this transaction, please contact our support team at <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">{{ support_email|default:'support@veyu.cc' }}</a>.</p>
+            
+            <div class="footer">
+                <p><strong>Security Tip:</strong> Never share your wallet PIN or password with anyone, including {{ app_name|default:'Veyu' }} staff.</p>
+                <p>© {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.</p>
+                <p>This is an automated notification. Please do not reply to this email.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

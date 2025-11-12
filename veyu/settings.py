@@ -446,27 +446,28 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 # ===============================================
-# EMAIL CONFIGURATION - Brevo SMTP
+# ===============================================
+# SIMPLE EMAIL CONFIGURATION - BREVO SMTP
 # ===============================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env.get_value('EMAIL_HOST', default='smtp-relay.brevo.com')
-EMAIL_PORT = env.int('EMAIL_PORT', default=587)
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-EMAIL_HOST_USER = env.get_value('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = env.get_value('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = env.get_value('DEFAULT_FROM_EMAIL', default='noreply@veyu.cc')
+
+# Brevo SMTP Settings (simple and direct)
+EMAIL_HOST = 'smtp-relay.brevo.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+EMAIL_TIMEOUT = 30
+
+# Get credentials from environment
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '9b4e78001@smtp-brevo.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'xsmtpsib-f8430f6957c5e0272f0399b903ed8b58ff5a6a4fda60f90bb89c9b674a77f287-oEdguD5gZaC10W04')
+
+# From email address
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@veyu.cc')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# Email verification settings
-EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour for email verification links
-
-# Simple email configuration - no complex logic
-
-# Email rate limiting (using Django Ratelimit or similar middleware)
-EMAIL_RATE_LIMIT = os.getenv('EMAIL_RATE_LIMIT', '10/hour')  # e.g., '100/day' or '10/hour'
-
-# Email tracking (if using a service like SendGrid)
-EMAIL_TRACKING = os.getenv('EMAIL_TRACKING', 'True').lower() == 'true'
+# Email verification timeout
+EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour
 
 # Email logging configuration (moved to LOGGING section below)
 

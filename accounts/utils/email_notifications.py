@@ -1,130 +1,19 @@
-import logging
-import os
-from typing import Optional, Dict, Any, List
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.template.loader import render_to_string, get_template
-from django.template import TemplateDoesNotExist
-from django.utils.html import strip_tags
-from utils.mail import send_email
+"""
+Email notifications for Veyu platform.
+Uses the simple_mail system for reliable email delivery.
+"""
 
-# Set up logging
+import logging
+from typing import Optional, Dict, Any
+from datetime import datetime
+from django.contrib.auth import get_user_model
+from django.conf import settings
+from utils.simple_mail import send_template_email, send_simple_email
+
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-def get_template_path(template_name: str) -> str:
-    """
-    Get the correct template path, checking multiple possible locations.
-    """
-    possible_paths = [
-        template_name,  # Direct path
-        f'utils/templates/{template_name}',  # Utils templates
-        f'templates/{template_name}',  # Root templates
-        f'emails/{template_name}',  # Email specific folder
-    ]
-    
-    for path in possible_paths:
-        try:
-            get_template(path)
-            logger.debug(f"Found template at: {path}")
-            return path
-        except TemplateDoesNotExist:
-            continue
-    
-    logger.warning(f"Template {template_name} not found in any location")
-    return template_name  # Return original name as fallback
-
-def render_email_template(template_name: str, context: Dict[str, Any]) -> tuple[str, str]:
-    """
-    Render email template with fallback to plain text.
-    Returns tuple of (html_content, plain_text_content)
-    """
-    html_content = ""
-    plain_text_content = ""
-    
-    try:
-        template_path = get_template_path(template_name)
-        html_content = render_to_string(template_path, context)
-        # Create plain text version by stripping HTML tags
-        plain_text_content = strip_tags(html_content)
-        logger.debug(f"Successfully rendered template: {template_name}")
-    except TemplateDoesNotExist as e:
-        logger.error(f"Template {template_name} not found: {str(e)}")
-        # Create fallback plain text content
-        plain_text_content = create_fallback_content(template_name, context)
-    except Exception as e:
-        logger.error(f"Error rendering template {template_name}: {str(e)}", exc_info=True)
-        plain_text_content = create_fallback_content(template_name, context)
-    
-    return html_content, plain_text_content
-
-def create_fallback_content(template_name: str, context: Dict[str, Any]) -> str:
-    """Create fallback plain text content when template rendering fails."""
-    app_name = context.get('app_name', 'Veyu')
-    
-    if 'verification' in template_name:
-        return f"""
-Hello {context.get('name', 'there')},
-
-Your verification code for {app_name} is: {context.get('verification_code', 'N/A')}
-
-This code will expire in 30 minutes.
-
-If you didn't request this, please ignore this email.
-
-Best regards,
-The {app_name} Team
-        """.strip()
-    
-    elif 'welcome' in template_name:
-        return f"""
-Welcome to {app_name}, {context.get('user_name', 'there')}!
-
-We're excited to have you join our community. Start exploring our platform to discover amazing vehicles and services.
-
-Best regards,
-The {app_name} Team
-        """.strip()
-    
-    elif 'password_reset' in template_name:
-        return f"""
-Hello {context.get('user_name', 'there')},
-
-We received a request to reset your password for {app_name}.
-
-Reset link: {context.get('reset_link', 'N/A')}
-
-This link will expire in 24 hours.
-
-If you didn't request this, please ignore this email.
-
-Best regards,
-The {app_name} Team
-        """.strip()
-    
-    elif 'otp' in template_name:
-        return f"""
-Your verification code for {app_name} is: {context.get('otp', 'N/A')}
-
-This code is valid for {context.get('validity_minutes', 30)} minutes.
-
-Do not share this code with anyone.
-
-Best regards,
-The {app_name} Team
-        """.strip()
-    
-    else:
-        return f"""
-Hello,
-
-This is a notification from {app_name}.
-
-Best regards,
-The {app_name} Team
-        """.strip()
 
 def send_verification_email(user, verification_code: str) -> bool:
     """Send email verification code to user."""
@@ -138,13 +27,11 @@ def send_verification_email(user, verification_code: str) -> bool:
     }
     
     try:
-        # Use the enhanced send_email function with template resolution and improved error handling
-        success = send_email(
+        success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template='verification_email.html',
-            context=context,
-            fail_silently=False
+            template_name='verification_email.html',
+            context=context
         )
         
         if success:
@@ -157,6 +44,7 @@ def send_verification_email(user, verification_code: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
         return False
+
 
 def send_welcome_email(user) -> bool:
     """Send welcome email to new user."""
@@ -172,17 +60,22 @@ def send_welcome_email(user) -> bool:
     }
     
     try:
-        # Use the enhanced send_email function with template resolution
-        return send_email(
+        success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template='welcome_email.html',
-            context=context,
-            fail_silently=False
+            template_name='welcome_email.html',
+            context=context
         )
+        
+        if success:
+            logger.info(f"Welcome email sent successfully to {user.email}")
+        
+        return success
+        
     except Exception as e:
         logger.error(f"Failed to send welcome email to {user.email}: {str(e)}", exc_info=True)
         return False
+
 
 def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> bool:
     """
@@ -196,8 +89,6 @@ def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> 
     Returns:
         bool: True if email sent successfully, False otherwise
     """
-    from datetime import datetime
-    
     subject = "Reset Your Veyu Password"
     context = {
         "user": user,
@@ -207,19 +98,17 @@ def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> 
         "reset_link": reset_url,  # Backward compatibility
         "current_year": datetime.now().year,
         "site_name": "Veyu",
-        "site_url": getattr(settings, 'FRONTEND_URL', 'https://veyu.com.ng'),
+        "site_url": getattr(settings, 'FRONTEND_URL', 'https://veyu.cc'),
         "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
     try:
-        # Use the enhanced send_email function with template resolution
-        success = send_email(
+        success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template='password_reset.html',
-            context=context,
-            fail_silently=False
+            template_name='password_reset.html',
+            context=context
         )
         
         if success:
@@ -233,28 +122,35 @@ def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> 
         logger.error(f"Failed to send password reset email to {user.email}: {str(e)}", exc_info=True)
         return False
 
+
 def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
     """Send OTP code to user's email."""
     subject = "Your Verification Code - Veyu"
     context = {
         "otp": otp_code,
+        "user_name": user.first_name or 'there',
         "validity_minutes": validity_minutes,
         "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
     try:
-        # Use the enhanced send_email function with template resolution
-        return send_email(
+        success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template='otp_email.html',
-            context=context,
-            fail_silently=False
+            template_name='otp_email.html',
+            context=context
         )
+        
+        if success:
+            logger.info(f"OTP email sent successfully to {user.email}")
+        
+        return success
+        
     except Exception as e:
         logger.error(f"Failed to send OTP email to {user.email}: {str(e)}", exc_info=True)
         return False
+
 
 def send_business_verification_status(user, status: str, reason: str = "", business_name: str = "") -> bool:
     """
@@ -273,7 +169,7 @@ def send_business_verification_status(user, status: str, reason: str = "", busin
         'submitted': 'Submitted for Review',
         'pending': 'Under Review',
         'approved': 'Approved',
-        'verified': 'Approved',  # Handle both 'approved' and 'verified'
+        'verified': 'Approved',
         'rejected': 'Rejected'
     }
     
@@ -286,7 +182,6 @@ def send_business_verification_status(user, status: str, reason: str = "", busin
     else:
         subject = f"Business Verification {status_display} - {business_name or 'Your Business'}"
     
-    # Enhanced context for template
     context = {
         'user': user,
         'user_name': user.first_name or 'there',
@@ -301,13 +196,11 @@ def send_business_verification_status(user, status: str, reason: str = "", busin
     }
     
     try:
-        # Use the enhanced send_email function with template resolution
-        success = send_email(
+        success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template='business_verification_status.html',
-            context=context,
-            fail_silently=False
+            template_name='business_verification_status.html',
+            context=context
         )
         
         if success:
@@ -319,6 +212,7 @@ def send_business_verification_status(user, status: str, reason: str = "", busin
         logger.error(f"Failed to send business verification status email to {user.email}: {str(e)}", exc_info=True)
         return False
 
+
 def send_booking_confirmation(user, booking_details: Dict[str, Any]) -> bool:
     """Send booking confirmation email."""
     subject = f"Booking Confirmation - {booking_details.get('booking_reference', '')}"
@@ -329,23 +223,23 @@ def send_booking_confirmation(user, booking_details: Dict[str, Any]) -> bool:
         "app_name": "Veyu"
     }
     
-    # Render HTML content
-    html_message = render_to_string('booking_confirmation.html', context)
-    plain_message = f"Your booking has been confirmed. Reference: {booking_details.get('booking_reference', '')}"
-    
     try:
-        send_mail(
+        success = send_template_email(
             subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
+            recipients=[user.email],
+            template_name='new_booking.html',
+            context=context
         )
-        return True
+        
+        if success:
+            logger.info(f"Booking confirmation email sent to {user.email}")
+        
+        return success
+        
     except Exception as e:
-        logger.error(f"Failed to send booking confirmation email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send booking confirmation email to {user.email}: {str(e)}", exc_info=True)
         return False
+
 
 def send_inspection_scheduled(user, inspection_details: Dict[str, Any]) -> bool:
     """Send inspection scheduled notification."""
@@ -357,23 +251,23 @@ def send_inspection_scheduled(user, inspection_details: Dict[str, Any]) -> bool:
         "app_name": "Veyu"
     }
     
-    # Render HTML content
-    html_message = render_to_string('inspection_scheduled.html', context)
-    plain_message = f"Your inspection has been scheduled. Reference: {inspection_details.get('inspection_reference', '')}"
-    
     try:
-        send_mail(
+        success = send_template_email(
             subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
+            recipients=[user.email],
+            template_name='inspection_scheduled.html',
+            context=context
         )
-        return True
+        
+        if success:
+            logger.info(f"Inspection scheduled email sent to {user.email}")
+        
+        return success
+        
     except Exception as e:
-        logger.error(f"Failed to send inspection scheduled email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send inspection scheduled email to {user.email}: {str(e)}", exc_info=True)
         return False
+
 
 def send_order_confirmation(user, order_details: Dict[str, Any]) -> bool:
     """Send order confirmation email."""
@@ -385,20 +279,216 @@ def send_order_confirmation(user, order_details: Dict[str, Any]) -> bool:
         "app_name": "Veyu"
     }
     
-    # Render HTML content
-    html_message = render_to_string('order_confirmation.html', context)
-    plain_message = f"Thank you for your order! Order Number: {order_details.get('order_number', '')}"
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='order_confirmation.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Order confirmation email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send order confirmation email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_listing_published(user, listing_details: Dict[str, Any]) -> bool:
+    """Send notification when listing is published."""
+    subject = f"Your Listing is Now Live - {listing_details.get('title', '')}"
+    context = {
+        "user_name": user.first_name or 'there',
+        **listing_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu",
+        "frontend_url": getattr(settings, 'FRONTEND_URL', 'https://veyu.cc')
+    }
     
     try:
-        send_mail(
+        success = send_template_email(
             subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False
+            recipients=[user.email],
+            template_name='listing_published.html',
+            context=context
         )
-        return True
+        
+        if success:
+            logger.info(f"Listing published email sent to {user.email}")
+        
+        return success
+        
     except Exception as e:
-        logger.error(f"Failed to send order confirmation email to {user.email}: {str(e)}")
+        logger.error(f"Failed to send listing published email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_purchase_confirmation(user, purchase_details: Dict[str, Any]) -> bool:
+    """Send purchase confirmation email."""
+    subject = f"Purchase Confirmation - {purchase_details.get('order_number', '')}"
+    context = {
+        "user_name": user.first_name or 'there',
+        **purchase_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='purchase_confirmation.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Purchase confirmation email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send purchase confirmation email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_wallet_transaction(user, transaction_details: Dict[str, Any]) -> bool:
+    """Send wallet transaction notification."""
+    subject = f"Wallet Transaction - {transaction_details.get('transaction_type', 'Update')}"
+    context = {
+        "user_name": user.first_name or 'there',
+        **transaction_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='wallet_transaction.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Wallet transaction email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send wallet transaction email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_security_alert(user, alert_details: Dict[str, Any]) -> bool:
+    """Send security alert email."""
+    subject = "Security Alert - Veyu Account"
+    context = {
+        "user_name": user.first_name or 'there',
+        **alert_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='security_email.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Security alert email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send security alert email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_rental_confirmation(user, rental_details: Dict[str, Any]) -> bool:
+    """Send rental confirmation email."""
+    subject = f"Rental Confirmation - {rental_details.get('rental_reference', '')}"
+    context = {
+        "user_name": user.first_name or 'there',
+        **rental_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='new_rental.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Rental confirmation email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send rental confirmation email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_promotion_email(user, promotion_details: Dict[str, Any]) -> bool:
+    """Send promotional email."""
+    subject = promotion_details.get('subject', 'Special Offer from Veyu')
+    context = {
+        "user_name": user.first_name or 'there',
+        **promotion_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='promotion.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Promotion email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send promotion email to {user.email}: {str(e)}", exc_info=True)
+        return False
+
+
+def send_reminder_email(user, reminder_details: Dict[str, Any]) -> bool:
+    """Send reminder email."""
+    subject = reminder_details.get('subject', 'Reminder from Veyu')
+    context = {
+        "user_name": user.first_name or 'there',
+        **reminder_details,
+        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "app_name": "Veyu"
+    }
+    
+    try:
+        success = send_template_email(
+            subject=subject,
+            recipients=[user.email],
+            template_name='reminder.html',
+            context=context
+        )
+        
+        if success:
+            logger.info(f"Reminder email sent to {user.email}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to send reminder email to {user.email}: {str(e)}", exc_info=True)
         return False
