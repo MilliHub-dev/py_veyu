@@ -111,7 +111,7 @@ def send_template_email_via_api(
     from_email: str = None
 ) -> bool:
     """
-    Send email using template via Brevo API.
+    Send email using template via Brevo API with SMTP fallback.
     
     Args:
         subject: Email subject
@@ -156,6 +156,19 @@ def send_template_email_via_api(
         # Create plain text version
         text_content = strip_tags(html_content)
         
+        # Check if API key is available
+        if not BREVO_API_KEY:
+            logger.warning("⚠️ BREVO_API_KEY not set, falling back to SMTP")
+            # Fallback to SMTP
+            from utils.simple_mail import send_simple_email
+            return send_simple_email(
+                subject=subject,
+                recipients=recipients,
+                message=text_content,
+                html_message=html_content,
+                from_email=from_email
+            )
+        
         # Send via API
         result = send_email_via_brevo_api(
             subject=subject,
@@ -165,8 +178,31 @@ def send_template_email_via_api(
             from_email=from_email
         )
         
+        # If API fails, fallback to SMTP
+        if not result['success']:
+            logger.warning(f"⚠️ Brevo API failed: {result.get('error')}, falling back to SMTP")
+            from utils.simple_mail import send_simple_email
+            return send_simple_email(
+                subject=subject,
+                recipients=recipients,
+                message=text_content,
+                html_message=html_content,
+                from_email=from_email
+            )
+        
         return result['success']
         
     except Exception as e:
         logger.error(f"Error sending template email via API: {e}", exc_info=True)
-        return False
+        # Final fallback to SMTP
+        try:
+            logger.info("Attempting SMTP fallback...")
+            from utils.simple_mail import send_simple_email
+            return send_simple_email(
+                subject=subject,
+                recipients=recipients,
+                message=context.get('message', 'Notification from Veyu'),
+                from_email=from_email
+            )
+        except:
+            return False
