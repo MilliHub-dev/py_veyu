@@ -34,6 +34,11 @@ from django.db.models import QuerySet, Q
 
 # Utility imports
 from utils.sms import send_sms
+from utils.async_email import (
+    send_verification_email_async,
+    send_welcome_email_async,
+    send_otp_email_async,
+)
 from accounts.utils.email_notifications import (
     send_verification_email, 
     send_welcome_email,
@@ -172,15 +177,20 @@ class SignUpView(generics.CreateAPIView):
                 otp = OTP.objects.create(valid_for=user, channel='email')
                 verification_code = otp.code
 
-                # Send verification and welcome emails
-                verification_sent = send_verification_email(user, verification_code)
-                welcome_sent = send_welcome_email(user)
+                # Send verification and welcome emails asynchronously (non-blocking)
+                send_verification_email_async(user, verification_code)
+                send_welcome_email_async(user)
+                
+                # Emails are sent in background, so we assume success for response
+                verification_sent = True
+                welcome_sent = True
                 
                 # Send OTP for phone verification if phone number exists
                 phone_number = data.get('phone_number', '')
                 if phone_number:
                     otp_code = make_random_otp()
-                    otp_sent = send_otp_email(user, otp_code)
+                    send_otp_email_async(user, otp_code)
+                    otp_sent = True  # Async, assume success
                     if otp_sent:
                         # Save OTP to database for phone verification
                         OTP.objects.create(

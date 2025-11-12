@@ -18,7 +18,8 @@ def send_simple_email(
     recipients: List[str],
     message: str = None,
     html_message: str = None,
-    from_email: str = None
+    from_email: str = None,
+    timeout: int = None
 ) -> bool:
     """
     Send a simple email using Django's built-in send_mail.
@@ -29,6 +30,7 @@ def send_simple_email(
         message: Plain text message
         html_message: HTML message (optional)
         from_email: From email address (optional, uses DEFAULT_FROM_EMAIL)
+        timeout: SMTP timeout in seconds (optional, uses EMAIL_TIMEOUT from settings)
     
     Returns:
         bool: True if email was sent successfully, False otherwise
@@ -44,6 +46,12 @@ def send_simple_email(
         
         from_email = from_email or settings.DEFAULT_FROM_EMAIL
         
+        # Create connection with custom timeout if provided
+        from django.core.mail import get_connection
+        connection = None
+        if timeout:
+            connection = get_connection(timeout=timeout)
+        
         # Use Django's simple send_mail function
         result = send_mail(
             subject=subject,
@@ -51,7 +59,8 @@ def send_simple_email(
             from_email=from_email,
             recipient_list=recipients,
             html_message=html_message,
-            fail_silently=False
+            fail_silently=False,
+            connection=connection
         )
         
         if result == 1:

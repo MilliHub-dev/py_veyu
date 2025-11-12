@@ -456,7 +456,7 @@ EMAIL_HOST = 'smtp-relay.brevo.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_TIMEOUT = 30
+EMAIL_TIMEOUT = 60  # Increased to 60 seconds for server environments
 
 # Get credentials from environment
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '9b4e78001@smtp-brevo.com')
