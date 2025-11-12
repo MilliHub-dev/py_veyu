@@ -14,6 +14,7 @@ from .views import (
     database_info,
     system_health_check,
 )
+from .version_check import version_check
 
 
 
@@ -21,6 +22,9 @@ app_name = 'utils'
 
 
 urlpatterns = [
+    # Version check endpoint
+    path('version/', version_check, name='version_check'),
+    
     # path('', index_view, name='home'),
     path('emailer/', email_relay),
     path('hooks/payment-webhook/', payment_webhook),
