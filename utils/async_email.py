@@ -1,5 +1,6 @@
 """
-Asynchronous email sending to prevent blocking API requests.
+Asynchronous email sending using Brevo API (fast and reliable).
+Uses HTTP API instead of SMTP to avoid network/firewall issues.
 """
 
 import logging
@@ -22,34 +23,90 @@ def send_email_async(email_function, *args, **kwargs):
         try:
             result = email_function(*args, **kwargs)
             if result:
-                logger.info(f"Async email sent successfully via {email_function.__name__}")
+                logger.info(f"✅ Async email sent successfully via {email_function.__name__}")
             else:
-                logger.warning(f"Async email failed via {email_function.__name__}")
+                logger.warning(f"⚠️ Async email failed via {email_function.__name__}")
         except Exception as e:
-            logger.error(f"Async email error in {email_function.__name__}: {e}", exc_info=True)
+            logger.error(f"❌ Async email error in {email_function.__name__}: {e}", exc_info=True)
     
     # Start email sending in background thread
     thread = threading.Thread(target=_send, daemon=True)
     thread.start()
-    logger.info(f"Email queued for async sending via {email_function.__name__}")
+    logger.info(f"📧 Email queued for async sending via {email_function.__name__}")
 
 
 def send_verification_email_async(user, verification_code: str):
-    """Send verification email asynchronously."""
-    from accounts.utils.email_notifications import send_verification_email
-    send_email_async(send_verification_email, user, verification_code)
+    """Send verification email asynchronously using Brevo API."""
+    def _send_verification():
+        from utils.brevo_api import send_template_email_via_api
+        from django.conf import settings
+        
+        context = {
+            "name": user.first_name or user.email,
+            "email": user.email,
+            "verification_code": verification_code,
+            "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+            "app_name": "Veyu"
+        }
+        
+        return send_template_email_via_api(
+            subject="Verify Your Email - Veyu",
+            recipients=[user.email],
+            template_name='verification_email.html',
+            context=context
+        )
+    
+    send_email_async(_send_verification)
 
 
 def send_welcome_email_async(user):
-    """Send welcome email asynchronously."""
-    from accounts.utils.email_notifications import send_welcome_email
-    send_email_async(send_welcome_email, user)
+    """Send welcome email asynchronously using Brevo API."""
+    def _send_welcome():
+        from utils.brevo_api import send_template_email_via_api
+        from django.conf import settings
+        
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'https://veyu.cc')
+        context = {
+            "user_name": user.first_name or 'there',
+            "buy_link": f"{frontend_url}/buy/",
+            "rent_link": f"{frontend_url}/rent/",
+            "mechanic_link": f"{frontend_url}/mechanics/",
+            "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+            "app_name": "Veyu"
+        }
+        
+        return send_template_email_via_api(
+            subject=f"Welcome to Veyu, {user.first_name or 'there'}!",
+            recipients=[user.email],
+            template_name='welcome_email.html',
+            context=context
+        )
+    
+    send_email_async(_send_welcome)
 
 
 def send_otp_email_async(user, otp_code: str, validity_minutes: int = 30):
-    """Send OTP email asynchronously."""
-    from accounts.utils.email_notifications import send_otp_email
-    send_email_async(send_otp_email, user, otp_code, validity_minutes)
+    """Send OTP email asynchronously using Brevo API."""
+    def _send_otp():
+        from utils.brevo_api import send_template_email_via_api
+        from django.conf import settings
+        
+        context = {
+            "otp": otp_code,
+            "user_name": user.first_name or 'there',
+            "validity_minutes": validity_minutes,
+            "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+            "app_name": "Veyu"
+        }
+        
+        return send_template_email_via_api(
+            subject="Your Verification Code - Veyu",
+            recipients=[user.email],
+            template_name='otp_email.html',
+            context=context
+        )
+    
+    send_email_async(_send_otp)
 
 
 def send_password_reset_email_async(user, reset_url: str, reset_token: str = None):
