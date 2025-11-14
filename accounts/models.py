@@ -72,7 +72,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     )
     first_name = models.CharField(
         max_length=150, 
-        blank=False,
+        blank=True,  # Allow blank for system updates and existing users
         validators=[
             MinLengthValidator(2, message="First name must be at least 2 characters long"),
             RegexValidator(
@@ -83,7 +83,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     )
     last_name = models.CharField(
         max_length=150, 
-        blank=False,
+        blank=True,  # Allow blank for system updates and existing users
         validators=[
             MinLengthValidator(2, message="Last name must be at least 2 characters long"),
             RegexValidator(
@@ -147,8 +147,14 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
             raise ValidationError({'provider': 'Admin and staff accounts must use Veyu provider'})
 
     def save(self, *args, **kwargs):
-        # Clean before saving
-        self.full_clean()
+        # Skip validation if only updating specific fields (like last_login)
+        update_fields = kwargs.get('update_fields')
+        if update_fields and set(update_fields).issubset({'last_login', 'api_token'}):
+            # Skip full_clean for system updates
+            pass
+        else:
+            # Clean before saving for user-initiated changes
+            self.full_clean()
         
         # Normalize names
         if self.first_name:
