@@ -1,58 +1,20 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "vercel_app.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "runtime": "python3.11"
-      }
-    }
-  ],
   "buildCommand": "python3 build.py",
-  "routes": [
+  "outputDirectory": "staticfiles",
+  "rewrites": [
     {
-      "src": "/static/(.*)",
-      "dest": "/staticfiles/$1"
+      "source": "/static/(.*)",
+      "destination": "/staticfiles/$1"
     },
     {
-      "src": "/media/(.*)",
-      "dest": "/staticfiles/media/$1"
+      "source": "/media/(.*)",
+      "destination": "/staticfiles/media/$1"
     },
     {
-      "src": "/admin/(.*)",
-      "dest": "/vercel_app.py"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/vercel_app.py"
-    },
-    {
-      "src": "/accounts/(.*)",
-      "dest": "/vercel_app.py"
-    },
-    {
-      "src": "/chat/(.*)",
-      "dest": "/vercel_app.py"
-    },
-    {
-      "src": "/health",
-      "dest": "/vercel_app.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/vercel_app.py"
+      "source": "/(.*)",
+      "destination": "/api/vercel_app"
     }
   ],
-  "env": {
-    "DJANGO_SETTINGS_MODULE": "veyu.vercel_settings"
-  },
-  "functions": {
-    "vercel_app.py": {
-      "maxDuration": 10
-    }
-  },
   "headers": [
     {
       "source": "/static/(.*)",
@@ -80,7 +42,5 @@
         }
       ]
     }
-  ],
-  "regions": ["iad1"],
-  "framework": null
+  ]
 }
