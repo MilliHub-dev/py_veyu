@@ -73,29 +73,32 @@ try:
             start_response(status, headers)
             return [b'Internal Server Error']
     
-    # Export the wrapped application
-    app = serverless_application
-    
     logger.info("Django WSGI application initialized successfully for Vercel")
     
+    # Export the application for Vercel
+    # Vercel's Python runtime expects a WSGI application named 'app' or 'application'
+    app = serverless_application
+    
 except ImportError as e:
-    logger.error(f"Failed to import Django: {e}")
-    raise
+    logger.error(f"Failed to import Django: {e}", exc_info=True)
+    
+    # Create a fallback error handler
+    def error_app(environ, start_response):
+        status = '500 Internal Server Error'
+        headers = [('Content-Type', 'text/plain')]
+        start_response(status, headers)
+        return [f'Import Error: {str(e)}'.encode()]
+    
+    app = error_app
+    
 except Exception as e:
     logger.error(f"Failed to initialize Django application: {e}", exc_info=True)
-    raise
-
-# Health check endpoint for monitoring
-def health_check(environ, start_response):
-    """Simple health check endpoint"""
-    if environ.get('PATH_INFO') == '/health':
-        status = '200 OK'
-        headers = [('Content-Type', 'application/json')]
-        start_response(status, headers)
-        return [b'{"status": "healthy", "service": "veyu-django"}']
     
-    # Pass to main application
-    return app(environ, start_response)
-
-# Final application with health check - this is what Vercel will call
-handler = health_check
+    # Create a fallback error handler
+    def error_app(environ, start_response):
+        status = '500 Internal Server Error'
+        headers = [('Content-Type', 'text/plain')]
+        start_response(status, headers)
+        return [f'Initialization Error: {str(e)}'.encode()]
+    
+    app = error_app
