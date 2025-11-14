@@ -9,6 +9,9 @@ from .settings import *
 # Override settings for Vercel serverless environment
 DEBUG = False
 
+# Remove WebSocket/ASGI apps that aren't compatible with serverless
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app not in ['daphne', 'channels']]
+
 # Vercel-specific allowed hosts
 ALLOWED_HOSTS = [
     '.vercel.app',
