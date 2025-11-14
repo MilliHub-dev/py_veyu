@@ -2,9 +2,23 @@
 
 ## Base URL
 ```
-Production: https://dev.veyu.cc
+Production: https://veyu.vercel.app
+Staging: https://dev.veyu.cc
 Development: http://127.0.0.1:8000
 ```
+
+## Vercel Deployment
+The API is deployed on Vercel serverless infrastructure with the following characteristics:
+- **Runtime**: Python 3.11
+- **Function Timeout**: 10 seconds maximum
+- **Cold Start**: First request may take 2-3 seconds
+- **Regions**: Primary deployment in `iad1` (US East)
+- **Static Files**: Served via Vercel CDN with aggressive caching
+
+## API Documentation
+Interactive API documentation is available at:
+- **Swagger UI**: https://veyu.vercel.app/api/docs/
+- **ReDoc**: https://veyu.vercel.app/redoc/
 
 ## Authentication
 All API endpoints (except public endpoints) require JWT authentication:
@@ -43,6 +57,7 @@ All endpoints follow a consistent error response format:
 - `404 Not Found`: Resource not found (e.g., "Dealership profile not found")
 - `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
+- `504 Gateway Timeout`: Function timeout (Vercel 10s limit exceeded)
 
 ### Common Error Messages
 - `"Dealership profile not found. Please complete your dealership profile setup."` - User needs to create dealership profile
@@ -93,6 +108,21 @@ POST /api/v1/token/verify/
   "token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
 }
 ```
+
+### Health Check
+
+#### System Health Check
+```http
+GET /health
+```
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "veyu-django"
+}
+```
+**Note:** This endpoint is used for monitoring and doesn't require authentication.
 
 ---
 
@@ -1650,6 +1680,40 @@ All endpoints return consistent error responses:
 - **Document Download**: 50 requests per minute
 - **General API**: 100 requests per minute
 
+## VERCEL SERVERLESS CONSIDERATIONS
+
+### Function Limitations
+- **Timeout**: 10 seconds maximum per request
+- **Memory**: 1024MB maximum
+- **Package Size**: 50MB maximum
+- **Cold Start**: 2-3 seconds for first request after inactivity
+
+### Performance Optimization
+- **Database Connections**: Optimized for serverless (no persistent connections)
+- **Static Files**: Served via CDN with 1-year cache headers
+- **Media Files**: Stored on Cloudinary CDN
+- **Caching**: In-memory caching disabled for serverless compatibility
+
+### Best Practices
+- **Timeout Handling**: Implement client-side timeouts for long operations
+- **Retry Logic**: Implement exponential backoff for failed requests
+- **File Uploads**: Use direct Cloudinary uploads for large files
+- **Batch Operations**: Split large operations into smaller chunks
+
+### CORS Configuration
+The API is configured to accept requests from:
+- `https://veyu.vercel.app`
+- `https://veyu.cc`
+- `https://dev.veyu.cc`
+- `https://*.vercel.app` (for preview deployments)
+
+### Response Headers
+All API responses include:
+- `Access-Control-Allow-Origin`: Configured origins
+- `Access-Control-Allow-Methods`: GET, POST, PUT, DELETE, OPTIONS
+- `Access-Control-Allow-Headers`: Content-Type, Authorization
+- `Cache-Control`: Appropriate caching headers for static content
+
 ---
 
 ## PAGINATION
@@ -1710,8 +1774,9 @@ pip install veyu-sdk
 import { VeyuClient } from '@veyu/sdk';
 
 const client = new VeyuClient({
-  apiKey: 'your_api_key',
-  environment: 'production'
+  baseURL: 'https://veyu.vercel.app',
+  apiKey: 'your_jwt_token',
+  timeout: 8000 // 8 seconds (less than Vercel's 10s limit)
 });
 
 // Create inspection
@@ -1731,17 +1796,36 @@ await client.signatures.submit(document.id, {
 });
 ```
 
+### Fetch Example
+```javascript
+// Direct API call with proper timeout
+const response = await fetch('https://veyu.vercel.app/api/v1/listings/', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer your_jwt_token',
+    'Content-Type': 'application/json'
+  },
+  signal: AbortSignal.timeout(8000) // 8 second timeout
+});
+
+const data = await response.json();
+```
+
 ---
 
 ## SUPPORT
 
 For API support and questions:
 - Email: api@veyu.cc
-- Documentation: https://docs.veyu.cc
+- Documentation: https://veyu.vercel.app/api/docs/
+- Swagger UI: https://veyu.vercel.app/api/docs/
+- ReDoc: https://veyu.vercel.app/redoc/
 - Status Page: https://status.veyu.cc
 
 ---
 
-**Last Updated:** January 2024  
+**Last Updated:** November 2024  
 **API Version:** v1  
-**Documentation Version:** 1.0.0
+**Documentation Version:** 1.1.0  
+**Deployment**: Vercel Serverless (Python 3.11)  
+**Region**: US East (iad1)
