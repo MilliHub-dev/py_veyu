@@ -10,7 +10,7 @@
       }
     }
   ],
-  "buildCommand": "bash build_files.sh",
+  "buildCommand": "python3 build.py",
   "routes": [
     {
       "src": "/static/(.*)",
