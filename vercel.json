@@ -1,18 +1,25 @@
 {
+  "version": 2,
   "buildCommand": "python3 build.py",
   "outputDirectory": "staticfiles",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/static/(.*)",
-      "destination": "/staticfiles/$1"
+      "src": "api/vercel_app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/staticfiles/$1"
     },
     {
-      "source": "/media/(.*)",
-      "destination": "/staticfiles/media/$1"
+      "src": "/media/(.*)",
+      "dest": "/staticfiles/media/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/api/vercel_app"
+      "src": "/(.*)",
+      "dest": "/api/vercel_app.py"
     }
   ],
   "headers": [
