@@ -182,6 +182,154 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         self.verified_email = True
         self.save()
         return True
+    
+    def create_verification_otp(self, invalidate_previous=True, check_rate_limit=True):
+        """
+        Create a new verification OTP for this user with rate limiting and proper cleanup.
+        
+        Args:
+            invalidate_previous: Whether to invalidate previous unused OTPs
+            check_rate_limit: Whether to check rate limiting before creating OTP
+            
+        Returns:
+            OTP instance or raises ValidationError if rate limited
+            
+        Raises:
+            ValidationError: If rate limit is exceeded
+        """
+        from django.core.exceptions import ValidationError
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        if check_rate_limit:
+            # Check rate limiting - max 3 OTPs per hour, 10 per day
+            now = timezone.now()
+            hour_ago = now - timedelta(hours=1)
+            day_ago = now - timedelta(days=1)
+            
+            # Count recent OTPs
+            recent_hour_count = OTP.objects.filter(
+                valid_for=self,
+                channel='email',
+                purpose='verification',
+                date_created__gte=hour_ago
+            ).count()
+            
+            recent_day_count = OTP.objects.filter(
+                valid_for=self,
+                channel='email',
+                purpose='verification',
+                date_created__gte=day_ago
+            ).count()
+            
+            if recent_hour_count >= 3:
+                raise ValidationError(
+                    "Too many verification requests. Please wait before requesting another code."
+                )
+            
+            if recent_day_count >= 10:
+                raise ValidationError(
+                    "Daily verification limit exceeded. Please try again tomorrow."
+                )
+            
+            # Check for recent OTP (cooldown period of 2 minutes)
+            recent_otp = OTP.objects.filter(
+                valid_for=self,
+                channel='email',
+                purpose='verification',
+                date_created__gte=now - timedelta(minutes=2)
+            ).first()
+            
+            if recent_otp:
+                remaining_seconds = int((recent_otp.date_created + timedelta(minutes=2) - now).total_seconds())
+                if remaining_seconds > 0:
+                    raise ValidationError(
+                        f"Please wait {remaining_seconds} seconds before requesting another verification code."
+                    )
+        
+        if invalidate_previous:
+            # Mark previous unused verification OTPs as used
+            OTP.objects.filter(
+                valid_for=self,
+                channel='email',
+                purpose='verification',
+                used=False
+            ).update(used=True)
+        
+        return OTP.objects.create(
+            valid_for=self,
+            channel='email',
+            purpose='verification',
+            expires_at=timezone.now() + timezone.timedelta(minutes=10)
+        )
+
+    def cleanup_expired_otps(self):
+        """
+        Clean up expired and used OTPs for this user.
+        
+        Returns:
+            Dict with cleanup statistics
+        """
+        from django.utils import timezone
+        
+        now = timezone.now()
+        
+        # Count expired OTPs
+        expired_otps = OTP.objects.filter(
+            valid_for=self,
+            expires_at__lt=now
+        )
+        expired_count = expired_otps.count()
+        
+        # Count used OTPs older than 24 hours
+        old_used_otps = OTP.objects.filter(
+            valid_for=self,
+            used=True,
+            date_created__lt=now - timezone.timedelta(days=1)
+        )
+        old_used_count = old_used_otps.count()
+        
+        # Delete expired and old used OTPs
+        expired_otps.delete()
+        old_used_otps.delete()
+        
+        return {
+            'expired_deleted': expired_count,
+            'old_used_deleted': old_used_count,
+            'total_deleted': expired_count + old_used_count
+        }
+
+    @classmethod
+    def cleanup_all_expired_otps(cls):
+        """
+        Clean up expired and old used OTPs for all users.
+        This method should be called periodically (e.g., via cron job).
+        
+        Returns:
+            Dict with cleanup statistics
+        """
+        from django.utils import timezone
+        
+        now = timezone.now()
+        
+        # Count and delete expired OTPs
+        expired_otps = OTP.objects.filter(expires_at__lt=now)
+        expired_count = expired_otps.count()
+        expired_otps.delete()
+        
+        # Count and delete used OTPs older than 7 days
+        old_used_otps = OTP.objects.filter(
+            used=True,
+            date_created__lt=now - timezone.timedelta(days=7)
+        )
+        old_used_count = old_used_otps.count()
+        old_used_otps.delete()
+        
+        return {
+            'expired_deleted': expired_count,
+            'old_used_deleted': old_used_count,
+            'total_deleted': expired_count + old_used_count
+        }
 
     @property
     def name(self):
@@ -1241,6 +1389,97 @@ class OTP(DbModel):
     def attempts_remaining(self):
         """Returns number of attempts remaining"""
         return max(0, self.max_attempts - self.attempts)
+
+    @classmethod
+    def cleanup_expired(cls):
+        """
+        Clean up expired OTPs across the system.
+        
+        Returns:
+            Dict with cleanup statistics
+        """
+        from django.utils import timezone
+        
+        now = timezone.now()
+        
+        # Delete expired OTPs
+        expired_otps = cls.objects.filter(expires_at__lt=now)
+        expired_count = expired_otps.count()
+        expired_otps.delete()
+        
+        # Delete used OTPs older than 7 days
+        old_used_otps = cls.objects.filter(
+            used=True,
+            date_created__lt=now - timezone.timedelta(days=7)
+        )
+        old_used_count = old_used_otps.count()
+        old_used_otps.delete()
+        
+        return {
+            'expired_deleted': expired_count,
+            'old_used_deleted': old_used_count,
+            'total_deleted': expired_count + old_used_count
+        }
+
+    @classmethod
+    def get_rate_limit_status(cls, user, channel='email', purpose='verification'):
+        """
+        Check rate limit status for a user.
+        
+        Args:
+            user: User instance
+            channel: OTP channel (default: 'email')
+            purpose: OTP purpose (default: 'verification')
+            
+        Returns:
+            Dict with rate limit information
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        now = timezone.now()
+        hour_ago = now - timedelta(hours=1)
+        day_ago = now - timedelta(days=1)
+        
+        # Count recent OTPs
+        recent_hour_count = cls.objects.filter(
+            valid_for=user,
+            channel=channel,
+            purpose=purpose,
+            date_created__gte=hour_ago
+        ).count()
+        
+        recent_day_count = cls.objects.filter(
+            valid_for=user,
+            channel=channel,
+            purpose=purpose,
+            date_created__gte=day_ago
+        ).count()
+        
+        # Check for recent OTP (cooldown period)
+        recent_otp = cls.objects.filter(
+            valid_for=user,
+            channel=channel,
+            purpose=purpose,
+            date_created__gte=now - timedelta(minutes=2)
+        ).first()
+        
+        cooldown_remaining = 0
+        if recent_otp:
+            cooldown_remaining = max(0, int((recent_otp.date_created + timedelta(minutes=2) - now).total_seconds()))
+        
+        return {
+            'hour_count': recent_hour_count,
+            'hour_limit': 3,
+            'day_count': recent_day_count,
+            'day_limit': 10,
+            'cooldown_remaining': cooldown_remaining,
+            'can_request': (
+                recent_hour_count < 3 and 
+                recent_day_count < 10 and 
+                cooldown_remaining == 0
+            )
+        }
 
 
 class File(DbModel):

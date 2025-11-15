@@ -1,0 +1,10 @@
+[2025-11-15 08:59:50] LOG_VIEWER: Attempted access to non-whitelisted file: ../etc/passwd
+[2025-11-15 08:59:50] LOG_VIEWER: Attempted access to non-whitelisted file: malicious.log
+[2025-11-15 08:59:50] INFO: LOG_VIEWER: Log access successful: test@example.com -> api.log
+    DATA: {"event_type":"log_access_attempt","timestamp":"2025-11-15T08:59:50.834476+00:00","user_email":"test@example.com","log_file":"api.log","ip_address":"127.0.0.1","success":true,"user_agent":"","search_query":"test","level_filter":"ERROR"}
+[2025-11-15 08:59:50] WARNING: LOG_VIEWER: Permission denied: user@example.com -> security.log (reason: insufficient_privileges)
+    DATA: {"event_type":"permission_denied","timestamp":"2025-11-15T08:59:50.835708+00:00","user_email":"user@example.com","log_file":"security.log","ip_address":"192.168.1.100","reason":"insufficient_privileges","user_agent":"","user_type":"","is_staff":false}
+[2025-11-15 08:59:50] ERROR: LOG_VIEWER: File access error: admin@example.com -> nonexistent.log (file_not_found: File does not exist)
+    DATA: {"event_type":"file_access_error","timestamp":"2025-11-15T08:59:50.837009+00:00","user_email":"admin@example.com","log_file":"nonexistent.log","error_type":"file_not_found","error_message":"File does not exist","ip_address":"10.0.0.1","user_agent":"","request_path":""}
+[2025-11-15 08:59:50] INFO: LOG_VIEWER: Download successful: admin@example.com -> django.log (complete) (1024 bytes)
+    DATA: {"event_type":"download_attempt","timestamp":"2025-11-15T08:59:50.838199+00:00","user_email":"admin@example.com","log_file":"django.log","ip_address":"127.0.0.1","success":true,"file_size":1024,"is_filtered":false,"user_agent":"","search_query":"","level_filter":""}

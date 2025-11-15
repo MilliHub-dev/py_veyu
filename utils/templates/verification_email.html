@@ -147,20 +147,24 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+            <img src="{{ logo_url|default:'https://dev.veyu.cc/static/veyu/logo.png' }}" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
             <h2>Verify Your Email Address</h2>
         </div>
         
         <div class="content">
-            <p>Hello <strong>{{ name }}</strong>,</p>
+            <p>Hello <strong>{{ name|default:user_name|default:'there' }}</strong>,</p>
             
-            <p>Thank you for signing up with {{ app_name|default:'Veyu' }}! To complete your registration and verify your email address, please use the following verification code:</p>
+            <p>{% if purpose == 'login' %}
+                Please use the following verification code to complete your login:
+            {% else %}
+                Thank you for signing up with {{ app_name|default:'Veyu' }}! To complete your registration and verify your email address, please use the following verification code:
+            {% endif %}</p>
             
             <div class="verification-code">
-                {{ verification_code }}
+                {{ verification_code|default:otp }}
             </div>
             
-            <p class="text-muted">This code will expire in 30 minutes. Please do not share this code with anyone.</p>
+            <p class="text-muted">This code will expire in {{ validity_minutes|default:30 }} minutes. Please do not share this code with anyone.</p>
             
             <p>If you didn't request this email, you can safely ignore it. Your account security is important to us.</p>
             

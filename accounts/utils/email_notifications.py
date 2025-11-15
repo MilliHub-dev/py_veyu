@@ -16,12 +16,16 @@ User = get_user_model()
 
 
 def send_verification_email(user, verification_code: str) -> bool:
-    """Send email verification code to user."""
+    """Send email verification code to user using unified template."""
     subject = "Verify Your Email - Veyu"
     context = {
         "name": user.first_name or user.email,
+        "user_name": user.first_name or 'there',
         "email": user.email,
         "verification_code": verification_code,
+        "otp": verification_code,  # Support both variable names
+        "validity_minutes": 30,  # Default validity
+        "purpose": "signup",  # Distinguish from login verification
         "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
@@ -124,12 +128,16 @@ def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> 
 
 
 def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
-    """Send OTP code to user's email."""
-    subject = "Your Verification Code - Veyu"
+    """Send OTP code to user's email using unified verification template."""
+    subject = "Verify Your Email - Veyu"  # Unified subject line
     context = {
         "otp": otp_code,
+        "verification_code": otp_code,  # Support both variable names
+        "name": user.first_name or user.email,
         "user_name": user.first_name or 'there',
+        "email": user.email,
         "validity_minutes": validity_minutes,
+        "purpose": "login",  # Distinguish from signup verification
         "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
@@ -138,7 +146,7 @@ def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
         success = send_template_email(
             subject=subject,
             recipients=[user.email],
-            template_name='otp_email.html',
+            template_name='verification_email.html',  # Use unified template
             context=context
         )
         

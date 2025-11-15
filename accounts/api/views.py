@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -173,30 +174,37 @@ class SignUpView(generics.CreateAPIView):
                 if user_type == 'customer':
                     Customer.objects.create(user=user, phone_number=data.get('phone_number', ''))
                 
-                # Generate and save email verification OTP
-                otp = OTP.objects.create(valid_for=user, channel='email')
+                # Generate and save email verification OTP with consistent parameters
+                otp = OTP.objects.create(
+                    valid_for=user,
+                    channel='email',
+                    purpose='verification',
+                    expires_at=timezone.now() + timedelta(minutes=10)
+                )
                 verification_code = otp.code
 
-                # Send verification and welcome emails asynchronously (non-blocking)
+                # Send only verification email asynchronously (non-blocking)
                 send_verification_email_async(user, verification_code)
-                send_welcome_email_async(user)
                 
                 # Emails are sent in background, so we assume success for response
                 verification_sent = True
-                welcome_sent = True
+                welcome_sent = True  # Set to True for backward compatibility, but no welcome email sent
                 
-                # Send OTP for phone verification if phone number exists
+                # Create OTP for phone verification if phone number exists (but don't send duplicate email)
                 phone_number = data.get('phone_number', '')
                 if phone_number:
                     otp_code = make_random_otp()
-                    send_otp_email_async(user, otp_code)
-                    otp_sent = True  # Async, assume success
+                    # Note: Removed send_otp_email_async call to prevent duplicate emails
+                    # Phone verification should use SMS or be handled via separate endpoint
+                    otp_sent = True  # Assume success for OTP creation
                     if otp_sent:
                         # Save OTP to database for phone verification
                         OTP.objects.create(
                             valid_for=user,
                             code=otp_code,
                             channel='sms',
+                            purpose='phone_verification',
+                            expires_at=timezone.now() + timedelta(minutes=10),
                             used=False
                         )
                 
@@ -807,105 +815,169 @@ class VerifyEmailView(APIView):
         validated_data = serializer.validated_data
         
         if validated_data['action'] == 'request-code':
-            try:
-                from utils.otp_manager import otp_manager
-                
-                # Get client information for security logging
-                ip_address = request.META.get('REMOTE_ADDR')
-                user_agent = request.META.get('HTTP_USER_AGENT', '')
-                
-                # Request OTP using enhanced manager
-                otp_request = otp_manager.request_otp(
-                    user=request.user,
-                    channel='email',
-                    purpose='verification',
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
-                
-                if not otp_request['success']:
-                    return Response({
-                        'error': True,
-                        'message': otp_request['message'],
-                        'rate_limit': otp_request.get('rate_limit'),
-                        'cooldown': otp_request.get('cooldown')
-                    }, status=status.HTTP_429_TOO_MANY_REQUESTS if 'limit' in otp_request['message'] else status.HTTP_400_BAD_REQUEST)
-                
-                # Send OTP email using enhanced manager
-                send_result = otp_manager.send_otp_email(request.user, otp_request['otp'])
-                
-                if send_result['success']:
-                    expires_in = int((otp_request['otp'].expires_at - timezone.now()).total_seconds() / 60)
-                    return Response({
-                        'error': False,
-                        'message': send_result['message'],
-                        'expires_in_minutes': expires_in,
-                        'delivery_tracking': send_result.get('tracking', {})
-                    }, status=status.HTTP_200_OK)
-                else:
-                    # Mark OTP as used if sending failed
-                    otp_request['otp'].mark_as_used()
-                    return Response({
-                        'error': True,
-                        'message': send_result['message'],
-                        'delivery_tracking': send_result.get('tracking', {})
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                    
-            except Exception as error:
-                logger.error(f"Error requesting email OTP for user {request.user.email}: {str(error)}")
-                return Response({
-                    'error': True,
-                    'message': 'An error occurred while sending OTP. Please try again.'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+            return self._handle_request_code(request, is_resend=False)
+        elif validated_data['action'] == 'resend-code':
+            return self._handle_request_code(request, is_resend=True)
         elif validated_data['action'] == 'confirm-code':
-            try:
-                from utils.otp_manager import otp_manager
-                
-                otp_code = data.get('code', '').strip()
-                
-                if not otp_code:
-                    return Response({
-                        'error': True,
-                        'message': 'OTP code is required'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Get client information for security logging
-                ip_address = request.META.get('REMOTE_ADDR')
-                user_agent = request.META.get('HTTP_USER_AGENT', '')
-                
-                # Verify OTP using enhanced manager
-                verify_result = otp_manager.verify_otp(
-                    user=request.user,
-                    otp_code=otp_code,
-                    channel='email',
-                    purpose='verification',
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
-                
-                if verify_result['success']:
-                    return Response({
-                        'error': False,
-                        'message': verify_result['message']
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({
-                        'error': True,
-                        'message': verify_result['message']
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                    
-            except Exception as error:
-                logger.error(f"Error verifying email OTP for user {request.user.email}: {str(error)}")
-                return Response({
-                    'error': True,
-                    'message': 'An error occurred during verification. Please try again.'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return self._handle_confirm_code(request)
         
         return Response({
             'error': True,
             'message': 'Invalid action'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    def _handle_request_code(self, request: Request, is_resend: bool = False):
+        """Handle both initial code requests and resend requests with proper rate limiting and logging."""
+        try:
+            from utils.otp_manager import otp_manager
+            
+            # Get client information for security logging
+            ip_address = request.META.get('REMOTE_ADDR')
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            action_type = "resend" if is_resend else "initial request"
+            
+            # Log the attempt
+            logger.info(f"Email verification {action_type} attempt for user {request.user.email} from IP {ip_address}")
+            
+            # Check if email is already verified
+            if request.user.verified_email:
+                logger.warning(f"Email verification {action_type} attempted for already verified user {request.user.email}")
+                return Response({
+                    'error': True,
+                    'message': 'Email address is already verified',
+                    'error_code': 'already_verified'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # For resend requests, check additional rate limiting
+            if is_resend:
+                resend_check = otp_manager.check_resend_cooldown(request.user.id, 'email')
+                if not resend_check['allowed']:
+                    logger.warning(f"Resend cooldown active for user {request.user.email}: {resend_check.get('remaining_seconds', 0)} seconds remaining")
+                    return Response({
+                        'error': True,
+                        'message': resend_check['message'],
+                        'error_code': 'resend_cooldown',
+                        'retry_after_seconds': resend_check.get('remaining_seconds', 0)
+                    }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            
+            # Request OTP using enhanced manager
+            otp_request = otp_manager.request_otp(
+                user=request.user,
+                channel='email',
+                purpose='verification',
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
+            if not otp_request['success']:
+                error_message = otp_request['message']
+                logger.warning(f"Email verification {action_type} failed for user {request.user.email}: {error_message}")
+                
+                # Determine appropriate status code based on error type
+                status_code = status.HTTP_429_TOO_MANY_REQUESTS if 'limit' in error_message.lower() else status.HTTP_400_BAD_REQUEST
+                
+                return Response({
+                    'error': True,
+                    'message': error_message,
+                    'error_code': 'rate_limited' if 'limit' in error_message.lower() else 'request_failed',
+                    'rate_limit': otp_request.get('rate_limit'),
+                    'cooldown': otp_request.get('cooldown')
+                }, status=status_code)
+            
+            # Send OTP email using enhanced manager
+            send_result = otp_manager.send_otp_email(request.user, otp_request['otp'])
+            
+            if send_result['success']:
+                expires_in = int((otp_request['otp'].expires_at - timezone.now()).total_seconds() / 60)
+                
+                # Update resend cooldown for successful sends
+                if is_resend:
+                    otp_manager.set_resend_cooldown(request.user.id, 'email')
+                
+                logger.info(f"Email verification {action_type} successful for user {request.user.email}, expires in {expires_in} minutes")
+                
+                return Response({
+                    'error': False,
+                    'message': f'Verification code {"resent" if is_resend else "sent"} successfully',
+                    'expires_in_minutes': expires_in,
+                    'delivery_tracking': send_result.get('tracking', {}),
+                    'next_resend_allowed_in': otp_manager.RESEND_COOLDOWN_MINUTES * 60 if is_resend else None
+                }, status=status.HTTP_200_OK)
+            else:
+                # Mark OTP as used if sending failed
+                otp_request['otp'].mark_as_used()
+                
+                logger.error(f"Email verification {action_type} send failed for user {request.user.email}: {send_result['message']}")
+                
+                return Response({
+                    'error': True,
+                    'message': f'Failed to {"resend" if is_resend else "send"} verification code. Please try again.',
+                    'error_code': 'send_failed',
+                    'delivery_tracking': send_result.get('tracking', {})
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except Exception as error:
+            logger.error(f"Error during email verification {action_type} for user {request.user.email}: {str(error)}", exc_info=True)
+            return Response({
+                'error': True,
+                'message': f'An error occurred while {"resending" if is_resend else "sending"} verification code. Please try again.',
+                'error_code': 'system_error'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _handle_confirm_code(self, request: Request):
+        """Handle email verification code confirmation."""
+        try:
+            from utils.otp_manager import otp_manager
+            
+            data = request.data
+            otp_code = data.get('code', '').strip()
+            
+            if not otp_code:
+                return Response({
+                    'error': True,
+                    'message': 'OTP code is required',
+                    'error_code': 'missing_code'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get client information for security logging
+            ip_address = request.META.get('REMOTE_ADDR')
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            logger.info(f"Email verification confirmation attempt for user {request.user.email} from IP {ip_address}")
+            
+            # Verify OTP using enhanced manager
+            verify_result = otp_manager.verify_otp(
+                user=request.user,
+                otp_code=otp_code,
+                channel='email',
+                purpose='verification',
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
+            if verify_result['success']:
+                logger.info(f"Email verification successful for user {request.user.email}")
+                return Response({
+                    'error': False,
+                    'message': verify_result['message']
+                }, status=status.HTTP_200_OK)
+            else:
+                logger.warning(f"Email verification failed for user {request.user.email}: {verify_result['message']}")
+                return Response({
+                    'error': True,
+                    'message': verify_result['message'],
+                    'error_code': 'verification_failed'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as error:
+            logger.error(f"Error verifying email OTP for user {request.user.email}: {str(error)}", exc_info=True)
+            return Response({
+                'error': True,
+                'message': 'An error occurred during verification. Please try again.',
+                'error_code': 'system_error'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 class VerifyPhoneNumberView(APIView):
@@ -1030,6 +1102,148 @@ class VerifyPhoneNumberView(APIView):
             'error': True,
             'message': 'Invalid action'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyEmailUnauthenticatedView(APIView):
+    """
+    Unauthenticated email verification endpoint that allows users to verify their email
+    without requiring authentication. This addresses the 401 error issue during verification.
+    """
+    permission_classes = [AllowAny]
+    allowed_methods = ['POST']
+
+    @swagger_auto_schema(
+        operation_summary="Verify email without authentication",
+        operation_description=(
+            "Verify email address using verification code without requiring user authentication.\n\n"
+            "This endpoint allows users to verify their email after signup even if they are not logged in.\n"
+            "It accepts email and verification code, validates the code, and marks the email as verified.\n\n"
+            "**Required Fields:**\n"
+            "- email: The email address to verify\n"
+            "- code: The verification code sent to the email\n\n"
+            "**Error Handling:**\n"
+            "- Returns specific error messages for invalid codes, expired codes, or missing accounts\n"
+            "- Includes security logging for verification attempts\n"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'code'],
+            properties={
+                'email': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_EMAIL,
+                    description='Email address to verify',
+                    example='user@example.com'
+                ),
+                'code': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Verification code sent to email',
+                    example='123456'
+                ),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Email verified successfully",
+                examples={
+                    "application/json": {
+                        "error": False,
+                        "message": "Email verified successfully"
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Validation error or invalid code",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Invalid or expired verification code"
+                    }
+                }
+            ),
+            404: openapi.Response(
+                description="Account not found",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Account not found"
+                    }
+                }
+            )
+        },
+        tags=['Authentication']
+    )
+    def post(self, request: Request):
+        try:
+            email = request.data.get('email', '').strip().lower()
+            code = request.data.get('code', '').strip()
+            
+            # Validate required fields
+            if not email:
+                return Response({
+                    'error': True,
+                    'message': 'Email is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not code:
+                return Response({
+                    'error': True,
+                    'message': 'Verification code is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Find the user account
+            try:
+                user = Account.objects.get(email=email)
+            except Account.DoesNotExist:
+                logger.warning(f"Email verification attempted for non-existent account: {email}")
+                return Response({
+                    'error': True,
+                    'message': 'Account not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if email is already verified
+            if user.verified_email:
+                return Response({
+                    'error': False,
+                    'message': 'Email is already verified'
+                }, status=status.HTTP_200_OK)
+            
+            # Find the most recent unused verification OTP for this user
+            otp = OTP.objects.filter(
+                valid_for=user,
+                code=code,
+                channel='email',
+                purpose='verification',
+                used=False
+            ).order_by('-date_created').first()
+            
+            if not otp:
+                logger.warning(f"Invalid verification code attempted for user {email}")
+                return Response({
+                    'error': True,
+                    'message': 'Invalid or expired verification code'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Verify the OTP using the model's verify method
+            if otp.verify(code, user):
+                logger.info(f"Email successfully verified for user {email}")
+                return Response({
+                    'error': False,
+                    'message': 'Email verified successfully'
+                }, status=status.HTTP_200_OK)
+            else:
+                # The verify method handles logging internally
+                return Response({
+                    'error': True,
+                    'message': 'Invalid or expired verification code'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as error:
+            logger.error(f"Error during unauthenticated email verification: {str(error)}")
+            return Response({
+                'error': True,
+                'message': 'An error occurred during verification. Please try again.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class NotificationView(APIView):

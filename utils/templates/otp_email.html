@@ -1,8 +1,13 @@
+<!-- 
+DEPRECATED: This template has been consolidated into verification_email.html
+Use verification_email.html for all email verification purposes.
+This file is kept for backward compatibility but should not be used for new implementations.
+-->
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Your Verification Code - Veyu</title>
+    <title>Verify Your Email - Veyu</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -53,22 +58,35 @@
             margin: 20px 0;
             font-weight: bold;
         }
+        .deprecated-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="Veyu Logo" class="logo">
-            <h2>Your Verification Code</h2>
+        <div class="deprecated-notice">
+            <strong>Notice:</strong> This template is deprecated. Please use verification_email.html instead.
         </div>
         
-        <p>Hello,</p>
+        <div class="header">
+            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="Veyu Logo" class="logo">
+            <h2>Verify Your Email Address</h2>
+        </div>
         
-        <p>Your One-Time Password (OTP) for Veyu is:</p>
+        <p>Hello {{ user_name|default:'there' }},</p>
         
-        <div class="otp-code">{{ otp|default:"405982" }}</div>
+        <p>Your verification code for Veyu is:</p>
         
-        <p>Please enter this code to complete your login. This code is valid for <strong>{{ validity_minutes }} minutes</strong>.</p>
+        <div class="otp-code">{{ otp|default:verification_code|default:"405982" }}</div>
+        
+        <p>Please enter this code to complete your verification. This code is valid for <strong>{{ validity_minutes|default:30 }} minutes</strong>.</p>
         
         <p>If you didn't request this code, please ignore this email or contact our support team if you have any concerns.</p>
         

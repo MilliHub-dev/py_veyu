@@ -43,8 +43,12 @@ def send_verification_email_async(user, verification_code: str):
         
         context = {
             "name": user.first_name or user.email,
+            "user_name": user.first_name or 'there',
             "email": user.email,
             "verification_code": verification_code,
+            "otp": verification_code,  # Support both variable names
+            "validity_minutes": 30,
+            "purpose": "signup",
             "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
             "app_name": "Veyu"
         }
@@ -86,23 +90,27 @@ def send_welcome_email_async(user):
 
 
 def send_otp_email_async(user, otp_code: str, validity_minutes: int = 30):
-    """Send OTP email asynchronously using Brevo API."""
+    """Send OTP email asynchronously using unified verification template."""
     def _send_otp():
         from utils.brevo_api import send_template_email_via_api
         from django.conf import settings
         
         context = {
             "otp": otp_code,
+            "verification_code": otp_code,  # Support both variable names
+            "name": user.first_name or user.email,
             "user_name": user.first_name or 'there',
+            "email": user.email,
             "validity_minutes": validity_minutes,
+            "purpose": "login",
             "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
             "app_name": "Veyu"
         }
         
         return send_template_email_via_api(
-            subject="Your Verification Code - Veyu",
+            subject="Verify Your Email - Veyu",  # Unified subject
             recipients=[user.email],
-            template_name='otp_email.html',
+            template_name='verification_email.html',  # Use unified template
             context=context
         )
     

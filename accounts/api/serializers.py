@@ -532,6 +532,7 @@ class VerifyEmailSerializer(serializers.Serializer):
     code = serializers.CharField(required=False)
     ACTION_CHOICES = [
         ('request-code', 'request-code'),
+        ('resend-code', 'resend-code'),
         ('confirm-code', 'confirm-code'),
     ]
     action = serializers.ChoiceField(choices=ACTION_CHOICES)
@@ -542,14 +543,13 @@ class VerifyEmailSerializer(serializers.Serializer):
         action = data.get('action')
         code = data.get('code', None)
 
-        user = Account.objects.filter(email=data['email']).first()
-
-        if not user:
-            raise serializers.ValidationError(
-                detail={'message':': user does not exist'}
-            )
-        if not email:
-            raise serializers.ValidationError("Email must be provided.")
+        # For authenticated requests, email validation is optional since we use request.user
+        if email:
+            user = Account.objects.filter(email=email).first()
+            if not user:
+                raise serializers.ValidationError(
+                    detail={'message': 'User does not exist'}
+                )
 
         if action == 'confirm-code' and not code:
             raise serializers.ValidationError("Code must be provided for confirmation.")

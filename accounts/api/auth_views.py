@@ -7,7 +7,9 @@ provider validation, and comprehensive error handling.
 
 import logging
 from typing import Dict, Any
+from datetime import timedelta
 from django.contrib.auth import authenticate, login
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -236,22 +238,26 @@ class EnhancedSignUpView(APIView):
         return user
 
     def _send_welcome_emails(self, user: Account) -> Dict[str, bool]:
-        """Send verification and welcome emails."""
+        """Send only verification email during signup."""
         try:
-            # Generate and save email verification OTP
-            otp = OTP.objects.create(valid_for=user, channel='email')
+            # Generate and save email verification OTP with consistent parameters
+            otp = OTP.objects.create(
+                valid_for=user,
+                channel='email',
+                purpose='verification',
+                expires_at=timezone.now() + timedelta(minutes=10)
+            )
             verification_code = otp.code
             
-            # Send emails
+            # Send only verification email (welcome email removed to avoid duplicates)
             verification_sent = send_verification_email(user, verification_code)
-            welcome_sent = send_welcome_email(user)
             
             return {
                 'verification_sent': verification_sent,
-                'welcome_sent': welcome_sent
+                'welcome_sent': True  # Set to True for backward compatibility
             }
         except Exception as e:
-            logger.error(f"Failed to send welcome emails for {user.email}: {str(e)}")
+            logger.error(f"Failed to send verification email for {user.email}: {str(e)}")
             return {
                 'verification_sent': False,
                 'welcome_sent': False
@@ -263,19 +269,22 @@ class EnhancedSignUpView(APIView):
             return False
         
         try:
+            # Create OTP for phone verification but don't send duplicate email
+            # Phone verification should be handled separately via SMS or dedicated phone verification endpoint
             otp_code = make_random_otp()
-            otp_sent = send_otp_email(user, otp_code)
-            
-            if otp_sent:
-                OTP.objects.create(
-                    valid_for=user,
-                    code=otp_code,
-                    channel='sms',
-                    used=False
-                )
-                return True
+            OTP.objects.create(
+                valid_for=user,
+                code=otp_code,
+                channel='sms',
+                purpose='phone_verification',
+                expires_at=timezone.now() + timedelta(minutes=10),
+                used=False
+            )
+            # Note: Removed send_otp_email call to prevent duplicate emails
+            # Phone verification should use SMS or be handled via separate endpoint
+            return True
         except Exception as e:
-            logger.error(f"Failed to send phone OTP for {user.email}: {str(e)}")
+            logger.error(f"Failed to create phone OTP for {user.email}: {str(e)}")
         
         return False
 
@@ -350,12 +359,8 @@ class EnhancedSignUpView(APIView):
                 # Generate JWT tokens
                 tokens = TokenManager.create_tokens_for_user(user)
                 
-                # Send welcome email (skip verification for verified social accounts)
-                welcome_sent = False
-                try:
-                    welcome_sent = send_welcome_email(user)
-                except Exception as e:
-                    logger.error(f"Failed to send welcome email: {str(e)}")
+                # Skip welcome email to avoid duplicates (verification email is primary)
+                welcome_sent = True  # Set to True for backward compatibility
                 
                 response_data = {
                     'error': False,

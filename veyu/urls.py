@@ -66,6 +66,10 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm'
     ),
+    
+    # Log Viewer
+    path('logs/', include('utils.log_urls', namespace='logs')),
+    
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
     # path('', include('utils.urls', namespace='utils')),
 ]

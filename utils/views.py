@@ -8,9 +8,20 @@ from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.core.mail import EmailMessage
+from django.views.generic import TemplateView
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.utils.html import escape
+from django.utils import timezone
+from django.db.models import Q
+import re
+import logging
 from utils.mail import send_email, validate_email_configuration, test_smtp_connection, get_email_backend_health, process_email_queue
 from utils.database_utils import DatabaseHealthChecker
 from utils.error_handlers import handle_api_exception
+from utils.auth_decorators import admin_required
+from utils.log_service import LogFileService, LogParser
+from utils.exceptions import VeyuException, APIError, ErrorCodes
+from utils.log_security import security_logger, get_request_metadata
 
 
 @csrf_exempt
@@ -365,3 +376,1225 @@ def system_health_check(request):
 
 
 
+
+
+# Log Viewer Views
+# Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.4, 2.5, 4.1, 4.5
+
+class LogListView(TemplateView):
+    """
+    View for displaying available log files with metadata.
+    
+    Requirements: 1.1, 4.5
+    """
+    template_name = 'logs/log_list.html'
+    
+    @admin_required
+    def dispatch(self, request, *args, **kwargs):
+        """Ensure admin authentication before processing request."""
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        """
+        Get context data for the log list template.
+        
+        Returns:
+            dict: Context containing available log files and metadata
+        """
+        context = super().get_context_data(**kwargs)
+        
+        # Initialize log service
+        log_service = LogFileService()
+        
+        try:
+            # Get available log files with metadata
+            log_files = log_service.get_available_logs()
+            
+            # Log successful access attempt
+            security_logger.log_access_attempt(
+                user_email=self.request.user.email,
+                log_file='log_list_view',
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                success=True,
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_files': log_files,
+                'total_files': len(log_files),
+                'error_message': None,
+                'error_type': None
+            })
+            
+        except PermissionError as e:
+            # Handle permission denied scenarios
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file='log_directory',
+                error_type='permission_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_files': [],
+                'total_files': 0,
+                'error_message': 'Permission denied. Unable to access log directory. Please contact system administrator.',
+                'error_type': 'permission_denied'
+            })
+            
+        except FileNotFoundError as e:
+            # Handle missing log directory
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file='log_directory',
+                error_type='directory_not_found',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_files': [],
+                'total_files': 0,
+                'error_message': 'Log directory not found. Please contact system administrator.',
+                'error_type': 'directory_not_found'
+            })
+            
+        except OSError as e:
+            # Handle file system errors
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file='log_directory',
+                error_type='filesystem_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_files': [],
+                'total_files': 0,
+                'error_message': 'File system error. Unable to access log files. Please contact system administrator.',
+                'error_type': 'filesystem_error'
+            })
+            
+        except Exception as e:
+            # Handle unexpected errors
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file='log_directory',
+                error_type='unexpected_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_files': [],
+                'total_files': 0,
+                'error_message': 'An unexpected error occurred. Please contact system administrator.',
+                'error_type': 'unexpected_error'
+            })
+        
+        return context
+
+
+class LogDetailView(TemplateView):
+    """
+    View for displaying log file content with pagination, search, and filtering.
+    
+    Requirements: 1.2, 1.3, 2.1, 2.2, 2.4, 2.5
+    """
+    template_name = 'logs/log_detail.html'
+    
+    @admin_required
+    def dispatch(self, request, *args, **kwargs):
+        """Ensure admin authentication before processing request."""
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        """
+        Get context data for the log detail template.
+        
+        Returns:
+            dict: Context containing log entries, pagination, and search results
+        """
+        context = super().get_context_data(**kwargs)
+        
+        # Get log file name from URL
+        log_file = kwargs.get('log_file')
+        
+        # Initialize services
+        log_service = LogFileService()
+        
+        # Validate file access
+        if not log_service.validate_file_access(log_file):
+            # Log security event for invalid file access
+            security_logger.log_invalid_request(
+                user_email=self.request.user.email,
+                request_details=f"Attempted to access invalid log file: {log_file}",
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'error_message': f'Access denied or file not found: {log_file}',
+                'error_type': 'access_denied',
+                'log_file': log_file,
+                'log_entries': [],
+                'page_obj': None,
+                'file_info': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            })
+            return context
+        
+        try:
+            # Get file information
+            file_info = log_service.get_file_info(log_file)
+            if not file_info or not file_info.is_accessible:
+                raise FileNotFoundError(f"File {log_file} is not accessible")
+            
+            # Get search and filter parameters
+            search_query = self.request.GET.get('search', '').strip()
+            level_filter = self.request.GET.get('level', '').strip().upper()
+            page_number = self.request.GET.get('page', 1)
+            
+            # Handle large file warning (> 10MB or > 10000 lines)
+            large_file_warning = None
+            if file_info.size > 10 * 1024 * 1024:  # 10MB
+                large_file_warning = f"Large file ({file_info.size // (1024*1024)}MB). Consider downloading for better performance."
+            elif file_info.line_count > 10000:
+                large_file_warning = f"Large file ({file_info.line_count} lines). Showing recent entries only."
+            
+            # Read log entries (limit to last 5000 lines for large files)
+            if file_info.line_count > 5000:
+                start_line = max(1, file_info.line_count - 5000)
+                log_entries = log_service.read_log_file(log_file, start_line=start_line)
+            else:
+                log_entries = log_service.read_log_file(log_file)
+            
+            # Apply search and level filtering
+            filtered_entries = self._filter_log_entries(log_entries, search_query, level_filter)
+            
+            # Reverse order to show newest entries first
+            filtered_entries.reverse()
+            
+            # Paginate results (100 entries per page)
+            paginator = Paginator(filtered_entries, 100)
+            
+            try:
+                page_obj = paginator.page(page_number)
+            except PageNotAnInteger:
+                page_obj = paginator.page(1)
+            except EmptyPage:
+                page_obj = paginator.page(paginator.num_pages)
+            
+            # Highlight search terms in entries
+            if search_query:
+                page_obj.object_list = self._highlight_search_terms(page_obj.object_list, search_query)
+            
+            # Log successful access
+            additional_data = get_request_metadata(self.request)
+            additional_data.update({
+                'search_query': search_query,
+                'level_filter': level_filter
+            })
+            
+            security_logger.log_access_attempt(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                success=True,
+                additional_data=additional_data
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': file_info,
+                'log_entries': page_obj.object_list,
+                'page_obj': page_obj,
+                'search_query': search_query,
+                'level_filter': level_filter,
+                'large_file_warning': large_file_warning,
+                'total_entries': len(filtered_entries),
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': None,
+                'error_type': None
+            })
+            
+        except FileNotFoundError as e:
+            # Handle file not found (404) scenarios
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                error_type='file_not_found',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': None,
+                'log_entries': [],
+                'page_obj': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': f'Log file "{log_file}" not found. The file may have been moved or deleted.',
+                'error_type': 'file_not_found'
+            })
+            
+        except PermissionError as e:
+            # Handle permission denied (403) scenarios
+            security_logger.log_permission_denied(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                reason='file_permission_denied',
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': None,
+                'log_entries': [],
+                'page_obj': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': f'Permission denied accessing log file "{log_file}". Please contact system administrator.',
+                'error_type': 'permission_denied'
+            })
+            
+        except UnicodeDecodeError as e:
+            # Handle file encoding issues
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                error_type='encoding_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': None,
+                'log_entries': [],
+                'page_obj': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': f'Unable to read log file "{log_file}" due to encoding issues. File may be corrupted or in an unsupported format.',
+                'error_type': 'encoding_error'
+            })
+            
+        except OSError as e:
+            # Handle file read errors and other OS-level issues
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                error_type='file_read_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': None,
+                'log_entries': [],
+                'page_obj': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': f'Unable to read log file "{log_file}". The file may be locked or corrupted.',
+                'error_type': 'file_read_error'
+            })
+            
+        except Exception as e:
+            # Handle unexpected errors
+            security_logger.log_file_access_error(
+                user_email=self.request.user.email,
+                log_file=log_file,
+                error_type='unexpected_error',
+                error_message=str(e),
+                ip_address=self.request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(self.request)
+            )
+            
+            context.update({
+                'log_file': log_file,
+                'file_info': None,
+                'log_entries': [],
+                'page_obj': None,
+                'search_query': self.request.GET.get('search', ''),
+                'level_filter': self.request.GET.get('level', ''),
+                'large_file_warning': None,
+                'total_entries': 0,
+                'available_levels': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                'error_message': f'An unexpected error occurred while loading log file "{log_file}". Please contact system administrator.',
+                'error_type': 'unexpected_error'
+            })
+        
+        return context
+    
+    def _filter_log_entries(self, log_entries, search_query, level_filter):
+        """
+        Filter log entries based on search query and log level.
+        
+        Args:
+            log_entries: List of LogEntry objects
+            search_query: Search term to filter by
+            level_filter: Log level to filter by
+            
+        Returns:
+            List[LogEntry]: Filtered log entries
+        """
+        filtered_entries = log_entries
+        
+        # Apply level filter
+        if level_filter and level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            filtered_entries = [entry for entry in filtered_entries if entry.level == level_filter]
+        
+        # Apply search filter (case-insensitive search in message and raw_line)
+        if search_query:
+            search_lower = search_query.lower()
+            filtered_entries = [
+                entry for entry in filtered_entries
+                if search_lower in entry.message.lower() or search_lower in entry.raw_line.lower()
+            ]
+        
+        return filtered_entries
+    
+    def _highlight_search_terms(self, log_entries, search_query):
+        """
+        Highlight search terms in log entry messages.
+        
+        Args:
+            log_entries: List of LogEntry objects
+            search_query: Search term to highlight
+            
+        Returns:
+            List[LogEntry]: Log entries with highlighted search terms
+        """
+        if not search_query:
+            return log_entries
+        
+        # Escape search query for safe HTML insertion
+        escaped_query = escape(search_query)
+        
+        # Create highlight pattern (case-insensitive)
+        pattern = re.compile(re.escape(search_query), re.IGNORECASE)
+        
+        for entry in log_entries:
+            # Highlight in message
+            entry.message = pattern.sub(
+                f'<mark class="search-highlight">{escaped_query}</mark>',
+                escape(entry.message)
+            )
+            
+            # Highlight in raw_line for display
+            entry.highlighted_raw_line = pattern.sub(
+                f'<mark class="search-highlight">{escaped_query}</mark>',
+                escape(entry.raw_line)
+            )
+        
+        return log_entries
+
+
+class LogDownloadView(TemplateView):
+    """
+    View for downloading log files securely.
+    
+    Requirements: 3.1, 3.2, 3.3, 3.4
+    """
+    
+    @admin_required
+    def dispatch(self, request, *args, **kwargs):
+        """Ensure admin authentication before processing request."""
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        """
+        Handle GET request for log file download.
+        
+        Supports both full file download and filtered results download.
+        """
+        log_file = kwargs.get('log_file')
+        
+        # Initialize log service
+        log_service = LogFileService()
+        
+        # Validate file access
+        if not log_service.validate_file_access(log_file):
+            # Log security event
+            security_logger.log_invalid_request(
+                user_email=request.user.email,
+                request_details=f"Attempted to download invalid log file: {log_file}",
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            return HttpResponse(
+                'Access denied or file not found. Please verify the file name and try again.',
+                status=404,
+                content_type='text/plain'
+            )
+        
+        try:
+            # Get file information
+            file_info = log_service.get_file_info(log_file)
+            if not file_info or not file_info.is_accessible:
+                return HttpResponse(
+                    f'Log file "{log_file}" is not accessible. The file may have been moved or deleted.',
+                    status=404,
+                    content_type='text/plain'
+                )
+            
+            # Check for large file warning (> 100MB)
+            if file_info.size > 100 * 1024 * 1024:  # 100MB
+                large_file_warning = (
+                    f'Warning: This is a large file ({file_info.size // (1024*1024)}MB). '
+                    f'Download may take some time and consume significant bandwidth. '
+                    f'Consider using filters to download only relevant entries.'
+                )
+                
+                # Add warning header to response
+                response = HttpResponse(
+                    large_file_warning + '\n\nProceed with download? Add "?force=true" to URL to continue.',
+                    status=413,  # Payload Too Large
+                    content_type='text/plain'
+                )
+                
+                # Only proceed if force parameter is provided
+                if not request.GET.get('force') == 'true':
+                    return response
+            
+            # Check if this is a filtered download request
+            search_query = request.GET.get('search', '').strip()
+            level_filter = request.GET.get('level', '').strip().upper()
+            
+            if search_query or level_filter:
+                # Generate filtered content download
+                return self._download_filtered_content(
+                    log_service, log_file, file_info, search_query, level_filter, request
+                )
+            else:
+                # Download complete file
+                return self._download_complete_file(log_service, log_file, file_info, request)
+                
+        except FileNotFoundError as e:
+            # Handle file not found
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='file_not_found',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            return HttpResponse(
+                f'Log file "{log_file}" not found. The file may have been moved or deleted.',
+                status=404,
+                content_type='text/plain'
+            )
+            
+        except PermissionError as e:
+            # Handle permission denied
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_permission_denied(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                reason='download_permission_denied',
+                additional_data=get_request_metadata(request)
+            )
+            return HttpResponse(
+                f'Permission denied accessing log file "{log_file}". Please contact system administrator.',
+                status=403,
+                content_type='text/plain'
+            )
+            
+        except OSError as e:
+            # Handle file system errors
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='file_system_error',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            return HttpResponse(
+                f'Unable to access log file "{log_file}". The file may be locked or corrupted.',
+                status=500,
+                content_type='text/plain'
+            )
+            
+        except Exception as e:
+            # Handle unexpected errors
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='unexpected_error',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            return HttpResponse(
+                'An unexpected error occurred while processing the download request. Please contact system administrator.',
+                status=500,
+                content_type='text/plain'
+            )
+    
+    def _download_complete_file(self, log_service, log_file, file_info, request):
+        """
+        Download the complete log file with proper headers.
+        
+        Args:
+            log_service: LogFileService instance
+            log_file: Name of the log file
+            file_info: LogFileInfo object
+            request: HTTP request object
+            
+        Returns:
+            HttpResponse: File download response
+        """
+        try:
+            # Read the complete file
+            with open(file_info.full_path, 'rb') as f:
+                file_content = f.read()
+            
+            # Create response with proper headers
+            response = HttpResponse(
+                file_content,
+                content_type='text/plain; charset=utf-8'
+            )
+            
+            # Set download headers to preserve original filename
+            response['Content-Disposition'] = f'attachment; filename="{log_file}"'
+            response['Content-Length'] = str(len(file_content))
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            # Log successful download
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=True,
+                file_size=file_info.size,
+                is_filtered=False,
+                additional_data=get_request_metadata(request)
+            )
+            
+            return response
+            
+        except FileNotFoundError as e:
+            return HttpResponse(
+                f'Log file "{log_file}" not found during download. The file may have been moved or deleted.',
+                status=404,
+                content_type='text/plain'
+            )
+        except PermissionError as e:
+            return HttpResponse(
+                f'Permission denied reading log file "{log_file}". Please contact system administrator.',
+                status=403,
+                content_type='text/plain'
+            )
+        except UnicodeDecodeError as e:
+            return HttpResponse(
+                f'Unable to read log file "{log_file}" due to encoding issues. File may be corrupted.',
+                status=500,
+                content_type='text/plain'
+            )
+        except OSError as e:
+            return HttpResponse(
+                f'File system error reading log file "{log_file}": {str(e)}',
+                status=500,
+                content_type='text/plain'
+            )
+    
+    def _download_filtered_content(self, log_service, log_file, file_info, search_query, level_filter, request):
+        """
+        Download filtered log content as a text file.
+        
+        Args:
+            log_service: LogFileService instance
+            log_file: Name of the log file
+            file_info: LogFileInfo object
+            search_query: Search term filter
+            level_filter: Log level filter
+            request: HTTP request object
+            
+        Returns:
+            HttpResponse: Filtered content download response
+        """
+        try:
+            # Read all log entries
+            log_entries = log_service.read_log_file(log_file)
+            
+            # Apply filters (reuse logic from LogDetailView)
+            filtered_entries = self._filter_log_entries(log_entries, search_query, level_filter)
+            
+            # Generate filtered content
+            filtered_lines = []
+            
+            # Add header with filter information
+            header_lines = [
+                f"# Filtered log content from {log_file}",
+                f"# Generated on: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                f"# Original file size: {file_info.size} bytes ({file_info.line_count} lines)",
+                f"# Filtered results: {len(filtered_entries)} entries"
+            ]
+            
+            if search_query:
+                header_lines.append(f"# Search filter: '{search_query}'")
+            if level_filter:
+                header_lines.append(f"# Level filter: {level_filter}")
+                
+            header_lines.extend(["", ""])  # Empty lines for separation
+            
+            filtered_lines.extend(header_lines)
+            
+            # Add filtered log entries (preserve original format)
+            for entry in filtered_entries:
+                filtered_lines.append(entry.raw_line)
+            
+            # Join lines and encode
+            content = '\n'.join(filtered_lines)
+            content_bytes = content.encode('utf-8')
+            
+            # Create response
+            response = HttpResponse(
+                content_bytes,
+                content_type='text/plain; charset=utf-8'
+            )
+            
+            # Generate filename for filtered content
+            filter_suffix = []
+            if search_query:
+                # Sanitize search query for filename
+                safe_query = re.sub(r'[^\w\-_.]', '_', search_query)[:20]
+                filter_suffix.append(f"search_{safe_query}")
+            if level_filter:
+                filter_suffix.append(f"level_{level_filter}")
+            
+            if filter_suffix:
+                base_name = log_file.rsplit('.', 1)[0]
+                extension = log_file.rsplit('.', 1)[1] if '.' in log_file else 'log'
+                filtered_filename = f"{base_name}_filtered_{'_'.join(filter_suffix)}.{extension}"
+            else:
+                filtered_filename = f"filtered_{log_file}"
+            
+            # Set download headers
+            response['Content-Disposition'] = f'attachment; filename="{filtered_filename}"'
+            response['Content-Length'] = str(len(content_bytes))
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            # Log successful filtered download
+            additional_data = get_request_metadata(request)
+            additional_data.update({
+                'search_query': search_query,
+                'level_filter': level_filter
+            })
+            
+            security_logger.log_download_attempt(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                success=True,
+                file_size=len(content_bytes),
+                is_filtered=True,
+                additional_data=additional_data
+            )
+            
+            return response
+            
+        except FileNotFoundError as e:
+            return HttpResponse(
+                f'Log file "{log_file}" not found during filtered download. The file may have been moved or deleted.',
+                status=404,
+                content_type='text/plain'
+            )
+        except PermissionError as e:
+            return HttpResponse(
+                f'Permission denied reading log file "{log_file}" for filtered download. Please contact system administrator.',
+                status=403,
+                content_type='text/plain'
+            )
+        except UnicodeDecodeError as e:
+            return HttpResponse(
+                f'Unable to read log file "{log_file}" for filtered download due to encoding issues. File may be corrupted.',
+                status=500,
+                content_type='text/plain'
+            )
+        except Exception as e:
+            return HttpResponse(
+                f'Error generating filtered content from log file "{log_file}": {str(e)}',
+                status=500,
+                content_type='text/plain'
+            )
+    
+    def _filter_log_entries(self, log_entries, search_query, level_filter):
+        """
+        Filter log entries based on search query and log level.
+        
+        Args:
+            log_entries: List of LogEntry objects
+            search_query: Search term to filter by
+            level_filter: Log level to filter by
+            
+        Returns:
+            List[LogEntry]: Filtered log entries
+        """
+        filtered_entries = log_entries
+        
+        # Apply level filter
+        if level_filter and level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            filtered_entries = [entry for entry in filtered_entries if entry.level == level_filter]
+        
+        # Apply search filter (case-insensitive search in message and raw_line)
+        if search_query:
+            search_lower = search_query.lower()
+            filtered_entries = [
+                entry for entry in filtered_entries
+                if search_lower in entry.message.lower() or search_lower in entry.raw_line.lower()
+            ]
+        
+        return filtered_entries
+
+class LogRefreshAPIView(TemplateView):
+    """
+    AJAX API endpoint for real-time log updates.
+    
+    Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
+    """
+    
+    @admin_required
+    def dispatch(self, request, *args, **kwargs):
+        """Ensure admin authentication before processing request."""
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        """
+        Handle GET request for log refresh API.
+        
+        Returns JSON data with latest log entries and metadata for real-time updates.
+        """
+        log_file = kwargs.get('log_file')
+        
+        # Initialize log service
+        log_service = LogFileService()
+        
+        # Validate file access
+        if not log_service.validate_file_access(log_file):
+            # Log security event for invalid API access
+            security_logger.log_invalid_request(
+                user_email=request.user.email,
+                request_details=f"Attempted to access invalid log file via API: {log_file}",
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': 'Access denied or file not found',
+                'error_type': 'access_denied',
+                'entries': [],
+                'metadata': {}
+            }, status=404)
+        
+        try:
+            # Get request parameters
+            last_line_number = int(request.GET.get('last_line', 0))
+            search_query = request.GET.get('search', '').strip()
+            level_filter = request.GET.get('level', '').strip().upper()
+            page_number = int(request.GET.get('page', 1))
+            
+            # Get file information
+            file_info = log_service.get_file_info(log_file)
+            if not file_info or not file_info.is_accessible:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Log file "{log_file}" is not accessible',
+                    'error_type': 'file_not_accessible',
+                    'entries': [],
+                    'metadata': {}
+                }, status=404)
+            
+            # Check if file has been modified since last request
+            last_modified_timestamp = request.GET.get('last_modified')
+            current_modified = file_info.last_modified.timestamp()
+            
+            file_changed = True
+            if last_modified_timestamp:
+                try:
+                    last_modified = float(last_modified_timestamp)
+                    file_changed = current_modified > last_modified
+                except (ValueError, TypeError):
+                    file_changed = True
+            
+            # If file hasn't changed and we're not filtering, return minimal response
+            if not file_changed and not search_query and not level_filter:
+                return JsonResponse({
+                    'success': True,
+                    'file_changed': False,
+                    'entries': [],
+                    'new_entries_count': 0,
+                    'metadata': {
+                        'filename': log_file,
+                        'last_modified': current_modified,
+                        'total_lines': file_info.line_count,
+                        'file_size': file_info.size
+                    }
+                })
+            
+            # Read log entries
+            if file_info.line_count > 5000:
+                # For large files, only read recent entries
+                start_line = max(1, file_info.line_count - 5000)
+                log_entries = log_service.read_log_file(log_file, start_line=start_line)
+            else:
+                log_entries = log_service.read_log_file(log_file)
+            
+            # Apply filters
+            filtered_entries = self._filter_log_entries_api(log_entries, search_query, level_filter)
+            
+            # Reverse to show newest first
+            filtered_entries.reverse()
+            
+            # Identify new entries (entries with line numbers greater than last_line_number)
+            new_entries = []
+            if last_line_number > 0:
+                new_entries = [
+                    entry for entry in filtered_entries 
+                    if entry.line_number > last_line_number
+                ]
+            
+            # Paginate results (100 entries per page)
+            paginator = Paginator(filtered_entries, 100)
+            
+            try:
+                page_obj = paginator.page(page_number)
+            except (PageNotAnInteger, EmptyPage):
+                page_obj = paginator.page(1)
+            
+            # Format entries for JSON response
+            formatted_entries = []
+            for entry in page_obj.object_list:
+                # Highlight search terms if present
+                message = entry.message
+                raw_line = entry.raw_line
+                
+                if search_query:
+                    message, raw_line = self._highlight_search_terms_json(
+                        entry.message, entry.raw_line, search_query
+                    )
+                
+                formatted_entry = {
+                    'line_number': entry.line_number,
+                    'timestamp': entry.timestamp.isoformat() if entry.timestamp else None,
+                    'level': entry.level,
+                    'message': message,
+                    'raw_line': raw_line,
+                    'is_new': entry.line_number > last_line_number if last_line_number > 0 else False
+                }
+                formatted_entries.append(formatted_entry)
+            
+            # Prepare pagination metadata
+            pagination_data = {
+                'current_page': page_obj.number,
+                'total_pages': paginator.num_pages,
+                'total_entries': paginator.count,
+                'has_previous': page_obj.has_previous(),
+                'has_next': page_obj.has_next(),
+                'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
+                'next_page': page_obj.next_page_number() if page_obj.has_next() else None
+            }
+            
+            # Log API access (only for manual refresh to avoid spam)
+            if request.GET.get('manual_refresh') == 'true':
+                additional_data = get_request_metadata(request)
+                additional_data['is_manual_refresh'] = True
+                
+                security_logger.log_api_access(
+                    user_email=request.user.email,
+                    log_file=log_file,
+                    ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                    endpoint='log_refresh_api',
+                    success=True,
+                    additional_data=additional_data
+                )
+            
+            return JsonResponse({
+                'success': True,
+                'file_changed': file_changed,
+                'entries': formatted_entries,
+                'new_entries_count': len(new_entries),
+                'pagination': pagination_data,
+                'metadata': {
+                    'filename': log_file,
+                    'last_modified': current_modified,
+                    'total_lines': file_info.line_count,
+                    'file_size': file_info.size,
+                    'search_query': search_query,
+                    'level_filter': level_filter,
+                    'max_line_number': max([e.line_number for e in filtered_entries]) if filtered_entries else 0
+                }
+            })
+            
+        except ValueError as e:
+            # Handle invalid parameters
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_invalid_request(
+                user_email=request.user.email,
+                request_details=f"Invalid parameters in log refresh API: {str(e)}",
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid parameters: {str(e)}',
+                'error_type': 'invalid_parameters',
+                'entries': [],
+                'metadata': {}
+            }, status=400)
+            
+        except FileNotFoundError as e:
+            # Handle file not found
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='file_not_found',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Log file "{log_file}" not found',
+                'error_type': 'file_not_found',
+                'entries': [],
+                'metadata': {}
+            }, status=404)
+            
+        except PermissionError as e:
+            # Handle permission denied
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_permission_denied(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                reason='api_permission_denied',
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Permission denied accessing log file "{log_file}"',
+                'error_type': 'permission_denied',
+                'entries': [],
+                'metadata': {}
+            }, status=403)
+            
+        except UnicodeDecodeError as e:
+            # Handle encoding issues
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='encoding_error',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Unable to read log file "{log_file}" due to encoding issues',
+                'error_type': 'encoding_error',
+                'entries': [],
+                'metadata': {}
+            }, status=500)
+            
+        except OSError as e:
+            # Handle file system errors
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='file_system_error',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Unable to access log file "{log_file}"',
+                'error_type': 'file_system_error',
+                'entries': [],
+                'metadata': {}
+            }, status=500)
+            
+        except Exception as e:
+            # Handle unexpected errors
+            security_logger.log_api_access(
+                user_email=request.user.email,
+                log_file=log_file,
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                endpoint='log_refresh_api',
+                success=False,
+                additional_data=get_request_metadata(request)
+            )
+            security_logger.log_file_access_error(
+                user_email=request.user.email,
+                log_file=log_file,
+                error_type='unexpected_error',
+                error_message=str(e),
+                ip_address=request.META.get('REMOTE_ADDR', 'unknown'),
+                additional_data=get_request_metadata(request)
+            )
+            
+            return JsonResponse({
+                'success': False,
+                'error': 'An unexpected error occurred',
+                'error_type': 'unexpected_error',
+                'entries': [],
+                'metadata': {}
+            }, status=500)
+    
+    def _filter_log_entries_api(self, log_entries, search_query, level_filter):
+        """
+        Filter log entries based on search query and log level.
+        
+        Args:
+            log_entries: List of LogEntry objects
+            search_query: Search term to filter by
+            level_filter: Log level to filter by
+            
+        Returns:
+            List[LogEntry]: Filtered log entries
+        """
+        filtered_entries = log_entries
+        
+        # Apply level filter
+        if level_filter and level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            filtered_entries = [entry for entry in filtered_entries if entry.level == level_filter]
+        
+        # Apply search filter (case-insensitive search in message and raw_line)
+        if search_query:
+            search_lower = search_query.lower()
+            filtered_entries = [
+                entry for entry in filtered_entries
+                if search_lower in entry.message.lower() or search_lower in entry.raw_line.lower()
+            ]
+        
+        return filtered_entries
+    
+    def _highlight_search_terms_json(self, message, raw_line, search_query):
+        """
+        Highlight search terms for JSON response (using simple markers).
+        
+        Args:
+            message: Log entry message
+            raw_line: Raw log line
+            search_query: Search term to highlight
+            
+        Returns:
+            tuple: (highlighted_message, highlighted_raw_line)
+        """
+        if not search_query:
+            return message, raw_line
+        
+        # Use simple text markers for JSON (will be converted to HTML on frontend)
+        pattern = re.compile(re.escape(search_query), re.IGNORECASE)
+        
+        highlighted_message = pattern.sub(f'**{search_query}**', message)
+        highlighted_raw_line = pattern.sub(f'**{search_query}**', raw_line)
+        
+        return highlighted_message, highlighted_raw_line

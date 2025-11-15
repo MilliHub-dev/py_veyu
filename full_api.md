@@ -161,7 +161,7 @@ https://dev.veyu.cc
 
 ### Email Verification
 
-#### 1. Request Verification Email
+#### 1. Request Verification Email (Authenticated)
 - **Endpoint**: `POST /api/v1/accounts/verify-email/`
 - **Authentication**: Bearer token required
 - **Request Body**:
@@ -171,26 +171,45 @@ https://dev.veyu.cc
   }
   ```
 
-#### 2. Verify Email with Code
+#### 2. Verify Email with Code (Authenticated)
 - **Endpoint**: `POST /api/v1/accounts/verify-email/`
 - **Authentication**: Bearer token required
 - **Request Body**:
   ```json
   {
-    "action": "verify-code",
+    "action": "confirm-code",
     "code": "123456"
   }
   ```
 
-#### 3. Resend Verification Email
-- **Endpoint**: `POST /api/v1/accounts/resend-verification/`
+#### 3. Resend Verification Email (Authenticated)
+- **Endpoint**: `POST /api/v1/accounts/verify-email/`
 - **Authentication**: Bearer token required
 - **Request Body**:
   ```json
   {
-    "email": "user@example.com"
+    "action": "resend-code"
   }
   ```
+
+#### 4. Verify Email without Authentication - **NEW**
+- **Endpoint**: `POST /api/v1/accounts/verify-email-unauthenticated/`
+- **Authentication**: None required
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "code": "123456"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "error": false,
+    "message": "Email verified successfully"
+  }
+  ```
+- **Note**: This endpoint addresses the 401 authentication error during verification by allowing users to verify their email without being logged in.
 
 ### Business Verification
 

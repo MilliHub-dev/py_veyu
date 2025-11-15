@@ -7,6 +7,7 @@ from .views import (
     BusinessVerificationView,
     CartView,
     NotificationView,
+    VerifyEmailUnauthenticatedView,
 )
 from .test_views import TestEmailView
 from .document_views import (
@@ -49,6 +50,9 @@ urlpatterns = [
     
     # Notifications
     path('notifications/', NotificationView.as_view(), name='notifications'),
+    
+    # Unauthenticated email verification
+    path('verify-email-unauthenticated/', VerifyEmailUnauthenticatedView.as_view(), name='verify-email-unauthenticated'),
     
     # Test email endpoint (for development)
     path('test-email/', TestEmailView.as_view(), name='test-email'),

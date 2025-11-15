@@ -984,3 +984,5 @@ socket.gaierror: [Errno 11001] getaddrinfo failed
 [2025-11-12 11:47:17] INFO [accounts.utils.email_notifications:320] Listing published email sent to ekeminieffiong22@gmail.com
 [2025-11-12 11:47:19] INFO [accounts.utils.email_notifications:348] Purchase confirmation email sent to ekeminieffiong22@gmail.com
 [2025-11-12 11:47:22] INFO [accounts.utils.email_notifications:376] Wallet transaction email sent to ekeminieffiong22@gmail.com
+[2025-11-15 11:20:29] INFO [accounts.utils.email_notifications:42] Verification email sent successfully to test@example.com
+[2025-11-15 11:20:32] INFO [accounts.utils.email_notifications:154] OTP email sent successfully to test@example.com

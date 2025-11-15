@@ -163,6 +163,7 @@ POST /api/v1/accounts/signup/
   }
 }
 ```
+**Note:** The signup process now sends only one verification email per user, eliminating the duplicate email issue. Users will receive a single "Verify Your Email" message with their verification code.
 
 #### Enhanced Login
 ```http
@@ -209,17 +210,48 @@ POST /api/v1/accounts/logout/
 
 ### 1.2 Email & Phone Verification
 
-#### Verify Email
+#### Verify Email (Authenticated)
 ```http
 POST /api/v1/accounts/verify-email/
 ```
+**Authentication:** Bearer token required
+**Request:**
+```json
+{
+  "action": "request-code|resend-code|confirm-code",
+  "code": "123456"
+}
+```
+**Note:** This endpoint requires authentication and is maintained for backward compatibility with existing clients.
+
+#### Verify Email (Unauthenticated) - **NEW**
+```http
+POST /api/v1/accounts/verify-email-unauthenticated/
+```
+**Authentication:** None required
 **Request:**
 ```json
 {
   "email": "user@example.com",
-  "otp": "123456"
+  "code": "123456"
 }
 ```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Email verified successfully"
+}
+```
+**Note:** This endpoint allows users to verify their email without being logged in, addressing the 401 authentication error during verification.
+
+#### Email Verification - Backward Compatibility
+
+**Migration Notes:**
+- Existing clients using the authenticated endpoint will continue to work without changes
+- New clients should use the unauthenticated endpoint for post-signup verification
+- Both endpoints implement the same security measures and rate limiting
+- See [Migration Notes](.kiro/specs/email-verification-fix/MIGRATION_NOTES.md) for detailed compatibility information
 
 #### Verify Phone
 ```http

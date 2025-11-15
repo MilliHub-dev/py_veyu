@@ -150,7 +150,7 @@ def send_template_email(
 
 def send_verification_email(email: str, verification_code: str, user_name: str = None) -> bool:
     """
-    Send email verification code.
+    Send email verification code using unified template.
     
     Args:
         email: Recipient email address
@@ -161,6 +161,32 @@ def send_verification_email(email: str, verification_code: str, user_name: str =
         bool: True if email was sent successfully
     """
     subject = "Verify Your Email - Veyu"
+    
+    # Try to use template first, fallback to plain text
+    context = {
+        "name": user_name or email,
+        "user_name": user_name or 'there',
+        "email": email,
+        "verification_code": verification_code,
+        "otp": verification_code,
+        "validity_minutes": 30,
+        "purpose": "signup",
+        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "app_name": "Veyu"
+    }
+    
+    # Try template email first
+    template_success = send_template_email(
+        subject=subject,
+        recipients=[email],
+        template_name='verification_email.html',
+        context=context
+    )
+    
+    if template_success:
+        return True
+    
+    # Fallback to plain text email
     message = f"""
 Hello {user_name or 'there'},
 
