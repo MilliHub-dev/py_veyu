@@ -231,9 +231,15 @@ class EnhancedSignUpView(APIView):
                 phone_number=validated_data.get('phone_number', '')
             )
         elif user_type == 'mechanic':
-            Mechanic.objects.create(user=user)
+            Mechanic.objects.create(
+                user=user,
+                business_name=validated_data.get('business_name', '')
+            )
         elif user_type == 'dealer':
-            Dealership.objects.create(user=user)
+            Dealership.objects.create(
+                user=user,
+                business_name=validated_data.get('business_name', '')
+            )
         
         return user
 

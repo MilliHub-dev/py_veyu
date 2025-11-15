@@ -118,6 +118,7 @@ class SignupSerializer(Serializer):
     def validate(self, attrs):
         """Validate password confirmation and user type."""
         provider = attrs.get('provider', 'veyu')
+        user_type = attrs.get('user_type')
         
         # Password is required for Veyu accounts
         if provider == 'veyu':
@@ -128,8 +129,15 @@ class SignupSerializer(Serializer):
             if attrs.get('password') != attrs.get('confirm_password'):
                 raise serializers.ValidationError("Passwords do not match.")
         
-        if attrs.get('user_type') not in ['customer', 'mechanic', 'dealer']:
+        if user_type not in ['customer', 'mechanic', 'dealer']:
             raise serializers.ValidationError("Invalid user type.")
+        
+        # Business name is required for dealers and mechanics
+        if user_type in ['dealer', 'mechanic']:
+            if not attrs.get('business_name'):
+                raise serializers.ValidationError({
+                    'business_name': f"Business name is required for {user_type}s."
+                })
         
         return attrs
 
@@ -160,12 +168,24 @@ class SignupSerializer(Serializer):
             
             # Create user type specific profile
             user_type = validated_data.get('user_type')
+            business_name = validated_data.get('business_name', '')
+            phone_number = validated_data.get('phone_number', '')
+            
             if user_type == 'customer':
-                Customer.objects.create(user=user)
+                Customer.objects.create(
+                    user=user,
+                    phone_number=phone_number
+                )
             elif user_type == 'mechanic':
-                Mechanic.objects.create(user=user)
+                Mechanic.objects.create(
+                    user=user,
+                    business_name=business_name
+                )
             elif user_type == 'dealer':
-                Dealer.objects.create(user=user)
+                Dealership.objects.create(
+                    user=user,
+                    business_name=business_name
+                )
                 
             return user
         except Exception as e:
