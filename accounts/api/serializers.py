@@ -93,6 +93,12 @@ class SignupSerializer(Serializer):
         help_text="User's phone number (optional)",
         style={'placeholder': '+234XXXXXXXXXX'}
     )
+    business_name = CharField(
+        required=False,
+        max_length=300,
+        help_text="Business name (required for dealers and mechanics)",
+        style={'placeholder': 'Your Business Name'}
+    )
     api_token = StringRelatedField(read_only=True)
 
     class Meta:
