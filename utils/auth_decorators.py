@@ -24,10 +24,32 @@ def admin_required(view_func):
     For unauthenticated users: redirects to login page
     For non-admin users: returns 403 Forbidden response
     
+    Works with both function-based views and class-based views.
+    
     Requirements: 4.1, 4.2, 4.3, 4.4
     """
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        # Handle both function-based views and class-based views
+        if len(args) >= 1:
+            # Check if first argument is a request object (function-based view)
+            # or if it's a view instance (class-based view)
+            first_arg = args[0]
+            
+            # For class-based views, the first argument is 'self' (view instance)
+            # and the second argument is the request
+            if hasattr(first_arg, 'request') or (len(args) >= 2 and hasattr(args[1], 'user')):
+                # This is a class-based view - request is the second argument
+                request = args[1] if len(args) >= 2 else first_arg.request
+            elif hasattr(first_arg, 'user'):
+                # This is a function-based view - request is the first argument
+                request = first_arg
+            else:
+                # Fallback - assume it's a function-based view
+                request = first_arg
+        else:
+            raise ValueError("admin_required decorator requires at least one argument")
+        
         # Check if user is authenticated
         if not request.user.is_authenticated:
             # Log unauthenticated access attempt
@@ -78,6 +100,6 @@ def admin_required(view_func):
             f"Admin access granted to user {user.email} for {request.path} from IP {request.META.get('REMOTE_ADDR', 'unknown')}"
         )
         
-        return view_func(request, *args, **kwargs)
+        return view_func(*args, **kwargs)
     
     return wrapper
