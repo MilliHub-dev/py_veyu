@@ -17,9 +17,35 @@ from django.utils import timezone
 from datetime import timedelta
 import hashlib
 import json
+from threading import current_thread
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+class ThreadLocalRequestMiddleware(MiddlewareMixin):
+    """
+    Middleware to store the current request in thread local storage.
+    This allows access to the request object from anywhere in the application.
+    """
+    
+    def process_request(self, request: HttpRequest) -> None:
+        """Store request in thread local storage."""
+        thread = current_thread()
+        thread.request = request
+    
+    def process_response(self, request: HttpRequest, response: HttpResponse) -> HttpResponse:
+        """Clean up thread local storage."""
+        thread = current_thread()
+        if hasattr(thread, 'request'):
+            delattr(thread, 'request')
+        return response
+    
+    def process_exception(self, request: HttpRequest, exception: Exception) -> None:
+        """Clean up thread local storage on exception."""
+        thread = current_thread()
+        if hasattr(thread, 'request'):
+            delattr(thread, 'request')
 
 
 class SecurityHeadersMiddleware(MiddlewareMixin):

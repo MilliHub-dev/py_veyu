@@ -67,6 +67,10 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    
+    # Cloudinary
+    'cloudinary_storage',
+    'cloudinary',
 ]
 
 SITE_ID = 1
@@ -87,6 +91,7 @@ MIDDLEWARE = [
 
         # Motaa Middleware
         'utils.middleware.UserTypeMiddleware',
+        'accounts.middleware.ThreadLocalRequestMiddleware',
 
         # Downloaded Middleware
         'allauth.account.middleware.AccountMiddleware',
@@ -161,6 +166,37 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 
+# CLOUDINARY CONFIGURATION
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# Cloudinary settings from environment variable
+CLOUDINARY_URL = env.get_value('CLOUDINARY_URL', default='')
+
+if CLOUDINARY_URL:
+    # Configure Cloudinary
+    cloudinary.config(
+        secure=True,  # Use HTTPS
+        api_proxy=None,  # No proxy by default
+    )
+    
+    # Cloudinary storage settings for Django
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': cloudinary.config().cloud_name,
+        'API_KEY': cloudinary.config().api_key,
+        'API_SECRET': cloudinary.config().api_secret,
+        'SECURE': True,
+        'MEDIA_TAG': 'veyu_media',
+        'INVALID_VIDEO_ERROR_MESSAGE': 'Please upload a valid video file.',
+        'EXCLUDE_DELETE_ORPHANED_MEDIA_PATHS': (),
+        'STATIC_TAG': 'veyu_static',
+        'STATICFILES_MANIFEST_ROOT': BASE_DIR / 'staticfiles',
+        'STATIC_IMAGES_EXTENSIONS': ['jpg', 'jpe', 'jpeg', 'jpc', 'jp2', 'j2k', 'wdp', 'jxr', 'hdp', 'wmp', 'gif', 'webp', 'png', 'bmp', 'tif', 'tiff', 'ico'],
+        'STATIC_VIDEOS_EXTENSIONS': ['mp4', 'webm', 'flv', 'mov', 'ogv', '3gp', '3g2', 'wmv', 'mpeg', 'flv', 'mkv', 'avi'],
+        'MAGIC_FILE_PATH': 'magic',
+    }
+
 # STORAGE SETTINGS
 
 AWS_ACCESS_KEY_ID = 'your-spaces-access-key'
@@ -171,7 +207,6 @@ AWS_S3_OBJECT_PARAMETERS = {
     'CacheControl': 'max-age=86400',
 }
 AWS_LOCATION = 'assets'
-
 
 AWS_S3_SIGNATURE_VERSION = 's3v4'
 
@@ -191,7 +226,6 @@ else:
     PUBLIC_MEDIA_LOCATION = 'uploads'
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{PUBLIC_MEDIA_LOCATION}/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
-
 
 if not DEBUG:
     DEFAULT_STORAGE_BACKEND = 'veyu.storage.UploadedFileStorage'
@@ -312,6 +346,100 @@ JAZZMIN_SETTINGS = {
     ],
     "order_with_respect_to": ["auth", "listings.Listing"],
     "custom_links": {
+    },
+}
+
+
+# CLOUDINARY BUSINESS VERIFICATION SETTINGS
+CLOUDINARY_BUSINESS_VERIFICATION = {
+    # Folder structure for business verification documents
+    'BASE_FOLDER': 'verification',
+    'DOCUMENT_FOLDERS': {
+        'cac_document': 'cac',
+        'tin_document': 'tin',
+        'proof_of_address': 'address',
+        'business_license': 'license'
+    },
+    
+    # Security settings
+    'SECURE_URL_EXPIRY': 3600,  # 1 hour in seconds
+    'MAX_FILE_SIZE': 5 * 1024 * 1024,  # 5MB in bytes
+    'ALLOWED_FORMATS': ['pdf', 'jpg', 'jpeg', 'png'],
+    
+    # Transformation settings
+    'DEFAULT_TRANSFORMATIONS': {
+        'quality': 'auto',
+        'fetch_format': 'auto',
+        'flags': 'attachment'
+    },
+    
+    # Thumbnail settings for admin
+    'THUMBNAIL_TRANSFORMATIONS': {
+        'width': 200,
+        'height': 200,
+        'crop': 'fit',
+        'quality': 'auto',
+        'fetch_format': 'auto'
+    },
+    
+    # CDN optimization
+    'CDN_OPTIMIZATIONS': {
+        'f_auto': True,  # Automatic format selection
+        'q_auto': True,  # Automatic quality optimization
+        'dpr_auto': True,  # Automatic DPR (Device Pixel Ratio)
+    },
+    
+    # Access control
+    'ACCESS_CONTROL': {
+        'signed_urls': True,
+        'secure_delivery': True,
+        'access_mode': 'authenticated'  # Only authenticated users can access
+    }
+}
+
+# Logging configuration for Cloudinary operations
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'cloudinary.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'accounts.utils.document_storage': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'accounts.utils.document_validation': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'cloudinary': {
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
     },
 }
 

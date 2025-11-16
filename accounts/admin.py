@@ -33,12 +33,40 @@ class AccountsAdmin(admin.ModelAdmin):
         'uuid',
         'user_type',
         'provider',
+        'welcome_email_status',
+        'welcome_email_sent_date',
     ]
     list_display_links = [
         'name',
         'email',
         'uuid',
     ]
+    list_filter = [
+        'user_type',
+        'provider',
+        'verified_email',
+        'welcome_email_sent_at',
+    ]
+    readonly_fields = [
+        'welcome_email_sent_at',
+        'has_received_welcome_email',
+    ]
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('email', 'first_name', 'last_name', 'user_type', 'provider')
+        }),
+        ('Account Status', {
+            'fields': ('verified_email', 'is_active', 'is_staff', 'is_superuser')
+        }),
+        ('Welcome Email Status', {
+            'fields': ('welcome_email_sent_at', 'has_received_welcome_email'),
+            'description': 'Welcome email tracking information'
+        }),
+        ('Timestamps', {
+            'fields': ('date_joined', 'last_login'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def send_test_sms(self, request, queryset, *args, **kwargs):
         for account in queryset:
@@ -51,14 +79,55 @@ class AccountsAdmin(admin.ModelAdmin):
                           \nYour verification code is 121-678 ", recipient=account.mechanic.phone_number)
         self.message_user(request, "Successfully sent sms")
 
+    def welcome_email_status(self, obj):
+        """Display welcome email status with colored badge."""
+        if obj.has_received_welcome_email:
+            return format_html(
+                '<span style="background-color: green; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">Sent</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background-color: orange; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">Not Sent</span>'
+            )
+    welcome_email_status.short_description = 'Welcome Email'
+    welcome_email_status.admin_order_field = 'welcome_email_sent_at'
+
+    def welcome_email_sent_date(self, obj):
+        """Display formatted welcome email sent date."""
+        if obj.welcome_email_sent_at:
+            return obj.welcome_email_sent_at.strftime('%Y-%m-%d %H:%M')
+        return '-'
+    welcome_email_sent_date.short_description = 'Welcome Email Date'
+    welcome_email_sent_date.admin_order_field = 'welcome_email_sent_at'
+
     def send_welcome_email(self, request, queryset, *args, **kwargs):
+        """Send welcome email to selected users and update tracking."""
+        success_count = 0
+        error_count = 0
+        
         for account in queryset:
             try:
                 from accounts.utils.email_notifications import send_welcome_email
+                from django.utils import timezone
+                
+                # Send the welcome email
                 send_welcome_email(account)
-                self.message_user(request, f"Successfully sent welcome email to {account.email}")
+                
+                # Update the welcome email tracking
+                account.welcome_email_sent_at = timezone.now()
+                account.save(update_fields=['welcome_email_sent_at'])
+                
+                success_count += 1
             except Exception as e:
+                error_count += 1
                 self.message_user(request, f"Failed to send welcome email to {account.email}: {str(e)}", level='error')
+        
+        if success_count > 0:
+            self.message_user(request, f"Successfully sent welcome email to {success_count} user(s)")
+        if error_count > 0:
+            self.message_user(request, f"Failed to send welcome email to {error_count} user(s)", level='warning')
+    
+    send_welcome_email.short_description = "Send welcome email to selected users"
 
     def send_test_email(self, request, queryset, *args, **kwargs):
         for account in queryset:
@@ -113,6 +182,7 @@ class BusinessVerificationSubmissionForm(forms.ModelForm):
 
 class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
     form = BusinessVerificationSubmissionForm
+    change_form_template = 'admin/accounts/businessverificationsubmission/change_form.html'
     list_display = [
         'business_name',
         'business_type',
@@ -194,17 +264,217 @@ class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
     business_profile_info.short_description = 'Profile Information'
     
     def view_documents(self, obj):
+        """Enhanced document viewing with thumbnails and secure links"""
         docs = []
-        if obj.cac_document:
-            docs.append(f'<a href="{obj.cac_document.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">CAC</a>')
-        if obj.tin_document:
-            docs.append(f'<a href="{obj.tin_document.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">TIN</a>')
-        if obj.proof_of_address:
-            docs.append(f'<a href="{obj.proof_of_address.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">Address</a>')
-        if obj.business_license:
-            docs.append(f'<a href="{obj.business_license.url}" target="_blank" style="margin-right: 10px; padding: 2px 8px; background: #007cba; color: white; text-decoration: none; border-radius: 3px;">License</a>')
-        return format_html(''.join(docs)) if docs else format_html('<span style="color: #999;">No documents</span>')
+        
+        document_fields = [
+            ('cac_document', 'CAC', '#007cba'),
+            ('tin_document', 'TIN', '#00a0d2'),
+            ('proof_of_address', 'Address', '#826eb4'),
+            ('business_license', 'License', '#46b450')
+        ]
+        
+        for field_name, label, color in document_fields:
+            document = getattr(obj, field_name, None)
+            if document and hasattr(document, 'public_id') and document.public_id:
+                # Generate thumbnail and secure link
+                thumbnail_html = self.document_thumbnail(obj, field_name)
+                if thumbnail_html:
+                    docs.append(thumbnail_html)
+                else:
+                    # Fallback to button if thumbnail fails
+                    secure_link = self.secure_document_link(obj, field_name, label, color)
+                    if secure_link:
+                        docs.append(secure_link)
+        
+        if docs:
+            return format_html('<div style="display: flex; gap: 10px; flex-wrap: wrap;">{}</div>', format_html(''.join(docs)))
+        else:
+            return format_html('<span style="color: #999; font-style: italic;">No documents uploaded</span>')
+    
     view_documents.short_description = 'Documents'
+    view_documents.allow_tags = True
+    
+    def document_thumbnail(self, obj, field_name):
+        """
+        Generate thumbnail HTML for document preview with modal viewing capability
+        
+        Args:
+            obj: BusinessVerificationSubmission instance
+            field_name: Name of the document field
+            
+        Returns:
+            HTML string with thumbnail and modal trigger
+        """
+        try:
+            document = getattr(obj, field_name, None)
+            if not document or not hasattr(document, 'public_id') or not document.public_id:
+                return None
+            
+            # Get thumbnail URL
+            thumbnail_url = obj.get_document_thumbnail_url(field_name, width=100, height=100)
+            if not thumbnail_url:
+                return None
+            
+            # Get secure full-size URL for modal
+            secure_url = obj.get_document_secure_url(field_name, expires_in=3600)
+            if not secure_url:
+                return None
+            
+            # Document labels
+            labels = {
+                'cac_document': 'CAC',
+                'tin_document': 'TIN',
+                'proof_of_address': 'Address',
+                'business_license': 'License'
+            }
+            label = labels.get(field_name, field_name.replace('_', ' ').title())
+            
+            # Generate HTML with thumbnail and modal trigger
+            html = f'''
+            <div class="document-thumbnail-wrapper" style="display: inline-block; text-align: center; margin: 5px;">
+                <a href="{secure_url}" 
+                   target="_blank" 
+                   class="document-thumbnail-link"
+                   data-document-type="{field_name}"
+                   data-document-label="{label}"
+                   onclick="return openDocumentModal(event, this);"
+                   style="display: block; text-decoration: none; border: 2px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9; transition: all 0.2s;">
+                    <img src="{thumbnail_url}" 
+                         alt="{label}" 
+                         style="width: 100px; height: 100px; object-fit: cover; display: block; border-radius: 2px;"
+                         onerror="this.parentElement.innerHTML='<div style=\\'width:100px;height:100px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;color:#666;\\'><span>📄</span></div>';">
+                    <div style="margin-top: 5px; font-size: 11px; color: #333; font-weight: 500;">{label}</div>
+                </a>
+            </div>
+            '''
+            
+            # Log thumbnail access
+            self._log_document_access(obj, field_name, 'thumbnail')
+            
+            return html
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to generate thumbnail for {field_name}: {str(e)}")
+            return None
+    
+    def secure_document_link(self, obj, field_name, label=None, color='#007cba'):
+        """
+        Generate secure download link with access logging
+        
+        Args:
+            obj: BusinessVerificationSubmission instance
+            field_name: Name of the document field
+            label: Display label for the link
+            color: Background color for the button
+            
+        Returns:
+            HTML string with secure link button
+        """
+        try:
+            document = getattr(obj, field_name, None)
+            if not document or not hasattr(document, 'public_id') or not document.public_id:
+                return None
+            
+            # Get secure URL
+            secure_url = obj.get_document_secure_url(field_name, expires_in=3600)
+            if not secure_url:
+                return None
+            
+            # Use provided label or generate from field name
+            if not label:
+                labels = {
+                    'cac_document': 'CAC',
+                    'tin_document': 'TIN',
+                    'proof_of_address': 'Address',
+                    'business_license': 'License'
+                }
+                label = labels.get(field_name, field_name.replace('_', ' ').title())
+            
+            # Generate button HTML
+            html = f'''
+            <a href="{secure_url}" 
+               target="_blank" 
+               onclick="logDocumentAccess('{obj.uuid}', '{field_name}', 'download');"
+               style="display: inline-block; margin-right: 5px; padding: 5px 12px; background: {color}; color: white; text-decoration: none; border-radius: 3px; font-size: 12px; font-weight: 500; transition: opacity 0.2s;"
+               onmouseover="this.style.opacity='0.8';"
+               onmouseout="this.style.opacity='1';">
+                📄 {label}
+            </a>
+            '''
+            
+            # Log download access
+            self._log_document_access(obj, field_name, 'download')
+            
+            return html
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to generate secure link for {field_name}: {str(e)}")
+            return None
+    
+    def _log_document_access(self, obj, field_name, access_type, request=None):
+        """
+        Log document access for security auditing
+        
+        Args:
+            obj: BusinessVerificationSubmission instance
+            field_name: Name of the document field
+            access_type: Type of access ('view', 'download', 'thumbnail')
+            request: Django request object (optional)
+        """
+        try:
+            from accounts.models import DocumentAccessLog
+            
+            # Try to get request from thread local storage
+            if not request:
+                try:
+                    from threading import current_thread
+                    thread = current_thread()
+                    request = getattr(thread, 'request', None)
+                except:
+                    pass
+            
+            # If we have a request, log the access
+            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                # Get IP address from request
+                ip_address = self._get_client_ip(request)
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                
+                DocumentAccessLog.log_access(
+                    submission=obj,
+                    document_type=field_name,
+                    user=request.user,
+                    access_type=access_type,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    success=True
+                )
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Could not log document access: {str(e)}")
+    
+    def _get_client_ip(self, request):
+        """
+        Extract client IP address from request
+        
+        Args:
+            request: Django request object
+            
+        Returns:
+            IP address string
+        """
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
+        return ip
     
     def approve_verification(self, request, queryset):
         count = 0

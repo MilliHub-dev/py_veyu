@@ -37,6 +37,7 @@ from accounts.utils.email_notifications import (
     send_welcome_email,
     send_otp_email
 )
+from accounts.utils.welcome_email import send_welcome_email_on_first_login
 from utils.exceptions import (
     AuthenticationError,
     ProviderMismatchError,
@@ -541,6 +542,9 @@ class EnhancedLoginView(APIView):
             # Login user (for session-based features)
             login(request, user)
             
+            # Send welcome email on first login (non-blocking)
+            welcome_email_sent = send_welcome_email_on_first_login(user)
+            
             # Prepare response data
             response_data = {
                 'error': False,
@@ -556,7 +560,8 @@ class EnhancedLoginView(APIView):
                         'is_active': user.is_active,
                         'verified_email': user.verified_email
                     },
-                    'tokens': tokens
+                    'tokens': tokens,
+                    'welcome_email_sent': welcome_email_sent
                 }
             }
             

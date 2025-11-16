@@ -1,0 +1,834 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Document Modal Styles */
+    .document-modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.9);
+        animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .document-modal-content {
+        position: relative;
+        margin: 2% auto;
+        padding: 0;
+        width: 90%;
+        max-width: 1200px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        animation: slideDown 0.3s;
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .document-modal-header {
+        padding: 20px;
+        background: linear-gradient(135deg, #417690 0%, #2e5266 100%);
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .document-modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .document-modal-header h2::before {
+        content: '📄';
+        font-size: 24px;
+    }
+    
+    .document-modal-close {
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        line-height: 32px;
+        text-align: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    
+    .document-modal-close:hover,
+    .document-modal-close:focus {
+        background-color: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+    
+    .document-modal-body {
+        padding: 20px;
+        max-height: calc(90vh - 140px);
+        overflow: auto;
+        background: #fafafa;
+        position: relative;
+    }
+    
+    .document-modal-body iframe {
+        width: 100%;
+        height: 70vh;
+        border: none;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .document-modal-body img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        cursor: zoom-in;
+    }
+    
+    .document-modal-body img.zoomed {
+        cursor: zoom-out;
+        transform-origin: center center;
+    }
+    
+    .document-modal-footer {
+        padding: 15px 20px;
+        background-color: #f5f5f5;
+        border-radius: 0 0 8px 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    .document-modal-footer .document-info {
+        font-size: 13px;
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .document-modal-footer .document-info::before {
+        content: '🔒';
+        font-size: 14px;
+    }
+    
+    .document-modal-footer .document-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .document-modal-footer button,
+    .document-modal-footer a {
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 13px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        font-weight: 500;
+    }
+    
+    .btn-download {
+        background-color: #417690;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-download:hover {
+        background-color: #2e5266;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-close-modal {
+        background-color: #ddd;
+        color: #333;
+    }
+    
+    .btn-close-modal:hover {
+        background-color: #ccc;
+    }
+    
+    /* Enhanced thumbnail styles */
+    .document-thumbnail-wrapper {
+        position: relative;
+    }
+    
+    .document-thumbnail-wrapper a {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .document-thumbnail-wrapper a:hover {
+        border-color: #417690 !important;
+        box-shadow: 0 4px 12px rgba(65, 118, 144, 0.4);
+        transform: translateY(-3px);
+    }
+    
+    .document-thumbnail-wrapper a::after {
+        content: '🔍';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 32px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    
+    .document-thumbnail-wrapper a:hover::after {
+        opacity: 0.9;
+    }
+    
+    /* Loading spinner */
+    .document-loading {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 200px;
+        font-size: 16px;
+        color: #666;
+        gap: 15px;
+    }
+    
+    .document-loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #417690;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Error state */
+    .document-error {
+        padding: 40px;
+        text-align: center;
+        color: #d32f2f;
+    }
+    
+    .document-error::before {
+        content: '⚠️';
+        display: block;
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+    
+    /* Document preview enhancements */
+    .field-view_documents {
+        background: #f9f9f9;
+        padding: 15px;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .field-view_documents .readonly {
+        background: transparent;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .document-modal-content {
+            width: 95%;
+            margin: 5% auto;
+        }
+        
+        .document-modal-body {
+            padding: 10px;
+        }
+        
+        .document-modal-body iframe {
+            height: 50vh;
+        }
+        
+        .document-modal-footer {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch;
+        }
+        
+        .document-modal-footer .document-actions {
+            justify-content: center;
+        }
+        
+        .document-thumbnail-wrapper a {
+            width: 80px !important;
+            height: 80px !important;
+        }
+        
+        .document-thumbnail-wrapper img {
+            width: 80px !important;
+            height: 80px !important;
+        }
+    }
+    
+    /* Accessibility improvements */
+    .document-modal-close:focus,
+    .btn-download:focus,
+    .btn-close-modal:focus {
+        outline: 2px solid #417690;
+        outline-offset: 2px;
+    }
+    
+    /* Zoom controls for images */
+    .document-zoom-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 5px;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 8px;
+        border-radius: 6px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        z-index: 10;
+    }
+    
+    .zoom-btn {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: #417690;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-weight: bold;
+    }
+    
+    .zoom-btn:hover:not(:disabled) {
+        background: #2e5266;
+        transform: scale(1.1);
+    }
+    
+    .zoom-btn:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+    
+    .zoom-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    
+    /* Image container for zoom functionality */
+    .image-container {
+        position: relative;
+        overflow: auto;
+        max-height: 70vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #f0f0f0;
+        border-radius: 4px;
+    }
+    
+    .image-container img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Fullscreen mode */
+    .document-modal.fullscreen .document-modal-content {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        margin: 0;
+        border-radius: 0;
+    }
+    
+    .document-modal.fullscreen .document-modal-body {
+        max-height: calc(100vh - 140px);
+    }
+    
+    /* Print styles */
+    @media print {
+        .document-modal-header,
+        .document-modal-footer,
+        .document-zoom-controls {
+            display: none;
+        }
+        
+        .document-modal-body {
+            max-height: none;
+            overflow: visible;
+        }
+    }
+    
+    /* Tooltip for zoom controls */
+    .zoom-btn[title]:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+    // Document Modal Functions
+    let currentModal = null;
+    let currentZoomLevel = 1;
+    let currentImage = null;
+    
+    function openDocumentModal(event, element) {
+        event.preventDefault();
+        
+        const documentUrl = element.getAttribute('href');
+        const documentLabel = element.getAttribute('data-document-label') || 'Document';
+        const documentType = element.getAttribute('data-document-type') || '';
+        
+        // Create modal if it doesn't exist
+        if (!currentModal) {
+            currentModal = createDocumentModal();
+            document.body.appendChild(currentModal);
+        }
+        
+        // Reset zoom level
+        currentZoomLevel = 1;
+        currentImage = null;
+        
+        // Update modal content
+        const modalTitle = currentModal.querySelector('.document-modal-title');
+        const modalBody = currentModal.querySelector('.document-modal-body');
+        const downloadBtn = currentModal.querySelector('.btn-download');
+        
+        modalTitle.textContent = documentLabel;
+        downloadBtn.setAttribute('href', documentUrl);
+        
+        // Show loading state with spinner
+        modalBody.innerHTML = `
+            <div class="document-loading">
+                <div class="document-loading-spinner"></div>
+                <span>Loading document...</span>
+            </div>
+        `;
+        
+        // Display modal
+        currentModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+        // Load document content
+        loadDocumentContent(documentUrl, modalBody, documentType);
+        
+        // Log access
+        logDocumentView(documentType);
+        
+        return false;
+    }
+    
+    function createDocumentModal() {
+        const modal = document.createElement('div');
+        modal.className = 'document-modal';
+        modal.id = 'documentModal';
+        
+        modal.innerHTML = `
+            <div class="document-modal-content">
+                <div class="document-modal-header">
+                    <h2 class="document-modal-title">Document Viewer</h2>
+                    <button class="document-modal-close" onclick="closeDocumentModal()" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="document-modal-body">
+                    <div class="document-loading">
+                        <div class="document-loading-spinner"></div>
+                        <span>Loading document...</span>
+                    </div>
+                </div>
+                <div class="document-modal-footer">
+                    <div class="document-info">
+                        <span>Secure link expires in 1 hour</span>
+                    </div>
+                    <div class="document-actions">
+                        <a href="#" class="btn-download" target="_blank" download>
+                            📥 Download
+                        </a>
+                        <button class="btn-close-modal" onclick="closeDocumentModal()">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeDocumentModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.style.display === 'block') {
+                closeDocumentModal();
+            }
+        });
+        
+        return modal;
+    }
+    
+    function loadDocumentContent(url, container, documentType) {
+        // Determine file type from URL
+        const fileExtension = url.split('.').pop().toLowerCase().split('?')[0];
+        
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+            // Image file - display with zoom controls
+            loadImageDocument(url, container);
+        } else if (fileExtension === 'pdf') {
+            // PDF file - use iframe
+            loadPdfDocument(url, container);
+        } else {
+            // Unknown file type - provide download link
+            showUnsupportedFormat(url, container);
+        }
+    }
+    
+    function loadImageDocument(url, container) {
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'image-container';
+        
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'Document preview';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        img.style.cursor = 'zoom-in';
+        
+        // Add zoom controls
+        const zoomControls = document.createElement('div');
+        zoomControls.className = 'document-zoom-controls';
+        zoomControls.innerHTML = `
+            <button class="zoom-btn" onclick="zoomIn()" title="Zoom In" aria-label="Zoom in">+</button>
+            <button class="zoom-btn" onclick="resetZoom()" title="Reset Zoom" aria-label="Reset zoom">⟲</button>
+            <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out" aria-label="Zoom out">−</button>
+        `;
+        
+        img.onload = function() {
+            container.innerHTML = '';
+            imageContainer.appendChild(img);
+            container.appendChild(zoomControls);
+            container.appendChild(imageContainer);
+            currentImage = img;
+            
+            // Add click to zoom functionality
+            img.addEventListener('click', function() {
+                if (currentZoomLevel === 1) {
+                    zoomIn();
+                } else {
+                    resetZoom();
+                }
+            });
+        };
+        
+        img.onerror = function() {
+            showErrorState(url, container, 'Failed to load image.');
+        };
+    }
+    
+    function loadPdfDocument(url, container) {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.style.width = '100%';
+        iframe.style.height = '70vh';
+        iframe.style.border = 'none';
+        iframe.style.borderRadius = '4px';
+        
+        container.innerHTML = '';
+        container.appendChild(iframe);
+        
+        // Fallback for browsers that don't support PDF viewing
+        setTimeout(function() {
+            try {
+                if (!iframe.contentWindow || iframe.contentWindow.length === 0) {
+                    showPdfFallback(url, container);
+                }
+            } catch (e) {
+                // Cross-origin error means PDF is loading, which is fine
+                console.log('PDF loading in iframe');
+            }
+        }, 3000);
+    }
+    
+    function showPdfFallback(url, container) {
+        container.innerHTML = `
+            <div style="padding: 60px 40px; text-align: center; background: #f9f9f9; border-radius: 4px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
+                <h3 style="margin: 0 0 10px 0; color: #333;">PDF Preview Unavailable</h3>
+                <p style="color: #666; margin-bottom: 20px;">Your browser cannot display PDF files inline.</p>
+                <a href="${url}" target="_blank" class="btn-download" style="display: inline-block;">
+                    📥 Download PDF to View
+                </a>
+            </div>
+        `;
+    }
+    
+    function showUnsupportedFormat(url, container) {
+        container.innerHTML = `
+            <div style="padding: 60px 40px; text-align: center; background: #f9f9f9; border-radius: 4px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📎</div>
+                <h3 style="margin: 0 0 10px 0; color: #333;">Preview Not Available</h3>
+                <p style="color: #666; margin-bottom: 20px;">This file type cannot be previewed in the browser.</p>
+                <a href="${url}" target="_blank" class="btn-download" style="display: inline-block;">
+                    📥 Download Document
+                </a>
+            </div>
+        `;
+    }
+    
+    function showErrorState(url, container, message) {
+        container.innerHTML = `
+            <div class="document-error">
+                <h3 style="margin: 10px 0; color: #d32f2f;">${message}</h3>
+                <p style="color: #666; margin-bottom: 20px;">There was a problem loading this document.</p>
+                <a href="${url}" target="_blank" class="btn-download" style="display: inline-block;">
+                    📥 Try Downloading Instead
+                </a>
+            </div>
+        `;
+    }
+    
+    function zoomIn() {
+        if (!currentImage) return;
+        
+        currentZoomLevel = Math.min(currentZoomLevel + 0.25, 3);
+        applyZoom();
+    }
+    
+    function zoomOut() {
+        if (!currentImage) return;
+        
+        currentZoomLevel = Math.max(currentZoomLevel - 0.25, 0.5);
+        applyZoom();
+    }
+    
+    function resetZoom() {
+        if (!currentImage) return;
+        
+        currentZoomLevel = 1;
+        applyZoom();
+    }
+    
+    function applyZoom() {
+        if (!currentImage) return;
+        
+        currentImage.style.transform = `scale(${currentZoomLevel})`;
+        currentImage.style.cursor = currentZoomLevel > 1 ? 'zoom-out' : 'zoom-in';
+        
+        // Update zoom button states
+        const zoomControls = document.querySelector('.document-zoom-controls');
+        if (zoomControls) {
+            const buttons = zoomControls.querySelectorAll('.zoom-btn');
+            buttons[0].disabled = currentZoomLevel >= 3; // Zoom in
+            buttons[2].disabled = currentZoomLevel <= 0.5; // Zoom out
+        }
+    }
+    
+    function closeDocumentModal() {
+        if (currentModal) {
+            currentModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Reset zoom state
+            currentZoomLevel = 1;
+            currentImage = null;
+        }
+    }
+    
+    function logDocumentView(documentType) {
+        // Log document view access
+        console.log('Document viewed:', documentType, new Date().toISOString());
+        
+        // In production, this would make an AJAX call to log the access
+        // Example:
+        // fetch('/admin/log-document-access/', {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'X-CSRFToken': getCsrfToken()
+        //     },
+        //     body: JSON.stringify({
+        //         document_type: documentType,
+        //         access_type: 'view',
+        //         timestamp: new Date().toISOString()
+        //     })
+        // });
+    }
+    
+    function logDocumentAccess(submissionId, documentType, accessType) {
+        // Log document access (download, etc.)
+        console.log('Document access:', {
+            submission_id: submissionId,
+            document_type: documentType,
+            access_type: accessType,
+            timestamp: new Date().toISOString()
+        });
+        
+        // In production, this would make an AJAX call to log the access
+    }
+    
+    function getCsrfToken() {
+        // Get CSRF token from cookie
+        const name = 'csrftoken';
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Enhanced document viewer initialized');
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (currentModal && currentModal.style.display === 'block') {
+                if (event.key === '+' || event.key === '=') {
+                    event.preventDefault();
+                    zoomIn();
+                } else if (event.key === '-' || event.key === '_') {
+                    event.preventDefault();
+                    zoomOut();
+                } else if (event.key === '0') {
+                    event.preventDefault();
+                    resetZoom();
+                }
+            }
+        });
+        
+        // Improve thumbnail loading with lazy loading
+        const thumbnails = document.querySelectorAll('.document-thumbnail-wrapper img');
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver(function(entries, observer) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                        }
+                        imageObserver.unobserve(img);
+                    }
+                });
+            });
+            
+            thumbnails.forEach(function(img) {
+                imageObserver.observe(img);
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+
+<!-- Document Access Information -->
+{% if original and original.pk %}
+<div class="module" style="margin-top: 20px;">
+    <h2>Document Information</h2>
+    <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px; font-weight: bold; width: 200px;">Documents Uploaded:</td>
+                <td style="padding: 8px;">{{ original.documents_uploaded }} of {{ original.required_documents_count }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; font-weight: bold;">Completion:</td>
+                <td style="padding: 8px;">
+                    <div style="background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; width: 200px;">
+                        <div style="background: #46b450; height: 100%; width: {{ original.documents_completion_percentage }}%; transition: width 0.3s;"></div>
+                    </div>
+                    <span style="font-size: 12px; color: #666; margin-left: 5px;">{{ original.documents_completion_percentage }}%</span>
+                </td>
+            </tr>
+            {% if original.migrated_to_cloudinary %}
+            <tr>
+                <td style="padding: 8px; font-weight: bold;">Storage:</td>
+                <td style="padding: 8px;">
+                    <span style="background: #46b450; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">
+                        ☁️ Cloudinary
+                    </span>
+                    {% if original.migration_date %}
+                    <span style="font-size: 12px; color: #666; margin-left: 10px;">
+                        Migrated: {{ original.migration_date|date:"Y-m-d H:i" }}
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- Security Notice -->
+<div class="module" style="margin-top: 15px;">
+    <div style="padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+        <strong>🔒 Security Notice:</strong> Document URLs are time-limited and expire after 1 hour. All document access is logged for security auditing.
+    </div>
+</div>
+{% endif %}
+{% endblock %}

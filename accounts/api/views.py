@@ -49,6 +49,7 @@ from accounts.utils.email_notifications import (
     send_inspection_scheduled,
     send_order_confirmation
 )
+from accounts.utils.welcome_email import send_welcome_email_on_first_login
 from utils import (
     IsDealerOrStaff,
     OffsetPaginator,
@@ -362,6 +363,10 @@ class LoginView(views.APIView):
 
         # **Login the user and generate tokens**
         login(request, user)
+        
+        # Send welcome email on first login (non-blocking)
+        welcome_email_sent = send_welcome_email_on_first_login(user)
+        
         data = {
             "id": user.id,
             "email": user.email,
@@ -371,6 +376,7 @@ class LoginView(views.APIView):
             "user_type": user.user_type,
             "provider": user.provider,
             "is_active": user.is_active,
+            "welcome_email_sent": welcome_email_sent,
         }
 
 

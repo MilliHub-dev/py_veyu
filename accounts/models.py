@@ -106,6 +106,11 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
 
     date_joined = models.DateTimeField(default=timezone.now)
     user_type = models.CharField(max_length=20, default='customer', choices=USER_TYPES)
+    welcome_email_sent_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Timestamp when welcome email was sent on first login"
+    )
 
     objects = AccountManager()
 
@@ -122,6 +127,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
             models.Index(fields=['is_staff']),
             models.Index(fields=['date_joined']),
             models.Index(fields=['api_token']),
+            models.Index(fields=['welcome_email_sent_at']),
         ]
         ordering = ['-date_joined']
 
@@ -350,6 +356,11 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     def display_name(self):
         """Returns display name for UI purposes"""
         return self.name or self.email.split('@')[0]
+    
+    @property
+    def has_received_welcome_email(self) -> bool:
+        """Check if user has received welcome email."""
+        return self.welcome_email_sent_at is not None
     
     def __str__(self):
         return f"{self.name} ({self.email})"
@@ -1653,31 +1664,53 @@ class BusinessVerificationSubmission(DbModel):
         ]
     )
     
-    # Documents (uploaded files) - using secure upload paths
-    cac_document = models.FileField(
-        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
-        blank=True, 
+    # Documents (uploaded files) - using Cloudinary for secure storage
+    cac_document = CloudinaryField(
+        'business_documents',
+        folder='verification/cac',
+        blank=True,
         null=True,
+        resource_type='auto',
         help_text="CAC registration certificate (PDF, JPG, PNG - max 5MB)"
     )
-    tin_document = models.FileField(
-        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
-        blank=True, 
+    tin_document = CloudinaryField(
+        'business_documents',
+        folder='verification/tin',
+        blank=True,
         null=True,
+        resource_type='auto',
         help_text="TIN certificate (PDF, JPG, PNG - max 5MB)"
     )
-    proof_of_address = models.FileField(
-        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
-        blank=True, 
+    proof_of_address = CloudinaryField(
+        'business_documents',
+        folder='verification/address',
+        blank=True,
         null=True,
+        resource_type='auto',
         help_text="Proof of business address (PDF, JPG, PNG - max 5MB)"
     )
-    business_license = models.FileField(
-        upload_to='accounts.utils.document_validation.DocumentValidator.get_upload_path', 
-        blank=True, 
+    business_license = CloudinaryField(
+        'business_documents',
+        folder='verification/license',
+        blank=True,
         null=True,
+        resource_type='auto',
         help_text="Business license or permit (PDF, JPG, PNG - max 5MB)"
     )
+    
+    # Document metadata tracking fields
+    cac_document_uploaded_at = models.DateTimeField(null=True, blank=True)
+    cac_document_original_name = models.CharField(max_length=255, blank=True)
+    tin_document_uploaded_at = models.DateTimeField(null=True, blank=True)
+    tin_document_original_name = models.CharField(max_length=255, blank=True)
+    proof_of_address_uploaded_at = models.DateTimeField(null=True, blank=True)
+    proof_of_address_original_name = models.CharField(max_length=255, blank=True)
+    business_license_uploaded_at = models.DateTimeField(null=True, blank=True)
+    business_license_original_name = models.CharField(max_length=255, blank=True)
+    
+    # Migration tracking
+    migrated_to_cloudinary = models.BooleanField(default=False)
+    migration_date = models.DateTimeField(null=True, blank=True)
     
     # Admin review
     reviewed_by = models.ForeignKey('Account', on_delete=models.SET_NULL, null=True, blank=True, related_name='admin_reviewed_verifications')
@@ -1685,10 +1718,67 @@ class BusinessVerificationSubmission(DbModel):
     admin_notes = models.TextField(blank=True, null=True, help_text="Internal notes from admin review")
     rejection_reason = models.TextField(blank=True, null=True, help_text="Reason for rejection (shown to user)")
     
+    def get_document_secure_url(self, document_field, expires_in=3600):
+        """
+        Generate secure, time-limited URL for document viewing
+        
+        Args:
+            document_field: Name of the document field (e.g., 'cac_document')
+            expires_in: URL expiration time in seconds (default: 1 hour)
+            
+        Returns:
+            Secure URL string or None if document doesn't exist
+        """
+        try:
+            from accounts.utils.document_storage import CloudinaryDocumentStorage
+            
+            document = getattr(self, document_field, None)
+            if document and hasattr(document, 'public_id'):
+                storage = CloudinaryDocumentStorage()
+                return storage.get_secure_url(document.public_id, expires_in)
+            return None
+        except Exception:
+            return None
+    
+    def get_document_thumbnail_url(self, document_field, width=150, height=150):
+        """
+        Generate thumbnail URL for document preview in admin
+        
+        Args:
+            document_field: Name of the document field (e.g., 'cac_document')
+            width: Thumbnail width in pixels
+            height: Thumbnail height in pixels
+            
+        Returns:
+            Thumbnail URL string or None if document doesn't exist
+        """
+        try:
+            import cloudinary
+            
+            document = getattr(self, document_field, None)
+            if document and hasattr(document, 'public_id'):
+                # Generate thumbnail with transformation
+                return cloudinary.CloudinaryImage(document.public_id).build_url(
+                    width=width,
+                    height=height,
+                    crop='fill',
+                    quality='auto',
+                    format='auto'
+                )
+            return None
+        except Exception:
+            return None
+
     class Meta:
         verbose_name = 'Business Verification Submission'
         verbose_name_plural = 'Business Verification Submissions'
         ordering = ['-date_created']
+        indexes = [
+            models.Index(fields=['business_type']),
+            models.Index(fields=['status']),
+            models.Index(fields=['migrated_to_cloudinary']),
+            models.Index(fields=['reviewed_at']),
+        ]
     
     def __str__(self):
         return f"{self.business_name} ({self.get_business_type_display()}) - {self.get_status_display()}"
@@ -1700,7 +1790,7 @@ class BusinessVerificationSubmission(DbModel):
     def documents_uploaded(self):
         """Returns count of uploaded documents"""
         docs = [self.cac_document, self.tin_document, self.proof_of_address, self.business_license]
-        return sum(1 for doc in docs if doc)
+        return sum(1 for doc in docs if doc and hasattr(doc, 'public_id') and doc.public_id)
     
     @property
     def required_documents_count(self):
@@ -1822,6 +1912,150 @@ class BusinessVerificationSubmission(DbModel):
                 pass
         
         super().save(*args, **kwargs)
+
+
+class DocumentAccessLog(DbModel):
+    """
+    Track document access attempts for security auditing and compliance.
+    Logs all views, downloads, and thumbnail generations for business verification documents.
+    """
+    ACCESS_TYPE_CHOICES = [
+        ('view', 'View'),
+        ('download', 'Download'),
+        ('thumbnail', 'Thumbnail'),
+    ]
+    
+    submission = models.ForeignKey(
+        'BusinessVerificationSubmission',
+        on_delete=models.CASCADE,
+        related_name='access_logs',
+        help_text="The verification submission being accessed"
+    )
+    document_type = models.CharField(
+        max_length=50,
+        help_text="Type of document accessed (e.g., 'cac_document', 'tin_document')"
+    )
+    accessed_by = models.ForeignKey(
+        'Account',
+        on_delete=models.CASCADE,
+        related_name='document_accesses',
+        help_text="User who accessed the document"
+    )
+    access_type = models.CharField(
+        max_length=20,
+        choices=ACCESS_TYPE_CHOICES,
+        default='view',
+        help_text="Type of access performed"
+    )
+    ip_address = models.GenericIPAddressField(
+        help_text="IP address of the user accessing the document"
+    )
+    user_agent = models.TextField(
+        blank=True,
+        help_text="Browser user agent string"
+    )
+    success = models.BooleanField(
+        default=True,
+        help_text="Whether the access attempt was successful"
+    )
+    failure_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Reason for access failure (if applicable)"
+    )
+    
+    class Meta:
+        verbose_name = 'Document Access Log'
+        verbose_name_plural = 'Document Access Logs'
+        ordering = ['-date_created']
+        indexes = [
+            models.Index(fields=['submission', 'document_type']),
+            models.Index(fields=['accessed_by', 'date_created']),
+            models.Index(fields=['access_type']),
+            models.Index(fields=['ip_address']),
+            models.Index(fields=['success']),
+            models.Index(fields=['date_created']),
+        ]
+    
+    def __str__(self):
+        status = "Success" if self.success else "Failed"
+        return f"{self.accessed_by.email} - {self.get_access_type_display()} {self.document_type} ({status})"
+    
+    def __repr__(self):
+        return f"<DocumentAccessLog: {self.accessed_by.email} - {self.document_type} - {self.access_type}>"
+    
+    @property
+    def access_time_ago(self):
+        """Returns human-readable time since access"""
+        return timesince(self.date_created)
+    
+    @property
+    def document_display_name(self):
+        """Returns human-readable document name"""
+        display_names = {
+            'cac_document': 'CAC Document',
+            'tin_document': 'TIN Document',
+            'proof_of_address': 'Proof of Address',
+            'business_license': 'Business License',
+        }
+        return display_names.get(self.document_type, self.document_type.replace('_', ' ').title())
+    
+    @classmethod
+    def log_access(cls, submission, document_type, user, access_type, ip_address, user_agent='', success=True, failure_reason=''):
+        """
+        Convenience method to create an access log entry
+        
+        Args:
+            submission: BusinessVerificationSubmission instance
+            document_type: String name of the document field
+            user: Account instance accessing the document
+            access_type: Type of access ('view', 'download', 'thumbnail')
+            ip_address: IP address of the user
+            user_agent: Browser user agent string (optional)
+            success: Whether the access was successful (default: True)
+            failure_reason: Reason for failure if success=False (optional)
+            
+        Returns:
+            DocumentAccessLog instance
+        """
+        return cls.objects.create(
+            submission=submission,
+            document_type=document_type,
+            accessed_by=user,
+            access_type=access_type,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=success,
+            failure_reason=failure_reason
+        )
+    
+    @classmethod
+    def get_recent_accesses(cls, submission, limit=10):
+        """Get recent access logs for a submission"""
+        return cls.objects.filter(submission=submission).order_by('-date_created')[:limit]
+    
+    @classmethod
+    def get_failed_accesses(cls, submission=None, days=7):
+        """Get failed access attempts within the specified days"""
+        from datetime import timedelta
+        cutoff_date = now() - timedelta(days=days)
+        
+        queryset = cls.objects.filter(success=False, date_created__gte=cutoff_date)
+        if submission:
+            queryset = queryset.filter(submission=submission)
+        
+        return queryset.order_by('-date_created')
+    
+    @classmethod
+    def get_user_access_count(cls, user, days=30):
+        """Get total document accesses by a user within specified days"""
+        from datetime import timedelta
+        cutoff_date = now() - timedelta(days=days)
+        
+        return cls.objects.filter(
+            accessed_by=user,
+            date_created__gte=cutoff_date
+        ).count()
 
 
 # use as ref to old imports for now
