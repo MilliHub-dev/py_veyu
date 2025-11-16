@@ -40,6 +40,7 @@ class DealerSerializer(ModelSerializer):
     logo = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
     owner = SerializerMethodField()
+    extended_services = serializers.JSONField(read_only=True)
 
     class Meta:
         from accounts.models import Dealer
@@ -63,6 +64,7 @@ class DealerSerializer(ModelSerializer):
             'contact_phone',
             'offers_rental',
             'offers_purchase',
+            'extended_services',
         ]
 
     def get_logo(self, obj, *args, **kwargs):

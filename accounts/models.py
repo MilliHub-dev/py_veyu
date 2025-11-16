@@ -823,6 +823,7 @@ class Dealership(UserProfile):
     offers_purchase = models.BooleanField(default=True) # sells cars, by default yes
     offers_drivers = models.BooleanField(default=False) # provide driver services
     offers_trade_in = models.BooleanField(default=False) # can customers trade in
+    extended_services = models.JSONField(default=list, blank=True) # additional services beyond core boolean fields
 
     def clean(self):
         """Custom validation for Dealership"""
@@ -837,7 +838,10 @@ class Dealership(UserProfile):
             raise ValidationError({'contact_email': 'Enter a valid email address'})
         
         # Service validation - at least one service must be offered
-        if not any([self.offers_rental, self.offers_purchase, self.offers_drivers, self.offers_trade_in]):
+        has_core_service = any([self.offers_rental, self.offers_purchase, self.offers_drivers, self.offers_trade_in])
+        has_extended_service = bool(self.extended_services and len(self.extended_services) > 0)
+        
+        if not (has_core_service or has_extended_service):
             raise ValidationError('Dealership must offer at least one service')
 
     def save(self, *args, **kwargs):
@@ -931,6 +935,11 @@ class Dealership(UserProfile):
         if self.offers_trade_in:
             servs.append('Sell-Your-Car')
             servs.append('Car Trade-in')
+        
+        # Add extended services
+        if self.extended_services:
+            servs.extend(self.extended_services)
+        
         return servs
 
 

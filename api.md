@@ -595,6 +595,17 @@ GET /api/v1/admin/dealership/
     "headline": "Your trusted car partner",
     "contact_email": "info@automax.com",
     "contact_phone": "+2348012345678",
+    "offers_purchase": true,
+    "offers_rental": true,
+    "offers_drivers": false,
+    "offers_trade_in": false,
+    "extended_services": [
+      {
+        "name": "Vehicle Financing",
+        "description": "Flexible financing options for vehicle purchases",
+        "price_range": "Varies based on loan amount"
+      }
+    ],
     "verified_business": true,
     "verified_id": true,
     "business_verification_status": "verified"
@@ -693,8 +704,21 @@ GET /api/v1/admin/dealership/settings/
     "contact_email": "info@automax.com",
     "contact_phone": "+2348012345678",
     "offers_purchase": true,
-    "offers_rentals": true,
+    "offers_rental": true,
     "offers_drivers": false,
+    "offers_trade_in": false,
+    "extended_services": [
+      {
+        "name": "Car Detailing",
+        "description": "Professional car cleaning and detailing services",
+        "price_range": "₦15,000 - ₦50,000"
+      },
+      {
+        "name": "Vehicle Inspection",
+        "description": "Pre-purchase vehicle inspection services",
+        "price_range": "₦10,000 - ₦25,000"
+      }
+    ],
     "verified_business": true,
     "level": "top"
   }
@@ -703,7 +727,7 @@ GET /api/v1/admin/dealership/settings/
 
 #### Update Dealership Settings
 ```http
-POST /api/v1/admin/dealership/settings/
+PUT /api/v1/admin/dealership/settings/
 ```
 **Request (multipart/form-data):**
 ```
@@ -712,9 +736,13 @@ business_name: "AutoMax Dealers Ltd"
 about: "Leading car dealership in Lagos..."
 slug: "automax-dealers" (optional)
 headline: "Your trusted car partner"
-services: ["Car Sale", "Car Leasing", "Drivers"]
+services: ["Car Sale", "Car Leasing", "Drivers", "Car Detailing", "Vehicle Inspection"]
 contact_phone: "+2348012345678"
 contact_email: "info@automax.com"
+offers_purchase: true
+offers_rental: true
+offers_drivers: true
+offers_trade_in: false
 ```
 **Response:**
 ```json
@@ -729,12 +757,176 @@ contact_email: "info@automax.com"
     "contact_email": "info@automax.com",
     "contact_phone": "+2348012345678",
     "offers_purchase": true,
-    "offers_rentals": true,
-    "offers_drivers": true
+    "offers_rental": true,
+    "offers_drivers": true,
+    "offers_trade_in": false,
+    "extended_services": [
+      {
+        "name": "Car Detailing",
+        "description": "Professional car cleaning and detailing services",
+        "price_range": "₦15,000 - ₦50,000"
+      },
+      {
+        "name": "Vehicle Inspection",
+        "description": "Pre-purchase vehicle inspection services",
+        "price_range": "₦10,000 - ₦25,000"
+      }
+    ]
   }
 }
 ```
+
+### Service Mapping Behavior
+
+The dealership service mapping system now supports both core boolean services and extended custom services:
+
+**Core Services (Boolean Fields):**
+- `offers_purchase`: Vehicle sales (mapped from "Car Sale", "Car Sales", "Vehicle Sales")
+- `offers_rental`: Vehicle rentals (mapped from "Car Rental", "Car Leasing", "Vehicle Rental", "Vehicle Leasing")
+- `offers_drivers`: Driver services (mapped from "Drivers", "Driver Services", "Chauffeur Services")
+- `offers_trade_in`: Trade-in services (mapped from "Trade-In Services", "Trade In", "Vehicle Trade-In")
+
+**Extended Services (JSON Array):**
+- Custom services beyond the core offerings: Vehicle Financing, Vehicle Inspection, Extended Warranty, Vehicle Insurance, Vehicle Maintenance, Parts & Accessories, Vehicle Delivery, Test Drive Services, Vehicle Registration, Export Services, Aircraft Sales & Leasing, Boat Sales & Leasing, UAV/Drone Sales, Motorbike Sales & Leasing
+- Each service includes: `name`, `description`, and optional `price_range`
+- Processed through the `DealershipServiceProcessor` for validation and mapping
+- Maintains backward compatibility with existing API consumers
+
+**Service Processing:**
+- Case-insensitive service name matching prevents mapping failures
+- Unmapped services are logged for debugging purposes
+- Service validation ensures at least one service is selected
+- Enhanced error messages provide suggestions for typos or invalid service names
+
+**API Response Format:**
+All dealership endpoints now include both core service flags and extended services in responses:
+```json
+{
+  "offers_purchase": true,
+  "offers_rental": true,
+  "offers_drivers": false,
+  "offers_trade_in": false,
+  "extended_services": [
+    {
+      "name": "Vehicle Financing",
+      "description": "Flexible financing options for vehicle purchases",
+      "price_range": "Varies based on loan amount"
+    }
+  ]
+}
+```
+
+**Backward Compatibility:**
+- Existing API consumers will continue to receive core service fields
+- New `extended_services` field is included in all dealership responses
+- Legacy service arrays are automatically mapped to appropriate fields
+- No breaking changes to existing API contracts
+- All dealership-related endpoints (`/api/v1/admin/dealership/`, `/api/v1/admin/dealership/settings/`, `/api/v1/listings/dealer/{uuid}/`) now include `extended_services` field
+
 **Note:** Logo upload is supported via the `new-logo` field in multipart/form-data format.
+
+**⚠️ Deprecation Notice:** The POST method for this endpoint is deprecated and will be removed on December 1, 2025. Please use PUT method instead. The POST method currently returns deprecation headers for backward compatibility.
+
+### 3.5 Service Mapping
+
+#### Service Mapping Overview
+
+The Veyu platform uses a hybrid service mapping system that combines core boolean service flags with extended custom services to provide maximum flexibility for dealerships.
+
+**Core Service Fields:**
+- `offers_purchase` (boolean): Vehicle sales capability
+- `offers_rental` (boolean): Vehicle rental services
+- `offers_drivers` (boolean): Driver/chauffeur services
+- `offers_trade_in` (boolean): Vehicle trade-in acceptance
+
+**Extended Services Field:**
+- `extended_services` (JSON array): Custom services beyond core offerings
+
+#### Service Processing
+
+When dealerships submit service selections through the settings API, the system:
+
+1. **Maps Core Services**: Standard services are mapped to boolean fields
+2. **Processes Extended Services**: Custom services are validated and stored in JSON format
+3. **Maintains Compatibility**: Existing API consumers continue to work without changes
+4. **Validates Service Data**: Ensures service names, descriptions, and pricing are properly formatted
+
+#### Example Service Mapping
+
+**Input Services Array:**
+```json
+["Car Sale", "Car Leasing", "Drivers", "Trade-In Services", "Vehicle Financing", "Vehicle Inspection"]
+```
+
+**Processed Output:**
+```json
+{
+  "offers_purchase": true,
+  "offers_rental": true,
+  "offers_drivers": true,
+  "offers_trade_in": true,
+  "extended_services": [
+    {
+      "name": "Vehicle Financing",
+      "description": "Flexible financing options for vehicle purchases",
+      "price_range": "Varies based on loan amount"
+    },
+    {
+      "name": "Vehicle Inspection", 
+      "description": "Pre-purchase vehicle inspection services",
+      "price_range": "₦10,000 - ₦25,000"
+    }
+  ]
+}
+```
+
+**Error Handling Example:**
+
+When invalid or unmapped services are provided:
+
+**Input:**
+```json
+["Car Sale", "Invalid Service", "Vehicle Detailing"]
+```
+
+**Error Response:**
+```json
+{
+  "error": true,
+  "message": "Service validation failed. Please check your service selections.",
+  "details": {
+    "field_errors": {
+      "services": ["Dealership must offer at least one service"]
+    },
+    "unmapped_services": ["Invalid Service"],
+    "suggestions": ["Car Sales", "Vehicle Sales", "Car Rental"],
+    "suggestion_message": "Did you mean: Car Sales, Vehicle Sales, Car Rental?",
+    "available_service_categories": ["core_services", "extended_services"]
+  }
+}
+```
+
+#### API Response Format
+
+All dealership endpoints now include both core service flags and extended services:
+
+```json
+{
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "business_name": "AutoMax Dealers",
+  "offers_purchase": true,
+  "offers_rental": true,
+  "offers_drivers": false,
+  "offers_trade_in": false,
+  "extended_services": [
+    {
+      "name": "Car Detailing",
+      "description": "Professional car cleaning and detailing services",
+      "price_range": "₦15,000 - ₦50,000"
+    }
+  ]
+}
+```
 
 ---
 
@@ -832,9 +1024,85 @@ DELETE /api/v1/admin/mechanics/services/{service}/
 
 ### 4.5 Settings
 
-#### Get/Update Mechanic Settings
+#### Get Mechanic Settings
 ```http
-GET/PUT /api/v1/admin/mechanics/settings/
+GET /api/v1/admin/mechanics/settings/
+```
+**Response:**
+```json
+{
+  "error": false,
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_name": "AutoFix Mechanics",
+    "logo": "https://res.cloudinary.com/...",
+    "about": "Professional automotive repair services",
+    "headline": "Your trusted car repair partner",
+    "contact_email": "info@autofix.com",
+    "contact_phone": "+2348012345678",
+    "business_type": "business",
+    "available": true,
+    "verified_business": true,
+    "level": "level-1",
+    "services": [
+      {
+        "id": 1,
+        "service_name": "Oil Change",
+        "description": "Complete oil change service",
+        "price": 15000,
+        "duration_minutes": 60,
+        "category": "maintenance"
+      }
+    ],
+    "average_rating": 4.5,
+    "total_services": 8,
+    "completed_jobs": 45,
+    "availability_status": "Available"
+  }
+}
+```
+**Error Response (404):**
+```json
+{
+  "error": true,
+  "message": "Mechanic profile not found. Please complete your mechanic profile setup."
+}
+```
+
+#### Update Mechanic Settings
+```http
+PUT /api/v1/admin/mechanics/settings/
+```
+**Request (multipart/form-data):**
+```
+new-logo: <file> (optional)
+business_name: "AutoFix Mechanics Ltd"
+about: "Professional automotive repair services with 10+ years experience..."
+slug: "autofix-mechanics" (optional)
+headline: "Your trusted car repair partner"
+business_type: "business|individual"
+contact_phone: "+2348012345678"
+contact_email: "info@autofix.com"
+available: true
+```
+**Response:**
+```json
+{
+  "error": false,
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "business_name": "AutoFix Mechanics Ltd",
+    "logo": "https://res.cloudinary.com/...",
+    "about": "Professional automotive repair services with 10+ years experience...",
+    "headline": "Your trusted car repair partner",
+    "contact_email": "info@autofix.com",
+    "contact_phone": "+2348012345678",
+    "business_type": "business",
+    "available": true,
+    "verified_business": true,
+    "level": "level-1"
+  }
+}
 ```
 
 ---

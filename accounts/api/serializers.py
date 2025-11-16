@@ -290,6 +290,7 @@ class GetDealershipSerializer(ModelSerializer):
     logo = SerializerMethodField()
     verification_status = SerializerMethodField()
     account_status = SerializerMethodField()
+    extended_services = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Dealer
@@ -297,7 +298,8 @@ class GetDealershipSerializer(ModelSerializer):
             'uuid', 'id', 'business_name', 'slug', 'logo',
             'verified_phone_number', 'account_status',
             'verified_business', 'verified_tin', 'verification_status',
-            
+            'offers_rental', 'offers_purchase', 'offers_drivers', 'offers_trade_in',
+            'extended_services'
         ]
 
     def get_logo(self, obj):
@@ -321,6 +323,7 @@ class DealershipSerializer(ModelSerializer):
     location = StringRelatedField()
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
+    extended_services = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Dealer
@@ -328,7 +331,8 @@ class DealershipSerializer(ModelSerializer):
             "id", "user", "date_created", "uuid", "last_updated", "phone_number",
             "verified_phone_number", 'listings', "location", "reviews", 'logo',
             'business_name', 'slug', 'headline', 'about', 'ratings', 'services',
-            'avg_rating', 'contact_email', 'contact_phone'
+            'avg_rating', 'contact_email', 'contact_phone', 'offers_rental',
+            'offers_purchase', 'offers_drivers', 'offers_trade_in', 'extended_services'
         )
 
     def get_avg_rating(self, obj):

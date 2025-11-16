@@ -1,6 +1,7 @@
 from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
 from django.db.models import Q
+import logging
 from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
@@ -44,6 +45,7 @@ from .serializers import (
     PurchaseOfferSerializer,
     DealerSerializer,
 )
+from ..service_mapping import DealershipServiceProcessor
 from ..models import (
     Vehicle,
     Car,
@@ -66,7 +68,7 @@ from .filters import (
 )
 from rest_framework.viewsets import ModelViewSet
 from rest_framework import status
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -806,7 +808,7 @@ class OrderListView(ListAPIView):
 
 
 class SettingsView(APIView):
-    allowed_methods = ['POST', 'GET']
+    allowed_methods = ['PUT', 'POST', 'GET']
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     parser_classes = [MultiPartParser, JSONParser]
 
@@ -852,48 +854,198 @@ class SettingsView(APIView):
         responses={200: openapi.Response(description='Updated successfully')},
         tags=['Dealership']
     )
+    def put(self, request):
+        return self._update_dealership_settings(request)
+
+    @swagger_auto_schema(
+        operation_summary="Update dealership settings (DEPRECATED)",
+        operation_description=(
+            "⚠️ DEPRECATED: Use PUT method instead. This endpoint will be removed in a future version.\n\n"
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo'."
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['business_name','about','headline','services','contact_phone','contact_email'],
+            properties={
+                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file'),
+                'business_name': openapi.Schema(type=openapi.TYPE_STRING),
+                'about': openapi.Schema(type=openapi.TYPE_STRING),
+                'slug': openapi.Schema(type=openapi.TYPE_STRING),
+                'headline': openapi.Schema(type=openapi.TYPE_STRING),
+                'services': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), example=['Car Sale','Car Leasing','Drivers']),
+                'contact_phone': openapi.Schema(type=openapi.TYPE_STRING),
+                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL)
+            }
+        ),
+        responses={200: openapi.Response(description='Updated successfully')},
+        tags=['Dealership'],
+        deprecated=True
+    )
     def post(self, request):
+        # Add deprecation warning to response headers
+        response = self._update_dealership_settings(request)
+        response['X-Deprecation-Warning'] = 'POST method is deprecated. Use PUT instead.'
+        response['X-Deprecation-Date'] = '2025-12-01'
+        
+        # Log deprecation usage
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"DEPRECATED: POST method used for dealership settings update by user {request.user.email}")
+        
+        return response
+
+    def _update_dealership_settings(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             data = request.data
             dealer = Dealership.objects.get(user=request.user)
 
-            print("New Services:", data['services'])
-            print("Old Services:", dealer.services)
+            # Validate required fields first
+            required_fields = ['business_name', 'about', 'headline', 'services', 'contact_phone', 'contact_email']
+            missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
             
-            if data.get('new-logo', None):
-                dealer.logo = data['new-logo']
-            dealer.business_name = data['business_name']
-            dealer.about = data['about']
-            dealer.slug = data.get('slug', None)
-            dealer.headline = data['headline']
-            dealer.offers_purchase = 'Car Sale' in data['services']
-            dealer.offers_rental = 'Car Leasing' in data['services']
-            dealer.offers_drivers = 'Drivers' in data['services']
-            dealer.contact_phone = data['contact_phone']
-            dealer.contact_email = data['contact_email']
-            dealer.save()
+            if missing_fields:
+                return Response({
+                    'error': True,
+                    'message': 'Missing required fields',
+                    'details': {
+                        'field_errors': {
+                            field: [f'{field.replace("_", " ").title()} is required'] for field in missing_fields
+                        }
+                    }
+                }, status=400)
+
+            logger.info(f"Processing dealership settings update for {dealer.business_name}")
+            logger.debug(f"New Services: {data['services']}")
+            logger.debug(f"Old Services: {getattr(dealer, 'services', [])}")
             
-            data = {
-                'error': False,
-                'data': DealerSerializer(dealer, context={'request': request}).data
-            }
-            return Response(data, 200)
+            # Process services using DealershipServiceProcessor
+            service_processor = DealershipServiceProcessor()
+            
+            # Validate services first to provide detailed error information
+            is_valid, unmapped_services, suggestions = service_processor.validate_services(data['services'])
+            
+            # Log unmapped services for debugging
+            if unmapped_services:
+                logger.warning(f"Unmapped services detected for dealership {dealer.business_name}: {unmapped_services}")
+                for service in unmapped_services:
+                    service_suggestions = service_processor._suggest_similar_services(service, max_suggestions=3)
+                    if service_suggestions:
+                        logger.info(f"Suggestions for '{service}': {service_suggestions}")
+            
+            try:
+                # Process the selected services
+                service_updates = service_processor.process_services(data['services'])
+                
+                # Update dealer profile fields
+                if data.get('new-logo', None):
+                    dealer.logo = data['new-logo']
+                dealer.business_name = data['business_name']
+                dealer.about = data['about']
+                dealer.slug = data.get('slug', None)
+                dealer.headline = data['headline']
+                
+                # Apply service mappings from processor
+                dealer.offers_purchase = service_updates['offers_purchase']
+                dealer.offers_rental = service_updates['offers_rental']
+                dealer.offers_drivers = service_updates['offers_drivers']
+                dealer.offers_trade_in = service_updates['offers_trade_in']
+                
+                # Handle extended services if the field exists
+                if hasattr(dealer, 'extended_services'):
+                    dealer.extended_services = service_updates['extended_services']
+                
+                dealer.contact_phone = data['contact_phone']
+                dealer.contact_email = data['contact_email']
+                dealer.save()
+                
+                # Log successful update
+                mapped_services = sum([
+                    dealer.offers_purchase,
+                    dealer.offers_rental, 
+                    dealer.offers_drivers,
+                    dealer.offers_trade_in
+                ])
+                extended_count = len(service_updates.get('extended_services', []))
+                logger.info(f"Successfully updated dealership {dealer.business_name}: {mapped_services} core services, {extended_count} extended services")
+                
+                response_data = {
+                    'error': False,
+                    'data': DealerSerializer(dealer, context={'request': request}).data
+                }
+                
+                # Include debug information if there were unmapped services
+                if unmapped_services and suggestions:
+                    response_data['warnings'] = {
+                        'unmapped_services': unmapped_services,
+                        'suggestions': suggestions[:5]  # Provide up to 5 suggestions
+                    }
+                
+                return Response(response_data, 200)
+                
+            except DjangoValidationError as ve:
+                logger.error(f"Service validation failed for dealership {dealer.business_name}: {str(ve)}")
+                
+                # Enhanced error response with detailed information
+                error_details = {
+                    'field_errors': {
+                        'services': [str(ve)]
+                    }
+                }
+                
+                if unmapped_services:
+                    error_details['unmapped_services'] = unmapped_services
+                    error_details['unmapped_count'] = len(unmapped_services)
+                
+                if suggestions:
+                    error_details['suggestions'] = suggestions[:5]  # Provide up to 5 suggestions
+                    error_details['suggestion_message'] = f"Did you mean: {', '.join(suggestions[:3])}?"
+                
+                # Add helpful context about available services
+                available_services = service_processor.get_available_services()
+                error_details['available_service_categories'] = list(available_services.keys())
+                
+                return Response({
+                    'error': True,
+                    'message': 'Service validation failed. Please check your service selections.',
+                    'details': error_details
+                }, status=400)
+            
         except Dealership.DoesNotExist:
+            logger.error(f"Dealership profile not found for user {request.user.email}")
             return Response({
                 'error': True,
-                'message': 'Dealership profile not found. Please complete your dealership profile setup.'
+                'message': 'Dealership profile not found. Please complete your dealership profile setup.',
+                'details': {
+                    'error_code': 'DEALERSHIP_NOT_FOUND',
+                    'help_text': 'Contact support if you believe this is an error.'
+                }
             }, status=404)
         except KeyError as e:
+            logger.error(f"Missing required field in dealership settings update: {str(e)}")
+            field_name = str(e).strip("'\"")
             return Response({
                 'error': True,
-                'message': f'Missing required field: {str(e)}'
+                'message': f'Missing required field: {field_name}',
+                'details': {
+                    'field_errors': {
+                        field_name: [f'{field_name.replace("_", " ").title()} is required']
+                    },
+                    'error_code': 'MISSING_FIELD'
+                }
             }, status=400)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Unexpected error in dealership settings update: {str(e)}", exc_info=True)
             return Response({
                 'error': True,
-                'message': f'An error occurred: {str(e)}'
+                'message': 'An unexpected error occurred while updating your dealership settings.',
+                'details': {
+                    'error_code': 'INTERNAL_ERROR',
+                    'help_text': 'Please try again. If the problem persists, contact support.',
+                    'debug_info': str(e) if hasattr(request, 'user') and request.user.is_staff else None
+                }
             }, status=500)
 
 
