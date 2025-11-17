@@ -4,6 +4,7 @@ from .models import (
     Account,
     Customer,
     Mechanic,
+    Dealership,
     Location,
     OTP,
     Dealer,
@@ -546,12 +547,378 @@ class BusinessVerificationSubmissionAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
+class MechanicAdmin(admin.ModelAdmin):
+    actions = ['export_logo_report', 'mark_logo_for_review']
+    list_display = [
+        'business_name',
+        'user_email',
+        'logo_status',
+        'level',
+        'available',
+        'verified_business',
+        'verification_status',
+        'date_created'
+    ]
+    list_display_links = ['business_name', 'user_email']
+    list_filter = [
+        'level',
+        'available',
+        'verified_business',
+        'verification_status',
+        'business_type',
+        'date_created',
+        ('logo', admin.EmptyFieldListFilter),  # Filter by logo presence
+    ]
+    search_fields = ['business_name', 'user__email', 'user__first_name', 'user__last_name']
+    readonly_fields = ['logo_preview', 'date_created', 'last_updated']
+    
+    fieldsets = (
+        ('Business Information', {
+            'fields': ('user', 'business_name', 'business_type', 'about', 'headline')
+        }),
+        ('Logo & Branding', {
+            'fields': ('logo', 'logo_preview'),
+            'description': 'Business logo management and preview'
+        }),
+        ('Contact Information', {
+            'fields': ('phone_number', 'contact_email', 'contact_phone', 'location')
+        }),
+        ('Verification & Status', {
+            'fields': ('verification_status', 'account_status', 'verified_business', 'verified_phone_number', 'verified_id')
+        }),
+        ('Business Settings', {
+            'fields': ('level', 'available', 'slug'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('date_created', 'last_updated'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
+    
+    def logo_status(self, obj):
+        """Display logo status with thumbnail and status badge"""
+        if obj.logo and hasattr(obj.logo, 'public_id') and obj.logo.public_id:
+            try:
+                # Generate thumbnail URL
+                thumbnail_url = obj.logo.build_url(width=50, height=50, crop='fill')
+                return format_html(
+                    '<div style="display: flex; align-items: center; gap: 8px;">'
+                    '<img src="{}" alt="Logo" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">'
+                    '<span style="background-color: green; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Has Logo</span>'
+                    '</div>',
+                    thumbnail_url
+                )
+            except Exception:
+                return format_html(
+                    '<span style="background-color: orange; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Logo Error</span>'
+                )
+        else:
+            return format_html(
+                '<span style="background-color: red; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">No Logo</span>'
+            )
+    logo_status.short_description = 'Logo'
+    logo_status.allow_tags = True
+    
+    def logo_preview(self, obj):
+        """Display full logo preview in detail view"""
+        if obj.logo and hasattr(obj.logo, 'public_id') and obj.logo.public_id:
+            try:
+                # Generate preview URL
+                preview_url = obj.logo.build_url(width=300, height=200, crop='fit')
+                full_url = obj.logo.build_url()
+                return format_html(
+                    '<div style="margin: 10px 0;">'
+                    '<div style="margin-bottom: 10px;">'
+                    '<img src="{}" alt="Logo Preview" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">'
+                    '</div>'
+                    '<div style="font-size: 12px; color: #666;">'
+                    '<a href="{}" target="_blank" style="color: #007cba; text-decoration: none;">View Full Size</a> | '
+                    'Public ID: {} | '
+                    'Upload Date: {}'
+                    '</div>'
+                    '</div>',
+                    preview_url,
+                    full_url,
+                    obj.logo.public_id,
+                    obj.date_created.strftime('%Y-%m-%d %H:%M') if obj.date_created else 'Unknown'
+                )
+            except Exception as e:
+                return format_html(
+                    '<div style="color: red; font-style: italic;">Error loading logo preview: {}</div>',
+                    str(e)
+                )
+        else:
+            return format_html(
+                '<div style="color: #999; font-style: italic; padding: 20px; text-align: center; border: 1px dashed #ccc; border-radius: 4px;">'
+                'No logo uploaded'
+                '</div>'
+            )
+    logo_preview.short_description = 'Logo Preview'
+    logo_preview.allow_tags = True
+    
+    def export_logo_report(self, request, queryset):
+        """Export logo status report for selected mechanics"""
+        import csv
+        from django.http import HttpResponse
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="mechanic_logo_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Business Name', 'Email', 'Has Logo', 'Logo URL', 'Verification Status', 'Date Created'])
+        
+        for mechanic in queryset:
+            has_logo = bool(mechanic.logo and hasattr(mechanic.logo, 'public_id') and mechanic.logo.public_id)
+            logo_url = mechanic.logo.build_url() if has_logo else 'No Logo'
+            
+            writer.writerow([
+                mechanic.business_name or 'N/A',
+                mechanic.user.email,
+                'Yes' if has_logo else 'No',
+                logo_url,
+                mechanic.get_verification_status_display(),
+                mechanic.date_created.strftime('%Y-%m-%d') if mechanic.date_created else 'N/A'
+            ])
+        
+        self.message_user(request, f"Exported logo report for {queryset.count()} mechanics.")
+        return response
+    export_logo_report.short_description = "Export logo status report"
+    
+    def mark_logo_for_review(self, request, queryset):
+        """Mark selected mechanics for logo review"""
+        count = 0
+        for mechanic in queryset:
+            if mechanic.logo and hasattr(mechanic.logo, 'public_id') and mechanic.logo.public_id:
+                # You could add a flag or send notification here
+                count += 1
+        
+        self.message_user(request, f"Marked {count} mechanics with logos for review.")
+    mark_logo_for_review.short_description = "Mark logos for review"
+
+
+class DealershipAdmin(admin.ModelAdmin):
+    actions = ['export_logo_report', 'mark_logo_for_review']
+    list_display = [
+        'business_name',
+        'user_email',
+        'logo_status',
+        'level',
+        'verified_business',
+        'verification_status',
+        'offers_summary',
+        'date_created'
+    ]
+    list_display_links = ['business_name', 'user_email']
+    list_filter = [
+        'level',
+        'verified_business',
+        'verified_tin',
+        'verified_location',
+        'verification_status',
+        'offers_rental',
+        'offers_purchase',
+        'offers_drivers',
+        'offers_trade_in',
+        'date_created',
+        ('logo', admin.EmptyFieldListFilter),  # Filter by logo presence
+    ]
+    search_fields = ['business_name', 'user__email', 'user__first_name', 'user__last_name', 'cac_number', 'tin_number']
+    readonly_fields = ['logo_preview', 'verification_completeness_display', 'date_created', 'last_updated']
+    
+    fieldsets = (
+        ('Business Information', {
+            'fields': ('user', 'business_name', 'about', 'headline')
+        }),
+        ('Logo & Branding', {
+            'fields': ('logo', 'logo_preview'),
+            'description': 'Business logo management and preview'
+        }),
+        ('Contact Information', {
+            'fields': ('phone_number', 'contact_email', 'contact_phone', 'location')
+        }),
+        ('Business Registration', {
+            'fields': ('cac_number', 'tin_number', 'verified_business', 'verified_tin', 'verified_location')
+        }),
+        ('Verification & Status', {
+            'fields': ('verification_status', 'account_status', 'verified_phone_number', 'verified_id', 'verification_completeness_display')
+        }),
+        ('Services Offered', {
+            'fields': ('offers_rental', 'offers_purchase', 'offers_drivers', 'offers_trade_in', 'extended_services'),
+            'description': 'Services and offerings provided by this dealership'
+        }),
+        ('Business Settings', {
+            'fields': ('level', 'slug'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('date_created', 'last_updated'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
+    
+    def logo_status(self, obj):
+        """Display logo status with thumbnail and status badge"""
+        if obj.logo and hasattr(obj.logo, 'public_id') and obj.logo.public_id:
+            try:
+                # Generate thumbnail URL
+                thumbnail_url = obj.logo.build_url(width=50, height=50, crop='fill')
+                return format_html(
+                    '<div style="display: flex; align-items: center; gap: 8px;">'
+                    '<img src="{}" alt="Logo" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">'
+                    '<span style="background-color: green; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Has Logo</span>'
+                    '</div>',
+                    thumbnail_url
+                )
+            except Exception:
+                return format_html(
+                    '<span style="background-color: orange; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Logo Error</span>'
+                )
+        else:
+            return format_html(
+                '<span style="background-color: red; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">No Logo</span>'
+            )
+    logo_status.short_description = 'Logo'
+    logo_status.allow_tags = True
+    
+    def logo_preview(self, obj):
+        """Display full logo preview in detail view"""
+        if obj.logo and hasattr(obj.logo, 'public_id') and obj.logo.public_id:
+            try:
+                # Generate preview URL
+                preview_url = obj.logo.build_url(width=300, height=200, crop='fit')
+                full_url = obj.logo.build_url()
+                return format_html(
+                    '<div style="margin: 10px 0;">'
+                    '<div style="margin-bottom: 10px;">'
+                    '<img src="{}" alt="Logo Preview" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">'
+                    '</div>'
+                    '<div style="font-size: 12px; color: #666;">'
+                    '<a href="{}" target="_blank" style="color: #007cba; text-decoration: none;">View Full Size</a> | '
+                    'Public ID: {} | '
+                    'Upload Date: {}'
+                    '</div>'
+                    '</div>',
+                    preview_url,
+                    full_url,
+                    obj.logo.public_id,
+                    obj.date_created.strftime('%Y-%m-%d %H:%M') if obj.date_created else 'Unknown'
+                )
+            except Exception as e:
+                return format_html(
+                    '<div style="color: red; font-style: italic;">Error loading logo preview: {}</div>',
+                    str(e)
+                )
+        else:
+            return format_html(
+                '<div style="color: #999; font-style: italic; padding: 20px; text-align: center; border: 1px dashed #ccc; border-radius: 4px;">'
+                'No logo uploaded'
+                '</div>'
+            )
+    logo_preview.short_description = 'Logo Preview'
+    logo_preview.allow_tags = True
+    
+    def offers_summary(self, obj):
+        """Display summary of services offered"""
+        services = []
+        if obj.offers_rental:
+            services.append('Rental')
+        if obj.offers_purchase:
+            services.append('Sales')
+        if obj.offers_drivers:
+            services.append('Drivers')
+        if obj.offers_trade_in:
+            services.append('Trade-in')
+        
+        if services:
+            return ', '.join(services)
+        return 'No services'
+    offers_summary.short_description = 'Services'
+    
+    def verification_completeness_display(self, obj):
+        """Display verification completeness as a progress bar"""
+        percentage = obj.verification_completeness
+        color = 'red' if percentage < 50 else 'orange' if percentage < 80 else 'green'
+        
+        return format_html(
+            '<div style="display: flex; align-items: center; gap: 10px;">'
+            '<div style="width: 100px; height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">'
+            '<div style="width: {}%; height: 100%; background-color: {}; transition: width 0.3s;"></div>'
+            '</div>'
+            '<span style="font-weight: bold; color: {};">{}%</span>'
+            '</div>',
+            percentage, color, color, percentage
+        )
+    verification_completeness_display.short_description = 'Verification Progress'
+    verification_completeness_display.allow_tags = True
+    
+    def export_logo_report(self, request, queryset):
+        """Export logo status report for selected dealerships"""
+        import csv
+        from django.http import HttpResponse
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="dealership_logo_report.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Business Name', 'Email', 'Has Logo', 'Logo URL', 'Verification Status', 'Services', 'Date Created'])
+        
+        for dealership in queryset:
+            has_logo = bool(dealership.logo and hasattr(dealership.logo, 'public_id') and dealership.logo.public_id)
+            logo_url = dealership.logo.build_url() if has_logo else 'No Logo'
+            
+            services = []
+            if dealership.offers_rental:
+                services.append('Rental')
+            if dealership.offers_purchase:
+                services.append('Sales')
+            if dealership.offers_drivers:
+                services.append('Drivers')
+            if dealership.offers_trade_in:
+                services.append('Trade-in')
+            
+            writer.writerow([
+                dealership.business_name or 'N/A',
+                dealership.user.email,
+                'Yes' if has_logo else 'No',
+                logo_url,
+                dealership.get_verification_status_display(),
+                ', '.join(services) if services else 'None',
+                dealership.date_created.strftime('%Y-%m-%d') if dealership.date_created else 'N/A'
+            ])
+        
+        self.message_user(request, f"Exported logo report for {queryset.count()} dealerships.")
+        return response
+    export_logo_report.short_description = "Export logo status report"
+    
+    def mark_logo_for_review(self, request, queryset):
+        """Mark selected dealerships for logo review"""
+        count = 0
+        for dealership in queryset:
+            if dealership.logo and hasattr(dealership.logo, 'public_id') and dealership.logo.public_id:
+                # You could add a flag or send notification here
+                count += 1
+        
+        self.message_user(request, f"Marked {count} dealerships with logos for review.")
+    mark_logo_for_review.short_description = "Mark logos for review"
+
+
 # Register your models here.
 veyu_admin.register(Account, AccountsAdmin)
 veyu_admin.register(Customer)
 veyu_admin.register(Newsletter, NewsletterAdmin)
-veyu_admin.register(Mechanic)
+veyu_admin.register(Mechanic, MechanicAdmin)
 veyu_admin.register(Location)
-veyu_admin.register(Dealer)
+veyu_admin.register(Dealer, DealershipAdmin)
 veyu_admin.register(OTP, OTPAdmin)
 veyu_admin.register(BusinessVerificationSubmission, BusinessVerificationSubmissionAdmin)
