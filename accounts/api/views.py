@@ -757,6 +757,13 @@ class BusinessVerificationView(views.APIView):
         if 'business_type' not in data:
             data['business_type'] = business_type
         
+        # Remove any document fields from data to avoid conflicts with Cloudinary uploads
+        document_fields = ['cac_document', 'tin_document', 'proof_of_address', 'business_license']
+        for field_name in document_fields:
+            if field_name in data:
+                logger.info(f"Removing {field_name} from request data to avoid conflicts")
+                del data[field_name]
+        
         # Validate file uploads using the new validation system
         from accounts.utils.document_validation import (
             validate_business_documents, 
@@ -808,9 +815,6 @@ class BusinessVerificationView(views.APIView):
         document_upload_results = {}
         document_upload_errors = {}
         
-        # Document fields that can be uploaded
-        document_fields = ['cac_document', 'tin_document', 'proof_of_address', 'business_license']
-        
         try:
             storage = CloudinaryDocumentStorage()
             
@@ -838,6 +842,7 @@ class BusinessVerificationView(views.APIView):
                         data[f'{field_name}_original_name'] = file.name
                         
                         logger.info(f"Successfully uploaded {field_name}: {upload_result['public_id']}")
+                        logger.info(f"Set data[{field_name}] = {upload_result['public_id']} (type: {type(upload_result['public_id'])})")
                         
                     except CloudinaryError as e:
                         error_msg = f"Cloudinary upload failed for {field_name}: {str(e)}"
@@ -891,6 +896,14 @@ class BusinessVerificationView(views.APIView):
             }, status=400)
         
         # Create or update submission with Cloudinary URLs
+        # Debug logging to see what data we're passing to the serializer
+        logger.info(f"Data being passed to serializer: {list(data.keys())}")
+        for field_name in document_fields:
+            if field_name in data:
+                logger.info(f"Serializer data[{field_name}] = {data[field_name]} (type: {type(data[field_name])})")
+            else:
+                logger.info(f"Field {field_name} not in serializer data")
+        
         if existing_submission:
             # Update existing submission
             serializer = BusinessVerificationSubmissionSerializer(
