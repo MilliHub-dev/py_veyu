@@ -2,9 +2,8 @@
 
 ## Base URL
 ```
-Production: https://veyu.vercel.app
-Staging: https://dev.veyu.cc
-Development: http://127.0.0.1:8000
+Production: https://dev.veyu.cc
+
 ```
 
 ## Vercel Deployment
@@ -15,10 +14,7 @@ The API is deployed on Vercel serverless infrastructure with the following chara
 - **Regions**: Primary deployment in `iad1` (US East)
 - **Static Files**: Served via Vercel CDN with aggressive caching
 
-## API Documentation
-Interactive API documentation is available at:
-- **Swagger UI**: https://veyu.vercel.app/api/docs/
-- **ReDoc**: https://veyu.vercel.app/redoc/
+
 
 ## Authentication
 All API endpoints (except public endpoints) require JWT authentication:
@@ -26,9 +22,7 @@ All API endpoints (except public endpoints) require JWT authentication:
 Authorization: Bearer <access_token>
 ```
 
-## Common Error Responses
-
-All endpoints follow a consistent error response format:
+## Common Response Formats
 
 ### Success Response Format
 ```json
@@ -44,29 +38,24 @@ All endpoints follow a consistent error response format:
 {
   "error": true,
   "message": "Error description",
-  "errors": { }
+  "errors": { },
+  "code": "ERROR_CODE"
 }
 ```
 
-### HTTP Status Codes
+## HTTP Status Codes
 - `200 OK`: Successful GET/PUT request
 - `201 Created`: Resource created successfully
 - `400 Bad Request`: Invalid request data or validation error
 - `401 Unauthorized`: Authentication required or invalid token
 - `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found (e.g., "Dealership profile not found")
+- `404 Not Found`: Resource not found
 - `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
+- `503 Service Unavailable`: Service temporarily unavailable
 - `504 Gateway Timeout`: Function timeout (Vercel 10s limit exceeded)
 
-### Common Error Messages
-- `"Dealership profile not found. Please complete your dealership profile setup."` - User needs to create dealership profile
-- `"Invalid user type: {type}"` - Unsupported user type (only customer, dealer, mechanic supported)
-- `"Validation failed"` - Request data validation errors (check `errors` field)
-- `"Missing required field: {field}"` - Required field not provided
-- `"Only dealers and mechanics can submit business verification"` - Endpoint restricted to business users
-
-### Token Endpoints
+### JWT Token Endpoints
 
 #### Obtain Token Pair
 ```http
@@ -94,7 +83,21 @@ POST /api/v1/token/refresh/
 **Request:**
 ```json
 {
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "rotate_refresh": true
+}
+```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Token refreshed successfully",
+  "data": {
+    "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access_expires": 1640995200,
+    "refresh_expires": 1641081600
+  }
 }
 ```
 
@@ -133,6 +136,9 @@ GET /health
 #### Enhanced Sign Up
 ```http
 POST /api/v1/accounts/signup/
+#### Enhanced Sign Up
+```http
+POST /api/v1/accounts/signup/
 ```
 **Request:**
 ```json
@@ -144,29 +150,59 @@ POST /api/v1/accounts/signup/
   "last_name": "Doe",
   "phone_number": "+2348012345678",
   "user_type": "customer|dealer|mechanic",
-  "provider": "veyu"
+  "provider": "veyu",
+  "action": "create-account"
 }
 ```
-**Note:** `password` and `confirm_password` are required for `provider: "veyu"` but optional for social auth providers.
+**Social Auth Request:**
+```json
+{
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "user_type": "customer|dealer|mechanic",
+  "provider": "google|apple|facebook",
+  "oauth_token": "social_auth_token_here"
+}
+```
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Account created successfully",
+  "error": false,
+  "message": "Account created successfully. Please check your email to verify your account.",
   "data": {
-    "user_id": "uuid",
-    "email": "user@example.com",
+    "user": {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "user_type": "customer",
+      "provider": "veyu",
+      "verified_email": false
+    },
     "tokens": {
       "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-      "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
-    }
+      "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+      "access_expires": 1640995200,
+      "refresh_expires": 1641081600
+    },
+    "verification_sent": true,
+    "welcome_email_sent": true
   }
 }
 ```
-**Note:** The signup process now sends only one verification email per user, eliminating the duplicate email issue. Users will receive a single "Verify Your Email" message with their verification code.
 
-#### Enhanced Login
+#### Check Email Availability
 ```http
+GET /api/v1/accounts/signup/?email=user@example.com
+```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Email is available"
+}
+```
 POST /api/v1/accounts/login/
 ```
 **Request:**

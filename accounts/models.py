@@ -1832,6 +1832,29 @@ class BusinessVerificationSubmission(DbModel):
         """Returns the associated business profile (dealership or mechanic)"""
         return self.dealership if self.dealership else self.mechanic
     
+    @property
+    def documents_uploaded(self):
+        """Returns count of uploaded documents"""
+        count = 0
+        document_fields = ['cac_document', 'tin_document', 'proof_of_address', 'business_license']
+        for field_name in document_fields:
+            document = getattr(self, field_name, None)
+            if document and hasattr(document, 'public_id') and document.public_id:
+                count += 1
+        return count
+    
+    @property
+    def required_documents_count(self):
+        """Returns total number of required documents"""
+        return 4  # cac_document, tin_document, proof_of_address, business_license
+    
+    @property
+    def documents_completion_percentage(self):
+        """Returns percentage of documents uploaded"""
+        if self.required_documents_count == 0:
+            return 100
+        return int((self.documents_uploaded / self.required_documents_count) * 100)
+    
     def approve(self, admin_user):
         """Approve the verification and update the business profile"""
         old_status = self.status
@@ -1997,6 +2020,35 @@ class DocumentAccessLog(DbModel):
     def access_time_ago(self):
         """Returns human-readable time since access"""
         return timesince(self.date_created)
+    
+    @classmethod
+    def log_access(cls, submission, document_type, user, access_type, ip_address, user_agent='', success=True, failure_reason=''):
+        """
+        Convenience method to log document access
+        
+        Args:
+            submission: BusinessVerificationSubmission instance
+            document_type: Type of document (e.g., 'cac_document')
+            user: User who accessed the document
+            access_type: Type of access ('view', 'download', 'thumbnail')
+            ip_address: IP address of the user
+            user_agent: Browser user agent string
+            success: Whether the access was successful
+            failure_reason: Reason for failure if applicable
+            
+        Returns:
+            DocumentAccessLog instance
+        """
+        return cls.objects.create(
+            submission=submission,
+            document_type=document_type,
+            accessed_by=user,
+            access_type=access_type,
+            ip_address=ip_address,
+            user_agent=user_agent[:500] if user_agent else '',  # Truncate user agent
+            success=success,
+            failure_reason=failure_reason
+        )
     
     @property
     def document_display_name(self):
