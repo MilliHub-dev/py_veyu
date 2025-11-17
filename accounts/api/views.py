@@ -990,6 +990,7 @@ class BusinessVerificationView(views.APIView):
             except Exception:
                 pass
         
+        logger.error(f"Serializer validation failed: {serializer.errors}")
         return Response({
             'error': True,
             'message': 'Validation failed',
