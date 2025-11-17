@@ -712,9 +712,15 @@ class BusinessVerificationView(views.APIView):
         tags=['Business Verification']
     )
     def post(self, request):
-        """Submit or update business verification details"""
+        """Submit or update business verification details with Cloudinary document handling"""
         from accounts.api.serializers import BusinessVerificationSubmissionSerializer
         from accounts.models import BusinessVerificationSubmission, Dealership, Mechanic
+        from accounts.utils.document_storage import CloudinaryDocumentStorage
+        from accounts.utils.document_validation import (
+            CloudinaryConnectionError,
+            DocumentUploadError
+        )
+        from cloudinary.exceptions import Error as CloudinaryError
         
         # Validate user type
         if request.user.user_type not in ['dealer', 'mechanic']:
@@ -737,29 +743,154 @@ class BusinessVerificationView(views.APIView):
                 'message': f'Please complete your {request.user.user_type} profile before submitting verification'
             }, status=400)
         
-        # Add business_type to request data if not provided
+        # Check if submission already exists
+        existing_submission = None
+        try:
+            existing_submission = business_profile.verification_submission
+            submission_id = existing_submission.id
+        except BusinessVerificationSubmission.DoesNotExist:
+            # For new submissions, we'll use a temporary ID that gets updated after creation
+            submission_id = 0
+        
+        # Prepare data for serializer (excluding files)
         data = request.data.copy()
         if 'business_type' not in data:
             data['business_type'] = business_type
         
         # Validate file uploads using the new validation system
-        from accounts.utils.document_validation import validate_business_documents
+        from accounts.utils.document_validation import (
+            validate_business_documents, 
+            DocumentValidationError,
+            FileSizeExceededError,
+            InvalidFileFormatError,
+            MaliciousFileError
+        )
         
-        file_validation_errors = validate_business_documents(request.FILES)
-        if file_validation_errors:
+        try:
+            file_validation_errors = validate_business_documents(request.FILES)
+            if file_validation_errors:
+                return Response({
+                    'error': True,
+                    'message': 'Document validation failed',
+                    'code': 'DOCUMENT_VALIDATION_ERROR',
+                    'errors': file_validation_errors
+                }, status=400)
+        except FileSizeExceededError as e:
+            return Response({
+                'error': True,
+                'message': 'File size limit exceeded',
+                'code': 'FILE_SIZE_EXCEEDED',
+                'details': str(e)
+            }, status=400)
+        except InvalidFileFormatError as e:
+            return Response({
+                'error': True,
+                'message': 'Invalid file format',
+                'code': 'INVALID_FILE_FORMAT',
+                'details': str(e)
+            }, status=400)
+        except MaliciousFileError as e:
+            return Response({
+                'error': True,
+                'message': 'File contains potentially malicious content',
+                'code': 'MALICIOUS_FILE_DETECTED',
+                'details': str(e)
+            }, status=400)
+        except DocumentValidationError as e:
             return Response({
                 'error': True,
                 'message': 'Document validation failed',
-                'errors': file_validation_errors
+                'code': 'DOCUMENT_VALIDATION_ERROR',
+                'details': str(e)
             }, status=400)
         
-        # Check if submission already exists
-        existing_submission = None
-        try:
-            existing_submission = business_profile.verification_submission
-        except BusinessVerificationSubmission.DoesNotExist:
-            pass
+        # Handle document uploads to Cloudinary
+        document_upload_results = {}
+        document_upload_errors = {}
         
+        # Document fields that can be uploaded
+        document_fields = ['cac_document', 'tin_document', 'proof_of_address', 'business_license']
+        
+        try:
+            storage = CloudinaryDocumentStorage()
+            
+            for field_name in document_fields:
+                if field_name in request.FILES:
+                    file = request.FILES[field_name]
+                    
+                    try:
+                        # Upload to Cloudinary
+                        logger.info(f"Uploading {field_name} for user {request.user.id}")
+                        
+                        upload_result = storage.upload_document(
+                            file=file,
+                            user_id=request.user.id,
+                            submission_id=submission_id or 999999,  # Temporary ID for new submissions
+                            document_type=field_name
+                        )
+                        
+                        # Store the Cloudinary public_id for the serializer
+                        data[field_name] = upload_result['public_id']
+                        document_upload_results[field_name] = upload_result
+                        
+                        # Store metadata
+                        data[f'{field_name}_uploaded_at'] = timezone.now()
+                        data[f'{field_name}_original_name'] = file.name
+                        
+                        logger.info(f"Successfully uploaded {field_name}: {upload_result['public_id']}")
+                        
+                    except CloudinaryError as e:
+                        error_msg = f"Cloudinary upload failed for {field_name}: {str(e)}"
+                        logger.error(error_msg)
+                        document_upload_errors[field_name] = {
+                            'message': error_msg,
+                            'code': 'CLOUDINARY_UPLOAD_ERROR',
+                            'field': field_name
+                        }
+                    except Exception as e:
+                        error_msg = f"Unexpected error uploading {field_name}: {str(e)}"
+                        logger.error(error_msg)
+                        document_upload_errors[field_name] = {
+                            'message': error_msg,
+                            'code': 'UPLOAD_ERROR',
+                            'field': field_name
+                        }
+        
+        except CloudinaryError as e:
+            logger.error(f"Cloudinary service unavailable: {str(e)}")
+            return Response({
+                'error': True,
+                'message': 'Document upload service unavailable',
+                'code': 'CLOUDINARY_SERVICE_ERROR',
+                'details': str(e)
+            }, status=503)
+        except Exception as e:
+            logger.error(f"Document upload initialization failed: {str(e)}")
+            return Response({
+                'error': True,
+                'message': 'Document upload service initialization failed',
+                'code': 'UPLOAD_SERVICE_ERROR',
+                'details': str(e)
+            }, status=503)
+        
+        # If there were upload errors, return them
+        if document_upload_errors:
+            # Clean up any successful uploads
+            for field_name, result in document_upload_results.items():
+                try:
+                    storage.delete_document(result['public_id'])
+                    logger.info(f"Cleaned up uploaded document: {result['public_id']}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup document {result['public_id']}: {str(cleanup_error)}")
+            
+            return Response({
+                'error': True,
+                'message': 'Document upload failed',
+                'code': 'DOCUMENT_UPLOAD_FAILED',
+                'errors': document_upload_errors
+            }, status=400)
+        
+        # Create or update submission with Cloudinary URLs
         if existing_submission:
             # Update existing submission
             serializer = BusinessVerificationSubmissionSerializer(
@@ -776,24 +907,75 @@ class BusinessVerificationView(views.APIView):
             )
         
         if serializer.is_valid():
-            submission = serializer.save()
-            
-            # Send notification email about submission
             try:
-                from accounts.utils.email_notifications import send_business_verification_status
-                send_business_verification_status(
-                    request.user, 
-                    'submitted', 
-                    'Your business verification has been submitted and is pending review.'
-                )
+                submission = serializer.save()
+                
+                # Update Cloudinary folder structure for new submissions
+                if not existing_submission and document_upload_results:
+                    self._update_cloudinary_folders(
+                        storage, 
+                        document_upload_results, 
+                        request.user.id, 
+                        submission.id
+                    )
+                
+                # Send notification email about submission
+                try:
+                    from accounts.utils.email_notifications import send_business_verification_status
+                    send_business_verification_status(
+                        request.user, 
+                        'submitted', 
+                        'Your business verification has been submitted and is pending review.'
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send verification submission email: {str(e)}")
+                
+                # Prepare response with upload progress information
+                response_data = serializer.data.copy()
+                
+                # Add upload progress information
+                if document_upload_results:
+                    response_data['upload_summary'] = {
+                        'total_files': len(document_upload_results),
+                        'uploaded_files': list(document_upload_results.keys()),
+                        'upload_details': {
+                            field: {
+                                'public_id': result['public_id'],
+                                'file_size': result['bytes'],
+                                'format': result['format'],
+                                'uploaded_at': data.get(f'{field}_uploaded_at')
+                            }
+                            for field, result in document_upload_results.items()
+                        }
+                    }
+                
+                return Response({
+                    'error': False,
+                    'message': 'Business verification submitted successfully. Admin will review your submission.',
+                    'data': response_data
+                }, status=201 if not existing_submission else 200)
+                
             except Exception as e:
-                logger.error(f"Failed to send verification submission email: {str(e)}")
-            
-            return Response({
-                'error': False,
-                'message': 'Business verification submitted successfully. Admin will review your submission.',
-                'data': serializer.data
-            }, status=201 if not existing_submission else 200)
+                # Clean up uploaded documents if submission creation fails
+                for field_name, result in document_upload_results.items():
+                    try:
+                        storage.delete_document(result['public_id'])
+                    except Exception:
+                        pass
+                
+                logger.error(f"Failed to save submission: {str(e)}")
+                return Response({
+                    'error': True,
+                    'message': 'Failed to save verification submission',
+                    'details': str(e)
+                }, status=500)
+        
+        # Clean up uploaded documents if validation fails
+        for field_name, result in document_upload_results.items():
+            try:
+                storage.delete_document(result['public_id'])
+            except Exception:
+                pass
         
         return Response({
             'error': True,
@@ -801,8 +983,188 @@ class BusinessVerificationView(views.APIView):
             'errors': serializer.errors
         }, status=400)
     
+    def _update_cloudinary_folders(self, storage, upload_results, user_id, submission_id):
+        """
+        Update Cloudinary folder structure for new submissions
+        This re-uploads documents with the correct submission ID
+        """
+        try:
+            for field_name, result in upload_results.items():
+                old_public_id = result['public_id']
+                
+                # Generate new public ID with correct submission ID
+                new_public_id = storage._generate_public_id(
+                    result.get('original_filename', 'document'),
+                    user_id,
+                    submission_id,
+                    field_name
+                )
+                
+                # Rename the resource in Cloudinary
+                try:
+                    import cloudinary.uploader
+                    cloudinary.uploader.rename(old_public_id, new_public_id)
+                    logger.info(f"Updated Cloudinary folder for {field_name}: {old_public_id} -> {new_public_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to rename Cloudinary resource {old_public_id}: {str(e)}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to update Cloudinary folders: {str(e)}")
 
 
+class DocumentViewingView(APIView):
+    """
+    Generate secure URLs for document viewing
+    """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    
+    @swagger_auto_schema(
+        operation_summary="Get Secure Document URL",
+        operation_description=(
+            "Generate a secure, time-limited URL for viewing a business verification document.\n\n"
+            "**Authentication Required:** Yes (Token or JWT)\n"
+            "**Access Control:** Users can only access their own documents, admins can access all documents"
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                'submission_id', 
+                openapi.IN_PATH, 
+                description='Business verification submission ID', 
+                type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                'document_type', 
+                openapi.IN_PATH, 
+                description='Type of document (cac_document, tin_document, proof_of_address, business_license)', 
+                type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                'expires_in', 
+                openapi.IN_QUERY, 
+                description='URL expiration time in seconds (default: 3600)', 
+                type=openapi.TYPE_INTEGER
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Secure URL generated successfully",
+                examples={
+                    "application/json": {
+                        "error": False,
+                        "secure_url": "https://res.cloudinary.com/...",
+                        "expires_in": 3600,
+                        "document_type": "cac_document"
+                    }
+                }
+            ),
+            403: "Access denied - not authorized to view this document",
+            404: "Document or submission not found"
+        },
+        tags=['Business Verification']
+    )
+    def get(self, request, submission_id, document_type):
+        """Generate secure URL for document viewing with access control"""
+        from accounts.models import BusinessVerificationSubmission, DocumentAccessLog
+        from accounts.utils.document_storage import CloudinaryDocumentStorage
+        
+        # Validate document type
+        valid_document_types = ['cac_document', 'tin_document', 'proof_of_address', 'business_license']
+        if document_type not in valid_document_types:
+            return Response({
+                'error': True,
+                'message': f'Invalid document type. Must be one of: {", ".join(valid_document_types)}'
+            }, status=400)
+        
+        # Get expiration time from query params
+        expires_in = int(request.GET.get('expires_in', 3600))  # Default 1 hour
+        
+        try:
+            # Get the submission
+            submission = BusinessVerificationSubmission.objects.get(id=submission_id)
+            
+            # Check access permissions
+            user = request.user
+            has_access = False
+            
+            # Users can access their own documents
+            if submission.dealership and submission.dealership.user == user:
+                has_access = True
+            elif submission.mechanic and submission.mechanic.user == user:
+                has_access = True
+            # Admins and staff can access all documents
+            elif user.is_staff or user.is_superuser:
+                has_access = True
+            
+            if not has_access:
+                return Response({
+                    'error': True,
+                    'message': 'Access denied - you are not authorized to view this document'
+                }, status=403)
+            
+            # Get the document field
+            document = getattr(submission, document_type, None)
+            if not document or not hasattr(document, 'public_id'):
+                return Response({
+                    'error': True,
+                    'message': f'Document {document_type} not found for this submission'
+                }, status=404)
+            
+            # Generate secure URL
+            try:
+                storage = CloudinaryDocumentStorage()
+                secure_url = storage.get_secure_url(document.public_id, expires_in)
+                
+                # Log the access attempt
+                try:
+                    DocumentAccessLog.objects.create(
+                        submission=submission,
+                        document_type=document_type,
+                        accessed_by=user,
+                        access_type='view',
+                        ip_address=self._get_client_ip(request),
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+                    )
+                except Exception as log_error:
+                    logger.warning(f"Failed to log document access: {str(log_error)}")
+                
+                return Response({
+                    'error': False,
+                    'secure_url': secure_url,
+                    'expires_in': expires_in,
+                    'document_type': document_type,
+                    'submission_id': submission_id
+                }, status=200)
+                
+            except Exception as e:
+                logger.error(f"Failed to generate secure URL for {document_type}: {str(e)}")
+                return Response({
+                    'error': True,
+                    'message': 'Failed to generate secure document URL',
+                    'details': str(e)
+                }, status=500)
+                
+        except BusinessVerificationSubmission.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Business verification submission not found'
+            }, status=404)
+        except Exception as e:
+            logger.error(f"Unexpected error in document viewing: {str(e)}")
+            return Response({
+                'error': True,
+                'message': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=500)
+    
+    def _get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class VerifyEmailView(APIView):

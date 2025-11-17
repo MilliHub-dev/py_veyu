@@ -13,6 +13,37 @@ from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+# Custom exception classes for document operations
+class DocumentUploadError(Exception):
+    """Base exception for document upload failures"""
+    pass
+
+
+class CloudinaryConnectionError(DocumentUploadError):
+    """Cloudinary service unavailable or connection failed"""
+    pass
+
+
+class DocumentValidationError(DocumentUploadError):
+    """Document validation failed"""
+    pass
+
+
+class FileSizeExceededError(DocumentValidationError):
+    """File size exceeds the allowed limit"""
+    pass
+
+
+class InvalidFileFormatError(DocumentValidationError):
+    """File format is not allowed or invalid"""
+    pass
+
+
+class MaliciousFileError(DocumentValidationError):
+    """File contains potentially malicious content"""
+    pass
+
+
 class DocumentValidator:
     """Enhanced document validator for business verification with Cloudinary integration"""
     
