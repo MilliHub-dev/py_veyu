@@ -831,10 +831,24 @@ class BusinessVerificationView(views.APIView):
                 try:
                     submission = mechanic.verification_submission
                     serializer = EnhancedBusinessVerificationStatusSerializer(submission)
+                    return Response(serializer.data, status=200)
+                except BusinessVerificationSubmission.DoesNotExist:
+                    # Return comprehensive null response when status is 'not_submitted'
+                    return Response({
                         'status': 'not_submitted',
                         'status_display': 'Not Submitted',
-                        'submission_date': None,
-                        'rejection_reason': None
+                        'date_created': None,
+                        'rejection_reason': None,
+                        'business_name': None,
+                        'cac_number': None,
+                        'tin_number': None,
+                        'business_address': None,
+                        'business_email': None,
+                        'business_phone': None,
+                        'cac_document_url': None,
+                        'tin_document_url': None,
+                        'proof_of_address_url': None,
+                        'business_license_url': None
                     }, status=200)
             else:
                 return Response({
