@@ -536,6 +536,16 @@ def slugify(text:str) -> str:
 
 
 class Mechanic(UserProfile):
+    """
+    Mechanic profile for service providers.
+    
+    Relationships:
+        - Has a OneToOneField reverse relationship from BusinessVerificationSubmission
+          (related_name='verification_submission')
+          Access via: mechanic.verification_submission
+          When this Mechanic is deleted, the associated BusinessVerificationSubmission
+          is automatically deleted due to CASCADE behavior.
+    """
     MECHANIC_TYPE = {
         'business': 'Registered Business',
         'individual': 'Individual Mechanic',
@@ -601,9 +611,8 @@ class Mechanic(UserProfile):
         """Custom validation for Mechanic"""
         super().clean()
         
-        # Business type validation
-        if self.business_type == 'business' and not self.business_name:
-            raise ValidationError({'business_name': 'Business name is required for registered businesses'})
+        # Business type validation - now optional to support incomplete profiles
+        # Business name will be required during verification submission for business type
         
         # Contact validation
         if self.contact_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.contact_email):
@@ -734,6 +743,16 @@ class MechanicBoost(DbModel):
 
 
 class Dealership(UserProfile):
+    """
+    Dealership profile for car dealers.
+    
+    Relationships:
+        - Has a OneToOneField reverse relationship from BusinessVerificationSubmission
+          (related_name='verification_submission')
+          Access via: dealership.verification_submission
+          When this Dealership is deleted, the associated BusinessVerificationSubmission
+          is automatically deleted due to CASCADE behavior.
+    """
     LEVELS = {
         'new': 'New Seller',
         'level-1': 'Trusted Dealer',
@@ -829,9 +848,8 @@ class Dealership(UserProfile):
         """Custom validation for Dealership"""
         super().clean()
         
-        # Business name validation
-        if not self.business_name:
-            raise ValidationError({'business_name': 'Business name is required for dealerships'})
+        # Business name validation - now optional to support incomplete profiles
+        # Business name will be required during verification submission
         
         # Contact validation
         if self.contact_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.contact_email):
@@ -1598,7 +1616,19 @@ class Document(DbModel):
 class BusinessVerificationSubmission(DbModel):
     """
     Stores business verification details submitted by dealers/mechanics
-    for manual admin approval
+    for manual admin approval.
+    
+    Relationships:
+        - OneToOneField to Dealership (on_delete=CASCADE, related_name='verification_submission')
+          When a Dealership is deleted, the associated BusinessVerificationSubmission is automatically deleted.
+          Access via: dealership.verification_submission
+          
+        - OneToOneField to Mechanic (on_delete=CASCADE, related_name='verification_submission')
+          When a Mechanic is deleted, the associated BusinessVerificationSubmission is automatically deleted.
+          Access via: mechanic.verification_submission
+          
+    Each business profile (Dealership or Mechanic) can have at most one verification submission.
+    The CASCADE deletion ensures data integrity when business profiles are removed.
     """
     VERIFICATION_STATUS_CHOICES = {
         'not_submitted': 'Not Submitted',

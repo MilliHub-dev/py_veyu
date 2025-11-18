@@ -705,3 +705,111 @@ class BusinessVerificationStatusSerializer(serializers.Serializer):
     submission_date = serializers.DateTimeField(read_only=True, source='date_created')
     rejection_reason = serializers.CharField(read_only=True)
 
+
+class EnhancedBusinessVerificationStatusSerializer(serializers.ModelSerializer):
+    """
+    Enhanced serializer returning complete business verification details
+    including all business information and document URLs
+    """
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    cac_document_url = serializers.SerializerMethodField()
+    tin_document_url = serializers.SerializerMethodField()
+    proof_of_address_url = serializers.SerializerMethodField()
+    business_license_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        from accounts.models import BusinessVerificationSubmission
+        model = BusinessVerificationSubmission
+        fields = [
+            'status', 'status_display', 'date_created', 'rejection_reason',
+            'business_name', 'cac_number', 'tin_number', 'business_address',
+            'business_email', 'business_phone',
+            'cac_document_url', 'tin_document_url', 
+            'proof_of_address_url', 'business_license_url'
+        ]
+        read_only_fields = fields
+    
+    def get_cac_document_url(self, obj):
+        """Return secure Cloudinary URL for CAC document"""
+        if obj.cac_document and hasattr(obj.cac_document, 'url'):
+            return obj.cac_document.url
+        return None
+    
+    def get_tin_document_url(self, obj):
+        """Return secure Cloudinary URL for TIN document"""
+        if obj.tin_document and hasattr(obj.tin_document, 'url'):
+            return obj.tin_document.url
+        return None
+    
+    def get_proof_of_address_url(self, obj):
+        """Return secure Cloudinary URL for proof of address document"""
+        if obj.proof_of_address and hasattr(obj.proof_of_address, 'url'):
+            return obj.proof_of_address.url
+        return None
+    
+    def get_business_license_url(self, obj):
+        """Return secure Cloudinary URL for business license document"""
+        if obj.business_license and hasattr(obj.business_license, 'url'):
+            return obj.business_license.url
+        return None
+
+
+class DealershipUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating Dealership profile with optional fields.
+    Supports partial updates for flexible profile management.
+    """
+    
+    class Meta:
+        model = Dealer
+        fields = [
+            'business_name', 'cac_number', 'tin_number', 'contact_email', 
+            'contact_phone', 'about', 'headline', 'logo', 'phone_number',
+            'location', 'offers_rental', 'offers_purchase', 'offers_drivers',
+            'offers_trade_in', 'extended_services'
+        ]
+        extra_kwargs = {
+            'cac_number': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'tin_number': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'business_name': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'contact_email': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'contact_phone': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'about': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'headline': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'logo': {'required': False, 'allow_null': True},
+            'phone_number': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'location': {'required': False, 'allow_null': True},
+            'offers_rental': {'required': False},
+            'offers_purchase': {'required': False},
+            'offers_drivers': {'required': False},
+            'offers_trade_in': {'required': False},
+            'extended_services': {'required': False},
+        }
+
+
+class MechanicUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating Mechanic profile with optional fields.
+    Supports partial updates for flexible profile management.
+    """
+    
+    class Meta:
+        model = Mechanic
+        fields = [
+            'business_name', 'contact_email', 'contact_phone', 'about', 
+            'headline', 'logo', 'phone_number', 'location', 'available',
+            'business_type'
+        ]
+        extra_kwargs = {
+            'business_name': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'contact_email': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'contact_phone': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'about': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'headline': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'logo': {'required': False, 'allow_null': True},
+            'phone_number': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'location': {'required': False, 'allow_null': True},
+            'available': {'required': False},
+            'business_type': {'required': False},
+        }
+

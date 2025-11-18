@@ -452,7 +452,197 @@ class UpdateProfileView(views.APIView):
             return None
         return get_object_or_404(user_model, user=user)
 
+    @swagger_auto_schema(
+        operation_summary="Update User Profile",
+        operation_description=(
+            "Update the authenticated user's profile information.\n\n"
+            "**Partial Updates Supported:** All fields are optional. Only include fields you want to update.\n\n"
+            "**Dealer-Specific Fields:**\n"
+            "- `business_name` (optional): Official business name\n"
+            "- `cac_number` (optional): Corporate Affairs Commission registration number\n"
+            "- `tin_number` (optional): Tax Identification Number\n"
+            "- `contact_email` (optional): Business contact email\n"
+            "- `contact_phone` (optional): Business contact phone\n"
+            "- `about` (optional): Business description\n"
+            "- `headline` (optional): Short business tagline\n"
+            "- `logo` (optional): Business logo image\n"
+            "- `phone_number` (optional): Primary phone number\n"
+            "- `location` (optional): Business location ID\n"
+            "- `offers_rental` (optional): Boolean - offers rental services\n"
+            "- `offers_purchase` (optional): Boolean - offers purchase services\n"
+            "- `offers_drivers` (optional): Boolean - offers driver services\n"
+            "- `offers_trade_in` (optional): Boolean - offers trade-in services\n"
+            "- `extended_services` (optional): Additional services offered\n\n"
+            "**Mechanic-Specific Fields:**\n"
+            "- `business_name` (optional): Business or workshop name\n"
+            "- `contact_email` (optional): Business contact email\n"
+            "- `contact_phone` (optional): Business contact phone\n"
+            "- `about` (optional): Business description\n"
+            "- `headline` (optional): Short business tagline\n"
+            "- `logo` (optional): Business logo image\n"
+            "- `phone_number` (optional): Primary phone number\n"
+            "- `location` (optional): Business location ID\n"
+            "- `available` (optional): Boolean - currently accepting jobs\n"
+            "- `business_type` (optional): Type of mechanic business\n\n"
+            "**Note:** Fields like `cac_number`, `tin_number`, and `business_name` can be left blank "
+            "if business verification has not been completed. These fields are automatically populated "
+            "when business verification is approved by an admin.\n\n"
+            "**Authentication Required:** Yes (Token or JWT)\n"
+            "**User Types:** customer, dealer, mechanic"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                # Common fields
+                'about': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Profile description or bio',
+                    example='We are a leading car dealership with over 10 years of experience.'
+                ),
+                'headline': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Short tagline or headline',
+                    example='Your Trusted Auto Partner'
+                ),
+                'logo': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_BINARY,
+                    description='Profile logo/image'
+                ),
+                'phone_number': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Primary contact phone number',
+                    example='+2348012345678'
+                ),
+                'location': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='Location ID reference',
+                    example=1
+                ),
+                # Business verification fields (optional)
+                'business_name': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Official business name (optional - auto-populated on verification approval)',
+                    example='ABC Motors Limited'
+                ),
+                'cac_number': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='CAC registration number (optional - auto-populated on verification approval)',
+                    example='RC123456'
+                ),
+                'tin_number': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Tax Identification Number (optional - auto-populated on verification approval)',
+                    example='12345678-0001'
+                ),
+                'contact_email': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_EMAIL,
+                    description='Business contact email (optional)',
+                    example='info@abcmotors.com'
+                ),
+                'contact_phone': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Business contact phone (optional)',
+                    example='+2348098765432'
+                ),
+                # Dealer-specific fields
+                'offers_rental': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Dealer only: Offers rental services',
+                    example=True
+                ),
+                'offers_purchase': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Dealer only: Offers purchase services',
+                    example=True
+                ),
+                'offers_drivers': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Dealer only: Offers driver services',
+                    example=False
+                ),
+                'offers_trade_in': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Dealer only: Offers trade-in services',
+                    example=True
+                ),
+                'extended_services': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Dealer only: Additional services offered',
+                    example='Vehicle inspection, warranty, financing'
+                ),
+                # Mechanic-specific fields
+                'available': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Mechanic only: Currently accepting jobs',
+                    example=True
+                ),
+                'business_type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Mechanic only: Type of mechanic business',
+                    example='auto_repair'
+                ),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Profile updated successfully",
+                examples={
+                    "application/json": {
+                        "dealer_partial_update": {
+                            "id": 1,
+                            "business_name": "ABC Motors Limited",
+                            "headline": "Your Trusted Auto Partner",
+                            "about": "We are a leading car dealership with over 10 years of experience.",
+                            "cac_number": None,
+                            "tin_number": None,
+                            "contact_email": "info@abcmotors.com",
+                            "contact_phone": "+2348098765432",
+                            "phone_number": "+2348012345678",
+                            "location": 1,
+                            "offers_rental": True,
+                            "offers_purchase": True,
+                            "offers_drivers": False,
+                            "offers_trade_in": True,
+                            "extended_services": "Vehicle inspection, warranty, financing",
+                            "logo": "https://res.cloudinary.com/veyu/image/upload/v1234567890/logos/dealer1.jpg"
+                        },
+                        "mechanic_partial_update": {
+                            "id": 2,
+                            "business_name": "Quick Fix Auto Services",
+                            "headline": "Fast and Reliable Repairs",
+                            "about": "Professional auto repair services with certified mechanics.",
+                            "contact_email": "contact@quickfix.com",
+                            "contact_phone": "+2347012345678",
+                            "phone_number": "+2347012345678",
+                            "location": 2,
+                            "available": True,
+                            "business_type": "auto_repair",
+                            "logo": None
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Validation error or invalid user type",
+                examples={
+                    "application/json": {
+                        "error": True,
+                        "message": "Validation failed",
+                        "errors": {
+                            "contact_email": ["Enter a valid email address."],
+                            "phone_number": ["This field must be a valid phone number."]
+                        }
+                    }
+                }
+            )
+        },
+        tags=['User Profile']
+    )
     def put(self, request:Request):
+        from accounts.api.serializers import DealershipUpdateSerializer, MechanicUpdateSerializer
+        
         user_type = request.user.user_type
         profile = self.get_user_profile(request)
         
@@ -462,8 +652,16 @@ class UpdateProfileView(views.APIView):
                 'message': f'Invalid user type: {user_type}'
             }, status=400)
         
-        serializer = get_user_serializer(user_type=user_type)
-        serializer = serializer(profile, data=request.data)
+        # Use specific update serializers with partial=True for optional fields
+        if user_type == 'dealer':
+            serializer = DealershipUpdateSerializer(profile, data=request.data, partial=True)
+        elif user_type == 'mechanic':
+            serializer = MechanicUpdateSerializer(profile, data=request.data, partial=True)
+        else:
+            # Fall back to generic serializer for customer
+            serializer = get_user_serializer(user_type=user_type)
+            serializer = serializer(profile, data=request.data, partial=True)
+        
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -488,10 +686,14 @@ class BusinessVerificationView(views.APIView):
         operation_summary="Get Business Verification Status",
         operation_description=(
             "Check the current business verification status for the authenticated dealer or mechanic.\n\n"
+            "Returns complete business verification information including:\n"
+            "- Verification status and submission date\n"
+            "- All business details (name, CAC number, TIN number, address, contact info)\n"
+            "- Secure Cloudinary URLs for all uploaded documents\n\n"
             "**Statuses:**\n"
             "- `not_submitted`: No verification has been submitted yet\n"
             "- `pending`: Verification submitted and awaiting admin review\n"
-            "- `verified`: Verification approved by admin\n"
+            "- `verified`: Verification approved by admin (profile automatically updated)\n"
             "- `rejected`: Verification rejected by admin (check rejection_reason)\n\n"
             "**Authentication Required:** Yes (Token or JWT)\n"
             "**User Types:** dealer, mechanic only"
@@ -501,10 +703,70 @@ class BusinessVerificationView(views.APIView):
                 description="Verification status retrieved successfully",
                 examples={
                     "application/json": {
-                        "status": "pending",
-                        "status_display": "Pending Review",
-                        "submission_date": "2025-10-20T14:30:00Z",
-                        "rejection_reason": None
+                        "verified_submission": {
+                            "status": "verified",
+                            "status_display": "Verified",
+                            "date_created": "2025-10-20T14:30:00Z",
+                            "rejection_reason": None,
+                            "business_name": "ABC Motors Limited",
+                            "cac_number": "RC123456",
+                            "tin_number": "12345678-0001",
+                            "business_address": "123 Main Street, Victoria Island, Lagos",
+                            "business_email": "info@abcmotors.com",
+                            "business_phone": "+2348012345678",
+                            "cac_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/cac/doc123.pdf",
+                            "tin_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/tin/doc456.pdf",
+                            "proof_of_address_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/address/doc789.pdf",
+                            "business_license_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/license/doc012.pdf"
+                        },
+                        "pending_submission": {
+                            "status": "pending",
+                            "status_display": "Pending Review",
+                            "date_created": "2025-10-20T14:30:00Z",
+                            "rejection_reason": None,
+                            "business_name": "XYZ Auto Services",
+                            "cac_number": "RC789012",
+                            "tin_number": "87654321-0002",
+                            "business_address": "456 Commerce Road, Ikeja, Lagos",
+                            "business_email": "contact@xyzauto.com",
+                            "business_phone": "+2348098765432",
+                            "cac_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/cac/doc345.pdf",
+                            "tin_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/tin/doc678.pdf",
+                            "proof_of_address_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/address/doc901.pdf",
+                            "business_license_url": None
+                        },
+                        "not_submitted": {
+                            "status": "not_submitted",
+                            "status_display": "Not Submitted",
+                            "date_created": None,
+                            "rejection_reason": None,
+                            "business_name": None,
+                            "cac_number": None,
+                            "tin_number": None,
+                            "business_address": None,
+                            "business_email": None,
+                            "business_phone": None,
+                            "cac_document_url": None,
+                            "tin_document_url": None,
+                            "proof_of_address_url": None,
+                            "business_license_url": None
+                        },
+                        "rejected_submission": {
+                            "status": "rejected",
+                            "status_display": "Rejected",
+                            "date_created": "2025-10-15T10:00:00Z",
+                            "rejection_reason": "CAC document is not clear. Please resubmit with a higher quality scan.",
+                            "business_name": "Quick Fix Mechanics",
+                            "cac_number": None,
+                            "tin_number": None,
+                            "business_address": "789 Industrial Avenue, Apapa, Lagos",
+                            "business_email": "info@quickfix.com",
+                            "business_phone": "+2347012345678",
+                            "cac_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/cac/doc111.pdf",
+                            "tin_document_url": None,
+                            "proof_of_address_url": None,
+                            "business_license_url": None
+                        }
                     }
                 }
             ),
@@ -530,8 +792,8 @@ class BusinessVerificationView(views.APIView):
         tags=['Business Verification']
     )
     def get(self, request):
-        """Get the current verification status"""
-        from accounts.api.serializers import BusinessVerificationStatusSerializer
+        """Get complete verification status with business details"""
+        from accounts.api.serializers import EnhancedBusinessVerificationStatusSerializer
         from accounts.models import BusinessVerificationSubmission
         
         user = request.user
@@ -539,36 +801,36 @@ class BusinessVerificationView(views.APIView):
         # Find the user's business profile
         try:
             if user.user_type == 'dealer':
-                dealership = Dealership.objects.get(user=user)
+                # Use select_related for query optimization
+                dealership = Dealership.objects.select_related('verification_submission').get(user=user)
                 try:
                     submission = dealership.verification_submission
-                    serializer = BusinessVerificationStatusSerializer({
-                        'status': submission.status,
-                        'status_display': submission.get_status_display(),
-                        'date_created': submission.date_created,
-                        'rejection_reason': submission.rejection_reason
-                    })
+                    serializer = EnhancedBusinessVerificationStatusSerializer(submission)
                     return Response(serializer.data, status=200)
                 except BusinessVerificationSubmission.DoesNotExist:
+                    # Return comprehensive null response when status is 'not_submitted'
                     return Response({
                         'status': 'not_submitted',
                         'status_display': 'Not Submitted',
-                        'submission_date': None,
-                        'rejection_reason': None
+                        'date_created': None,
+                        'rejection_reason': None,
+                        'business_name': None,
+                        'cac_number': None,
+                        'tin_number': None,
+                        'business_address': None,
+                        'business_email': None,
+                        'business_phone': None,
+                        'cac_document_url': None,
+                        'tin_document_url': None,
+                        'proof_of_address_url': None,
+                        'business_license_url': None
                     }, status=200)
             elif user.user_type == 'mechanic':
-                mechanic = Mechanic.objects.get(user=user)
+                # Use select_related for query optimization
+                mechanic = Mechanic.objects.select_related('verification_submission').get(user=user)
                 try:
                     submission = mechanic.verification_submission
-                    serializer = BusinessVerificationStatusSerializer({
-                        'status': submission.status,
-                        'status_display': submission.get_status_display(),
-                        'date_created': submission.date_created,
-                        'rejection_reason': submission.rejection_reason
-                    })
-                    return Response(serializer.data, status=200)
-                except BusinessVerificationSubmission.DoesNotExist:
-                    return Response({
+                    serializer = EnhancedBusinessVerificationStatusSerializer(submission)
                         'status': 'not_submitted',
                         'status_display': 'Not Submitted',
                         'submission_date': None,
@@ -824,7 +1086,7 @@ class BusinessVerificationView(views.APIView):
                     
                     try:
                         # Upload to Cloudinary
-                        logger.info(f"Uploading {field_name} for user {request.user.id}")
+                        logger.info(f"Uploading {field_name} for user {request.user.id}, file: {file.name}, size: {file.size} bytes")
                         
                         upload_result = storage.upload_document(
                             file=file,
@@ -832,6 +1094,18 @@ class BusinessVerificationView(views.APIView):
                             submission_id=submission_id or 999999,  # Temporary ID for new submissions
                             document_type=field_name
                         )
+                        
+                        # Validate upload result contains required fields
+                        if not upload_result.get('public_id'):
+                            raise ValueError(f"Upload result missing public_id for {field_name}")
+                        
+                        if not upload_result.get('secure_url'):
+                            raise ValueError(f"Upload result missing secure_url for {field_name}")
+                        
+                        # Verify URL format is correct Cloudinary format
+                        secure_url = upload_result['secure_url']
+                        if not secure_url.startswith('https://res.cloudinary.com/'):
+                            logger.warning(f"Unexpected URL format for {field_name}: {secure_url}")
                         
                         # Store the Cloudinary public_id for the serializer
                         data[field_name] = upload_result['public_id']
@@ -841,20 +1115,34 @@ class BusinessVerificationView(views.APIView):
                         data[f'{field_name}_uploaded_at'] = timezone.now()
                         data[f'{field_name}_original_name'] = file.name
                         
-                        logger.info(f"Successfully uploaded {field_name}: {upload_result['public_id']}")
-                        logger.info(f"Set data[{field_name}] = {upload_result['public_id']} (type: {type(upload_result['public_id'])})")
+                        # Log successful upload with full details
+                        logger.info(
+                            f"Successfully uploaded {field_name}: "
+                            f"public_id={upload_result['public_id']}, "
+                            f"url={secure_url}, "
+                            f"format={upload_result.get('format')}, "
+                            f"size={upload_result.get('bytes')} bytes"
+                        )
                         
                     except CloudinaryError as e:
                         error_msg = f"Cloudinary upload failed for {field_name}: {str(e)}"
-                        logger.error(error_msg)
+                        logger.error(error_msg, exc_info=True)
                         document_upload_errors[field_name] = {
                             'message': error_msg,
                             'code': 'CLOUDINARY_UPLOAD_ERROR',
                             'field': field_name
                         }
+                    except ValueError as e:
+                        error_msg = f"Upload validation failed for {field_name}: {str(e)}"
+                        logger.error(error_msg, exc_info=True)
+                        document_upload_errors[field_name] = {
+                            'message': error_msg,
+                            'code': 'UPLOAD_VALIDATION_ERROR',
+                            'field': field_name
+                        }
                     except Exception as e:
                         error_msg = f"Unexpected error uploading {field_name}: {str(e)}"
-                        logger.error(error_msg)
+                        logger.error(error_msg, exc_info=True)
                         document_upload_errors[field_name] = {
                             'message': error_msg,
                             'code': 'UPLOAD_ERROR',
@@ -923,6 +1211,62 @@ class BusinessVerificationView(views.APIView):
             try:
                 submission = serializer.save()
                 
+                # Validate that document URLs are properly stored in the database
+                validation_errors = []
+                for field_name in document_fields:
+                    if field_name in document_upload_results:
+                        # Get the field value from the saved submission
+                        field_value = getattr(submission, field_name, None)
+                        
+                        # Check if the field is null or empty
+                        if not field_value:
+                            error_msg = f"Document {field_name} was uploaded but not saved to database (null value)"
+                            logger.error(error_msg)
+                            validation_errors.append({
+                                'field': field_name,
+                                'error': 'Document not saved to database',
+                                'public_id': document_upload_results[field_name]['public_id']
+                            })
+                            continue
+                        
+                        # Verify the field has a URL property
+                        try:
+                            if hasattr(field_value, 'url'):
+                                document_url = field_value.url
+                                
+                                # Verify URL format
+                                if not document_url or not document_url.startswith('https://res.cloudinary.com/'):
+                                    error_msg = f"Document {field_name} has invalid URL format: {document_url}"
+                                    logger.error(error_msg)
+                                    validation_errors.append({
+                                        'field': field_name,
+                                        'error': 'Invalid URL format',
+                                        'url': document_url
+                                    })
+                                else:
+                                    logger.info(f"Validated {field_name} URL: {document_url}")
+                            else:
+                                error_msg = f"Document {field_name} field does not have URL property"
+                                logger.error(error_msg)
+                                validation_errors.append({
+                                    'field': field_name,
+                                    'error': 'Field missing URL property'
+                                })
+                        except Exception as e:
+                            error_msg = f"Error validating {field_name} URL: {str(e)}"
+                            logger.error(error_msg, exc_info=True)
+                            validation_errors.append({
+                                'field': field_name,
+                                'error': str(e)
+                            })
+                
+                # If validation errors occurred, log them but don't fail the request
+                # (documents were uploaded successfully, this is a storage issue)
+                if validation_errors:
+                    logger.error(f"Document URL validation errors: {validation_errors}")
+                    # Note: We don't return an error here because the documents are in Cloudinary
+                    # The admin can still access them via the public_id
+                
                 # Update Cloudinary folder structure for new submissions
                 if not existing_submission and document_upload_results:
                     self._update_cloudinary_folders(
@@ -954,6 +1298,7 @@ class BusinessVerificationView(views.APIView):
                         'upload_details': {
                             field: {
                                 'public_id': result['public_id'],
+                                'secure_url': result['secure_url'],
                                 'file_size': result['bytes'],
                                 'format': result['format'],
                                 'uploaded_at': data.get(f'{field}_uploaded_at')
@@ -961,6 +1306,10 @@ class BusinessVerificationView(views.APIView):
                             for field, result in document_upload_results.items()
                         }
                     }
+                
+                # Add validation warnings if any
+                if validation_errors:
+                    response_data['validation_warnings'] = validation_errors
                 
                 return Response({
                     'error': False,

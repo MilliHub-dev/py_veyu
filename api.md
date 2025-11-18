@@ -346,27 +346,100 @@ POST /api/v1/accounts/password/reset/confirm/
 ```http
 PUT /api/v1/accounts/profile/
 ```
-**Request:**
+**Description:** Update the authenticated user's profile information. Supports partial updates - all fields are optional.
+
+**Authentication:** Required (Token or JWT)
+
+**User Types:** customer, dealer, mechanic
+
+**Partial Updates:** Only include fields you want to update. All fields are optional.
+
+**Common Fields (All User Types):**
 ```json
 {
   "first_name": "John",
   "last_name": "Doe",
   "phone_number": "+2348012345678",
   "address": "123 Main St, Lagos",
-  "profile_picture": "base64_image_or_url"
+  "profile_picture": "base64_image_or_url",
+  "about": "Profile description",
+  "headline": "Short tagline",
+  "logo": "business_logo_file",
+  "location": 1
 }
 ```
-**Response:**
+
+**Dealer-Specific Optional Fields:**
 ```json
 {
-  "id": "uuid",
-  "first_name": "John",
-  "last_name": "Doe",
-  "phone_number": "+2348012345678",
-  "address": "123 Main St, Lagos",
-  "profile_picture": "url"
+  "business_name": "ABC Motors Limited",
+  "cac_number": "RC123456",
+  "tin_number": "12345678-0001",
+  "contact_email": "info@abcmotors.com",
+  "contact_phone": "+2348098765432",
+  "offers_rental": true,
+  "offers_purchase": true,
+  "offers_drivers": false,
+  "offers_trade_in": true,
+  "extended_services": "Vehicle inspection, warranty, financing"
 }
 ```
+
+**Mechanic-Specific Optional Fields:**
+```json
+{
+  "business_name": "Quick Fix Auto Services",
+  "contact_email": "contact@quickfix.com",
+  "contact_phone": "+2347012345678",
+  "available": true,
+  "business_type": "auto_repair"
+}
+```
+
+**Note on Business Verification Fields:**
+- Fields like `cac_number`, `tin_number`, and `business_name` can be left blank if business verification has not been completed
+- These fields are automatically populated when business verification is approved by an admin
+- You can update these fields manually, but they will be overwritten when verification is approved
+
+**Response (Dealer Partial Update):**
+```json
+{
+  "id": 1,
+  "business_name": "ABC Motors Limited",
+  "headline": "Your Trusted Auto Partner",
+  "about": "We are a leading car dealership with over 10 years of experience.",
+  "cac_number": null,
+  "tin_number": null,
+  "contact_email": "info@abcmotors.com",
+  "contact_phone": "+2348098765432",
+  "phone_number": "+2348012345678",
+  "location": 1,
+  "offers_rental": true,
+  "offers_purchase": true,
+  "offers_drivers": false,
+  "offers_trade_in": true,
+  "extended_services": "Vehicle inspection, warranty, financing",
+  "logo": "https://res.cloudinary.com/veyu/image/upload/v1234567890/logos/dealer1.jpg"
+}
+```
+
+**Response (Mechanic Partial Update):**
+```json
+{
+  "id": 2,
+  "business_name": "Quick Fix Auto Services",
+  "headline": "Fast and Reliable Repairs",
+  "about": "Professional auto repair services with certified mechanics.",
+  "contact_email": "contact@quickfix.com",
+  "contact_phone": "+2347012345678",
+  "phone_number": "+2347012345678",
+  "location": 2,
+  "available": true,
+  "business_type": "auto_repair",
+  "logo": null
+}
+```
+
 **Error Response (400):**
 ```json
 {
@@ -374,13 +447,15 @@ PUT /api/v1/accounts/profile/
   "message": "Invalid user type: agent"
 }
 ```
+
 **Error Response (400 - Validation):**
 ```json
 {
   "error": true,
   "message": "Validation failed",
   "errors": {
-    "phone_number": ["Enter a valid phone number"]
+    "contact_email": ["Enter a valid email address."],
+    "phone_number": ["This field must be a valid phone number."]
   }
 }
 ```
@@ -391,15 +466,77 @@ PUT /api/v1/accounts/profile/
 ```http
 GET /api/v1/accounts/verification-status/
 ```
-**Response:**
+**Description:** Retrieve complete business verification information including all business details and document URLs.
+
+**Authentication:** Required (Token or JWT)
+
+**User Types:** dealer, mechanic only
+
+**Response (Verified):**
 ```json
 {
-  "status": "pending|verified|rejected|not_submitted",
-  "status_display": "Pending Review",
-  "submission_date": "2025-10-20T14:30:00Z",
-  "rejection_reason": null
+  "status": "verified",
+  "status_display": "Verified",
+  "date_created": "2025-10-20T14:30:00Z",
+  "rejection_reason": null,
+  "business_name": "ABC Motors Limited",
+  "cac_number": "RC123456",
+  "tin_number": "12345678-0001",
+  "business_address": "123 Main Street, Victoria Island, Lagos",
+  "business_email": "info@abcmotors.com",
+  "business_phone": "+2348012345678",
+  "cac_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/cac/doc123.pdf",
+  "tin_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/tin/doc456.pdf",
+  "proof_of_address_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/address/doc789.pdf",
+  "business_license_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/license/doc012.pdf"
 }
 ```
+
+**Response (Not Submitted):**
+```json
+{
+  "status": "not_submitted",
+  "status_display": "Not Submitted",
+  "date_created": null,
+  "rejection_reason": null,
+  "business_name": null,
+  "cac_number": null,
+  "tin_number": null,
+  "business_address": null,
+  "business_email": null,
+  "business_phone": null,
+  "cac_document_url": null,
+  "tin_document_url": null,
+  "proof_of_address_url": null,
+  "business_license_url": null
+}
+```
+
+**Response (Rejected):**
+```json
+{
+  "status": "rejected",
+  "status_display": "Rejected",
+  "date_created": "2025-10-15T10:00:00Z",
+  "rejection_reason": "CAC document is not clear. Please resubmit with a higher quality scan.",
+  "business_name": "Quick Fix Mechanics",
+  "cac_number": null,
+  "tin_number": null,
+  "business_address": "789 Industrial Avenue, Apapa, Lagos",
+  "business_email": "info@quickfix.com",
+  "business_phone": "+2347012345678",
+  "cac_document_url": "https://res.cloudinary.com/veyu/image/upload/v1234567890/verification/cac/doc111.pdf",
+  "tin_document_url": null,
+  "proof_of_address_url": null,
+  "business_license_url": null
+}
+```
+
+**Status Values:**
+- `not_submitted`: No verification has been submitted yet
+- `pending`: Verification submitted and awaiting admin review
+- `verified`: Verification approved by admin (profile automatically updated)
+- `rejected`: Verification rejected by admin (check rejection_reason)
 
 #### Submit Business Verification
 ```http
@@ -446,15 +583,140 @@ business_license: <file>
 ```http
 GET /api/v1/accounts/verification/requirements/
 ```
+**Description:** Get document requirements and guidelines for business verification.
+
+**Authentication:** Required (Token or JWT)
+
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Document requirements retrieved successfully",
+  "data": {
+    "requirements": {
+      "cac_document": {
+        "name": "CAC Registration Certificate",
+        "description": "Corporate Affairs Commission registration certificate",
+        "required": true
+      },
+      "tin_document": {
+        "name": "TIN Certificate",
+        "description": "Tax Identification Number certificate",
+        "required": true
+      },
+      "proof_of_address": {
+        "name": "Proof of Address",
+        "description": "Utility bill or lease agreement (within 6 months)",
+        "required": true
+      },
+      "business_license": {
+        "name": "Business License",
+        "description": "Business operating license",
+        "required": false
+      }
+    },
+    "max_file_size": "5MB",
+    "allowed_formats": ["PDF", "JPG", "JPEG", "PNG"],
+    "notes": [
+      "All documents must be clear and legible",
+      "Documents should be recent (within 6 months for utility bills)",
+      "Business name on documents should match the business name in your profile",
+      "All documents will be reviewed by our verification team"
+    ]
+  }
+}
+```
 
 #### Get My Verification Documents
 ```http
 GET /api/v1/accounts/verification/my-documents/
 ```
+**Description:** Retrieve all documents uploaded by the authenticated user for business verification.
 
-#### Serve Verification Document
+**Authentication:** Required (Token or JWT)
+
+**User Types:** dealer, mechanic only
+
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Documents retrieved successfully",
+  "data": {
+    "submission_exists": true,
+    "submission_id": 1,
+    "status": "pending",
+    "status_display": "Pending Review",
+    "documents": {
+      "cac_document": {
+        "filename": "cac_certificate.pdf",
+        "public_id": "verification/cac/doc123",
+        "uploaded_date": "2025-10-20T14:30:00Z",
+        "url": "/api/v1/accounts/verification/documents/1/cac_document/",
+        "thumbnail_url": "https://res.cloudinary.com/veyu/image/upload/c_thumb,w_200/verification/cac/doc123.jpg",
+        "has_document": true
+      },
+      "tin_document": {
+        "filename": "tin_certificate.pdf",
+        "public_id": "verification/tin/doc456",
+        "uploaded_date": "2025-10-20T14:35:00Z",
+        "url": "/api/v1/accounts/verification/documents/1/tin_document/",
+        "thumbnail_url": "https://res.cloudinary.com/veyu/image/upload/c_thumb,w_200/verification/tin/doc456.jpg",
+        "has_document": true
+      },
+      "proof_of_address": {
+        "filename": "utility_bill.pdf",
+        "public_id": "verification/address/doc789",
+        "uploaded_date": "2025-10-20T14:40:00Z",
+        "url": "/api/v1/accounts/verification/documents/1/proof_of_address/",
+        "thumbnail_url": "https://res.cloudinary.com/veyu/image/upload/c_thumb,w_200/verification/address/doc789.jpg",
+        "has_document": true
+      },
+      "business_license": {
+        "filename": null,
+        "public_id": null,
+        "uploaded_date": null,
+        "url": null,
+        "thumbnail_url": null,
+        "has_document": false
+      }
+    },
+    "business_name": "ABC Motors Limited",
+    "submission_date": "2025-10-20T14:30:00Z"
+  }
+}
+```
+
+#### Get Secure Document URL
 ```http
-GET /api/v1/accounts/verification/documents/{submission_id}/{document_type}/
+GET /api/v1/accounts/verification/documents/{submission_id}/{document_type}/?expires_in=3600
+```
+**Description:** Generate a secure, time-limited URL for accessing business verification documents.
+
+**Authentication:** Required (Token or JWT)
+
+**Path Parameters:**
+- `submission_id` (integer): Business verification submission ID
+- `document_type` (string): Type of document - one of: `cac_document`, `tin_document`, `proof_of_address`, `business_license`
+
+**Query Parameters:**
+- `expires_in` (integer, optional): URL expiration time in seconds (default: 3600 = 1 hour)
+
+**Access Control:**
+- Document owner (dealer/mechanic who submitted)
+- Admin/staff users
+- Assigned reviewer
+
+**Response:**
+```json
+{
+  "error": false,
+  "secure_url": "https://res.cloudinary.com/veyu/image/upload/s--signature--/v1234567890/verification/cac/doc123.pdf",
+  "expires_in": 3600,
+  "document_type": "cac_document",
+  "submission_id": 1,
+  "message": "Secure document URL generated successfully"
+}
 ```
 
 ### 1.6 OTP Security

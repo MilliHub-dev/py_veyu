@@ -106,7 +106,7 @@ def send_template_email(
         # Add default context variables including logo URL
         context.setdefault('logo_url', 'https://dev.veyu.cc/static/veyu/logo.png')
         context.setdefault('app_name', 'Veyu')
-        context.setdefault('support_email', settings.DEFAULT_FROM_EMAIL)
+        context.setdefault('support_email', getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'))
         context.setdefault('frontend_url', getattr(settings, 'FRONTEND_URL', 'https://veyu.cc'))
         
         # Try to render the template from multiple possible locations
@@ -171,7 +171,7 @@ def send_verification_email(email: str, verification_code: str, user_name: str =
         "otp": verification_code,
         "validity_minutes": 30,
         "purpose": "signup",
-        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     

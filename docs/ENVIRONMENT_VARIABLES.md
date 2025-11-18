@@ -72,6 +72,7 @@ EMAIL_HOST=smtp-relay.brevo.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
 DEFAULT_FROM_EMAIL=noreply@veyu.cc
+SUPPORT_EMAIL=support@veyu.cc
 EMAIL_TIMEOUT=60
 ```
 

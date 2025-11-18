@@ -466,6 +466,9 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'xsmtpsib-f8430f6957c5e02
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@veyu.cc')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+# Support email address (for user contact)
+SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@veyu.cc')
+
 # Email verification timeout
 EMAIL_VERIFICATION_TIMEOUT = 3600  # 1 hour
 
