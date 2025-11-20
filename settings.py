@@ -273,11 +273,10 @@ SIMPLE_JWT = {
     'SIGNING_KEY': config('DJANGO_SECRET_KEY'),
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
-    'ISSUER': None,
+    'ISSUER': 'vey-u-platform',  # Match the issuer in existing tokens
 
     'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'Authorization',
-    # 'AUTH_HEADER_NAME': 'Authorization',
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',  # Django converts 'Authorization' header to this
 
 
     # copied

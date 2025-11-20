@@ -986,3 +986,9 @@ socket.gaierror: [Errno 11001] getaddrinfo failed
 [2025-11-12 11:47:22] INFO [accounts.utils.email_notifications:376] Wallet transaction email sent to ekeminieffiong22@gmail.com
 [2025-11-15 11:20:29] INFO [accounts.utils.email_notifications:42] Verification email sent successfully to test@example.com
 [2025-11-15 11:20:32] INFO [accounts.utils.email_notifications:154] OTP email sent successfully to test@example.com
+[2025-11-20 15:42:00] DEBUG [utils.mail:160] Preparing email to ['admin@veyu.cc'] with subject: New Listing on veyu!
+[2025-11-20 15:42:00] DEBUG [utils.mail:192] [Email 1763649720_admin] Sending email to ['admin@veyu.cc']
+[2025-11-20 15:42:00] INFO [utils.mail:342] [Email 1763649720_admin] Starting email delivery to ['admin@veyu.cc'] (max 3 attempts)
+[2025-11-20 15:42:03] INFO [utils.mail:358] [Email 1763649720_admin] Successfully delivered on attempt 1/3 in 2.50s to ['admin@veyu.cc']
+[2025-11-20 15:42:03] INFO [utils.mail.delivery:536] Email delivery status: {'email_id': '1763649720_admin', 'recipient': 'admin@veyu.cc', 'status': 'delivered', 'attempts': 1, 'delivery_time': 2.49704909324646, 'timestamp': 1763649723.4678693}
+[2025-11-20 15:42:03] INFO [utils.mail:198] [Email 1763649720_admin] Successfully sent to ['admin@veyu.cc']
