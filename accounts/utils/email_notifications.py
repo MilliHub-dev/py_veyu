@@ -26,7 +26,7 @@ def send_verification_email(user, verification_code: str) -> bool:
         "otp": verification_code,  # Support both variable names
         "validity_minutes": 30,  # Default validity
         "purpose": "signup",  # Distinguish from login verification
-        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -59,7 +59,7 @@ def send_welcome_email(user) -> bool:
         "buy_link": f"{frontend_url}/buy/",
         "rent_link": f"{frontend_url}/rent/",
         "mechanic_link": f"{frontend_url}/mechanics/",
-        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -103,7 +103,7 @@ def send_password_reset_email(user, reset_url: str, reset_token: str = None) -> 
         "current_year": datetime.now().year,
         "site_name": "Veyu",
         "site_url": getattr(settings, 'FRONTEND_URL', 'https://veyu.cc'),
-        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -138,7 +138,7 @@ def send_otp_email(user, otp_code: str, validity_minutes: int = 30) -> bool:
         "email": user.email,
         "validity_minutes": validity_minutes,
         "purpose": "login",  # Distinguish from signup verification
-        "support_email": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -197,7 +197,7 @@ def send_business_verification_status(user, status: str, reason: str = "", busin
         'status_display': status_display,
         'reason': reason,
         'business_name': business_name,
-        'support_email': getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@veyu.cc'),
+        'support_email': getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         'app_name': 'Veyu',
         'frontend_url': getattr(settings, 'FRONTEND_URL', 'https://veyu.cc'),
         'dashboard_url': f"{getattr(settings, 'FRONTEND_URL', 'https://veyu.cc')}/dashboard/"
@@ -227,7 +227,7 @@ def send_booking_confirmation(user, booking_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **booking_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -255,7 +255,7 @@ def send_inspection_scheduled(user, inspection_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **inspection_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -283,7 +283,7 @@ def send_order_confirmation(user, order_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **order_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -311,7 +311,7 @@ def send_listing_published(user, listing_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **listing_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu",
         "frontend_url": getattr(settings, 'FRONTEND_URL', 'https://veyu.cc')
     }
@@ -340,7 +340,7 @@ def send_purchase_confirmation(user, purchase_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **purchase_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -368,7 +368,7 @@ def send_wallet_transaction(user, transaction_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **transaction_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -396,7 +396,7 @@ def send_security_alert(user, alert_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **alert_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -424,7 +424,7 @@ def send_rental_confirmation(user, rental_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **rental_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -452,7 +452,7 @@ def send_promotion_email(user, promotion_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **promotion_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
@@ -480,7 +480,7 @@ def send_reminder_email(user, reminder_details: Dict[str, Any]) -> bool:
     context = {
         "user_name": user.first_name or 'there',
         **reminder_details,
-        "support_email": settings.DEFAULT_FROM_EMAIL,
+        "support_email": getattr(settings, 'SUPPORT_EMAIL', 'support@veyu.cc'),
         "app_name": "Veyu"
     }
     
