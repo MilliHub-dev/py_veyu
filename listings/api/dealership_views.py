@@ -835,13 +835,16 @@ class SettingsView(APIView):
     @swagger_auto_schema(
         operation_summary="Update dealership settings",
         operation_description=(
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo'."
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo' or 'logo' field.\n\n"
+            "**Logo Upload**: Accepts both 'new-logo' and 'logo' field names for file upload.\n"
+            "**Response**: Returns updated dealership profile including logo URL."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
-                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file'),
+                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (also accepts "logo" field name)'),
+                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (alternative to "new-logo")'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
                 'about': openapi.Schema(type=openapi.TYPE_STRING),
                 'slug': openapi.Schema(type=openapi.TYPE_STRING),
@@ -852,7 +855,23 @@ class SettingsView(APIView):
                 'location': openapi.Schema(type=openapi.TYPE_INTEGER, description='Location ID reference (optional)')
             }
         ),
-        responses={200: openapi.Response(description='Updated successfully')},
+        responses={
+            200: openapi.Response(
+                description='Updated successfully',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'data': {
+                            'uuid': '550e8400-e29b-41d4-a716-446655440000',
+                            'business_name': 'ABC Motors',
+                            'logo': 'https://res.cloudinary.com/.../logo.png',
+                            'about': 'Leading car dealership...',
+                            'headline': 'Your trusted car partner'
+                        }
+                    }
+                }
+            )
+        },
         tags=['Dealership']
     )
     def put(self, request):
@@ -861,14 +880,15 @@ class SettingsView(APIView):
     @swagger_auto_schema(
         operation_summary="Update dealership settings (DEPRECATED)",
         operation_description=(
-            "⚠️ DEPRECATED: Use PUT method instead. This endpoint will be removed in a future version.\n\n"
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo'."
+            "⚠️ DEPRECATED: Use PUT method instead. This endpoint will be removed on December 1, 2025.\n\n"
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo' or 'logo' field."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
-                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file'),
+                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (also accepts "logo" field name)'),
+                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (alternative to "new-logo")'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
                 'about': openapi.Schema(type=openapi.TYPE_STRING),
                 'slug': openapi.Schema(type=openapi.TYPE_STRING),
@@ -957,7 +977,8 @@ class SettingsView(APIView):
                 
                 # Update dealer profile fields
                 # Handle logo upload - check both request.FILES and request.data
-                logo_file = request.FILES.get('new-logo') or data.get('new-logo')
+                # Accept both 'new-logo' and 'logo' field names for flexibility
+                logo_file = request.FILES.get('new-logo') or request.FILES.get('logo') or data.get('new-logo') or data.get('logo')
                 if logo_file:
                     logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
                     dealer.logo = logo_file
