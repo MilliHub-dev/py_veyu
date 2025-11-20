@@ -629,6 +629,12 @@ class BusinessVerificationSubmissionSerializer(serializers.ModelSerializer):
     """Serializer for submitting business verification details"""
     business_verification_status = serializers.SerializerMethodField(read_only=True)
     
+    # Allow document fields to accept string (public_id) input
+    cac_document = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    tin_document = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    proof_of_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    business_license = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
     class Meta:
         from accounts.models import BusinessVerificationSubmission
         model = BusinessVerificationSubmission

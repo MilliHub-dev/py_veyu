@@ -1037,6 +1037,7 @@ headline: "Your trusted car partner"
 services: ["Car Sale", "Car Leasing", "Drivers", "Car Detailing", "Vehicle Inspection"]
 contact_phone: "+2348012345678"
 contact_email: "info@automax.com"
+location: 1 (optional - Location ID)
 offers_purchase: true
 offers_rental: true
 offers_drivers: true
@@ -1050,6 +1051,7 @@ offers_trade_in: false
     "uuid": "550e8400-e29b-41d4-a716-446655440000",
     "business_name": "AutoMax Dealers Ltd",
     "logo": "https://res.cloudinary.com/...",
+    "location": "Lagos, Nigeria - John Doe",
     "about": "Leading car dealership in Lagos...",
     "headline": "Your trusted car partner",
     "contact_email": "info@automax.com",
@@ -1070,6 +1072,19 @@ offers_trade_in: false
         "price_range": "₦10,000 - ₦25,000"
       }
     ]
+  }
+}
+```
+
+**Error Response (400 - Invalid Location):**
+```json
+{
+  "error": true,
+  "message": "Invalid location ID. Location not found or does not belong to you.",
+  "details": {
+    "field_errors": {
+      "location": ["Location not found or access denied"]
+    }
   }
 }
 ```

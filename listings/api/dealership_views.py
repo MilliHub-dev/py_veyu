@@ -848,7 +848,8 @@ class SettingsView(APIView):
                 'headline': openapi.Schema(type=openapi.TYPE_STRING),
                 'services': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), example=['Car Sale','Car Leasing','Drivers']),
                 'contact_phone': openapi.Schema(type=openapi.TYPE_STRING),
-                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL)
+                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                'location': openapi.Schema(type=openapi.TYPE_INTEGER, description='Location ID reference (optional)')
             }
         ),
         responses={200: openapi.Response(description='Updated successfully')},
@@ -874,7 +875,8 @@ class SettingsView(APIView):
                 'headline': openapi.Schema(type=openapi.TYPE_STRING),
                 'services': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), example=['Car Sale','Car Leasing','Drivers']),
                 'contact_phone': openapi.Schema(type=openapi.TYPE_STRING),
-                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL)
+                'contact_email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                'location': openapi.Schema(type=openapi.TYPE_INTEGER, description='Location ID reference (optional)')
             }
         ),
         responses={200: openapi.Response(description='Updated successfully')},
@@ -917,15 +919,29 @@ class SettingsView(APIView):
                     }
                 }, status=400)
 
+            # Parse services if it's a JSON string (from FormData)
+            import json
+            services = data['services']
+            if isinstance(services, str):
+                try:
+                    services = json.loads(services)
+                    logger.debug(f"Parsed services from JSON string: {services}")
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse services JSON: {services}")
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid services format. Must be a valid JSON array.',
+                    }, status=400)
+            
             logger.info(f"Processing dealership settings update for {dealer.business_name}")
-            logger.debug(f"New Services: {data['services']}")
+            logger.debug(f"New Services: {services}")
             logger.debug(f"Old Services: {getattr(dealer, 'services', [])}")
             
             # Process services using DealershipServiceProcessor
             service_processor = DealershipServiceProcessor()
             
             # Validate services first to provide detailed error information
-            is_valid, unmapped_services, suggestions = service_processor.validate_services(data['services'])
+            is_valid, unmapped_services, suggestions = service_processor.validate_services(services)
             
             # Log unmapped services for debugging
             if unmapped_services:
@@ -937,11 +953,17 @@ class SettingsView(APIView):
             
             try:
                 # Process the selected services
-                service_updates = service_processor.process_services(data['services'])
+                service_updates = service_processor.process_services(services)
                 
                 # Update dealer profile fields
-                if data.get('new-logo', None):
-                    dealer.logo = data['new-logo']
+                # Handle logo upload - check both request.FILES and request.data
+                logo_file = request.FILES.get('new-logo') or data.get('new-logo')
+                if logo_file:
+                    logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
+                    dealer.logo = logo_file
+                else:
+                    logger.debug(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
+                
                 dealer.business_name = data['business_name']
                 dealer.about = data['about']
                 dealer.slug = data.get('slug', None)
@@ -959,7 +981,43 @@ class SettingsView(APIView):
                 
                 dealer.contact_phone = data['contact_phone']
                 dealer.contact_email = data['contact_email']
+                
+                # Handle location update if provided
+                if 'location' in data and data['location']:
+                    from accounts.models import Location
+                    try:
+                        location_id = int(data['location'])
+                        location = Location.objects.get(id=location_id, user=request.user)
+                        dealer.location = location
+                        logger.info(f"Updated location for dealership {dealer.business_name} to location ID {location_id}")
+                    except Location.DoesNotExist:
+                        logger.warning(f"Location ID {data['location']} not found for user {request.user.email}")
+                        return Response({
+                            'error': True,
+                            'message': 'Invalid location ID. Location not found or does not belong to you.',
+                            'details': {
+                                'field_errors': {
+                                    'location': ['Location not found or access denied']
+                                }
+                            }
+                        }, status=400)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid location ID format: {data['location']}")
+                        return Response({
+                            'error': True,
+                            'message': 'Invalid location ID format. Must be an integer.',
+                            'details': {
+                                'field_errors': {
+                                    'location': ['Invalid location ID format']
+                                }
+                            }
+                        }, status=400)
+                
                 dealer.save()
+                
+                # Log logo status after save
+                if logo_file:
+                    logger.info(f"Logo saved successfully for {dealer.business_name}. New logo URL: {dealer.logo.url if dealer.logo else 'None'}")
                 
                 # Log successful update
                 mapped_services = sum([

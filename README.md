@@ -18,3 +18,4 @@
    ```
 
 Ask if you need any further details added contact us @millihub
+.\venv\Scripts\Activate

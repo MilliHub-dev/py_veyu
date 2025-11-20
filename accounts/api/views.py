@@ -1121,9 +1121,12 @@ class BusinessVerificationView(views.APIView):
                         if not secure_url.startswith('https://res.cloudinary.com/'):
                             logger.warning(f"Unexpected URL format for {field_name}: {secure_url}")
                         
-                        # Store the Cloudinary public_id for the serializer
+                        # Store the Cloudinary resource info for the serializer
+                        # CloudinaryField expects the public_id as a string
                         data[field_name] = upload_result['public_id']
                         document_upload_results[field_name] = upload_result
+                        
+                        logger.debug(f"Stored {field_name} public_id in data: {data[field_name]}")
                         
                         # Store metadata
                         data[f'{field_name}_uploaded_at'] = timezone.now()
