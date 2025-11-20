@@ -21,6 +21,7 @@ from rest_framework.authentication import (
     TokenAuthentication,
     SessionAuthentication
 )
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import (
     BasePermission,
     IsAuthenticated,
@@ -414,7 +415,7 @@ class CreateListingView(CreateAPIView):
     allowed_methods = ['POST']
     parser_classes = [MultiPartParser, JSONParser]
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
     serializer_class = CreateListingSerializer
 
     @swagger_auto_schema(
@@ -620,7 +621,7 @@ class CreateListingView(CreateAPIView):
 class ListingDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
     serializer_class = ListingSerializer
     
     def get_object(self):
