@@ -243,7 +243,7 @@ Namespace: /api/v1/admin/mechanics/
   "tin_number": "...",
   "contact_email": "biz@example.com",
   "contact_phone": "+2348000000000",
-  "new-logo": "<file>"
+  "logo": "<file>"
 }
 ```
 
@@ -402,7 +402,7 @@ or `{ "action": "publish" | "unpublish", "listing": "<uuid>" }`
 ### GET /settings/
 ### POST /settings/
 - Auth: Bearer (dealer)
-- Body similar to mechanics settings; supports `new-logo` file
+- Body similar to mechanics settings; supports `logo` file
 
 ### GET /analytics/
 - Auth: Bearer (dealer)

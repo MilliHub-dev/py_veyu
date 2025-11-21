@@ -1029,7 +1029,7 @@ PUT /api/v1/admin/dealership/settings/
 ```
 **Request (multipart/form-data):**
 ```
-new-logo: <file> (optional)
+logo: <file> (optional)
 business_name: "AutoMax Dealers Ltd"
 about: "Leading car dealership in Lagos..."
 slug: "automax-dealers" (optional)
@@ -1136,7 +1136,7 @@ All dealership endpoints now include both core service flags and extended servic
 - No breaking changes to existing API contracts
 - All dealership-related endpoints (`/api/v1/admin/dealership/`, `/api/v1/admin/dealership/settings/`, `/api/v1/listings/dealer/{uuid}/`) now include `extended_services` field
 
-**Note:** Logo upload is supported via the `new-logo` field in multipart/form-data format.
+**Note:** Logo upload is supported via the `logo` field in multipart/form-data format.
 
 **⚠️ Deprecation Notice:** The POST method for this endpoint is deprecated and will be removed on December 1, 2025. Please use PUT method instead. The POST method currently returns deprecation headers for backward compatibility.
 
@@ -1388,7 +1388,7 @@ PUT /api/v1/admin/mechanics/settings/
 ```
 **Request (multipart/form-data):**
 ```
-new-logo: <file> (optional)
+logo: <file> (optional)
 business_name: "AutoFix Mechanics Ltd"
 about: "Professional automotive repair services with 10+ years experience..."
 slug: "autofix-mechanics" (optional)

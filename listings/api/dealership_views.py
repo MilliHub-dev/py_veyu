@@ -836,16 +836,15 @@ class SettingsView(APIView):
     @swagger_auto_schema(
         operation_summary="Update dealership settings",
         operation_description=(
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo' or 'logo' field.\n\n"
-            "**Logo Upload**: Accepts both 'new-logo' and 'logo' field names for file upload.\n"
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'logo' field.\n\n"
+            "**Logo Upload**: Upload business logo using the 'logo' field.\n"
             "**Response**: Returns updated dealership profile including logo URL."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
-                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (also accepts "logo" field name)'),
-                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (alternative to "new-logo")'),
+                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='Business logo file'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
                 'about': openapi.Schema(type=openapi.TYPE_STRING),
                 'slug': openapi.Schema(type=openapi.TYPE_STRING),
@@ -882,14 +881,13 @@ class SettingsView(APIView):
         operation_summary="Update dealership settings (DEPRECATED)",
         operation_description=(
             "⚠️ DEPRECATED: Use PUT method instead. This endpoint will be removed on December 1, 2025.\n\n"
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'new-logo' or 'logo' field."
+            "Update dealership profile fields. For logo upload, send multipart/form-data with 'logo' field."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
-                'new-logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (also accepts "logo" field name)'),
-                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='New logo file (alternative to "new-logo")'),
+                'logo': openapi.Schema(type=openapi.TYPE_FILE, description='Business logo file'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
                 'about': openapi.Schema(type=openapi.TYPE_STRING),
                 'slug': openapi.Schema(type=openapi.TYPE_STRING),
@@ -977,9 +975,8 @@ class SettingsView(APIView):
                 service_updates = service_processor.process_services(services)
                 
                 # Update dealer profile fields
-                # Handle logo upload - check both request.FILES and request.data
-                # Accept both 'new-logo' and 'logo' field names for flexibility
-                logo_file = request.FILES.get('new-logo') or request.FILES.get('logo') or data.get('new-logo') or data.get('logo')
+                # Handle logo upload
+                logo_file = request.FILES.get('logo') or data.get('logo')
                 if logo_file:
                     logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
                     dealer.logo = logo_file

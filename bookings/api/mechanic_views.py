@@ -540,8 +540,8 @@ class MechanicSettingsView(APIView):
         mechanic.contact_phone = data.get('contact_phone', "")
         mechanic.slug = None
 
-        if data.get('new-logo', None):
-            mechanic.logo = data['new-logo']
+        if data.get('logo', None):
+            mechanic.logo = data['logo']
 
         mechanic.save()
         data = {
