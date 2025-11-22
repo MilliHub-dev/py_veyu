@@ -922,6 +922,11 @@ class SettingsView(APIView):
         try:
             data = request.data
             dealer = Dealership.objects.get(user=request.user)
+            
+            # Log request details for debugging
+            logger.info(f"Request content type: {request.content_type}")
+            logger.info(f"Request FILES: {list(request.FILES.keys())}")
+            logger.info(f"Request DATA keys: {list(data.keys())}")
 
             # Validate required fields first
             required_fields = ['business_name', 'about', 'headline', 'services', 'contact_phone', 'contact_email']
@@ -952,6 +957,12 @@ class SettingsView(APIView):
                         'message': 'Invalid services format. Must be a valid JSON array.',
                     }, status=400)
             
+            # Ensure services is always a list
+            if not isinstance(services, list):
+                # If it's a single string, wrap it in a list
+                services = [services] if services else []
+                logger.debug(f"Converted single service to list: {services}")
+            
             logger.info(f"Processing dealership settings update for {dealer.business_name}")
             logger.debug(f"New Services: {services}")
             logger.debug(f"Old Services: {getattr(dealer, 'services', [])}")
@@ -979,9 +990,10 @@ class SettingsView(APIView):
                 logo_file = request.FILES.get('logo') or data.get('logo')
                 if logo_file:
                     logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
+                    logger.info(f"Logo file type: {type(logo_file)}, size: {getattr(logo_file, 'size', 'N/A')}")
                     dealer.logo = logo_file
                 else:
-                    logger.debug(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
+                    logger.info(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
                 
                 dealer.business_name = data['business_name']
                 dealer.about = data['about']

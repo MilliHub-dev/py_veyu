@@ -209,6 +209,10 @@ class DealershipServiceProcessor:
         if not selected_services:
             return False, [], []
         
+        # Ensure selected_services is a list (handle edge case of single string)
+        if isinstance(selected_services, str):
+            selected_services = [selected_services]
+        
         unmapped_services = []
         all_suggestions = []
         
@@ -245,6 +249,10 @@ class DealershipServiceProcessor:
         """
         if not selected_services:
             raise ValidationError("At least one service must be selected")
+        
+        # Ensure selected_services is a list (handle edge case of single string)
+        if isinstance(selected_services, str):
+            selected_services = [selected_services]
         
         # Validate services first
         is_valid, unmapped_services, suggestions = self.validate_services(selected_services)
