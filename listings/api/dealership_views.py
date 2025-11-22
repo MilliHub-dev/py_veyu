@@ -945,23 +945,47 @@ class SettingsView(APIView):
 
             # Parse services if it's a JSON string (from FormData)
             import json
-            services = data['services']
-            if isinstance(services, str):
+            services = data.get('services')
+            logger.debug(f"Raw services data: {services}, type: {type(services)}")
+            
+            # Handle different input formats
+            if services is None:
+                return Response({
+                    'error': True,
+                    'message': 'Services field is required',
+                }, status=400)
+            
+            # If it's already a list, use it directly
+            if isinstance(services, list):
+                logger.debug(f"Services already a list: {services}")
+            # If it's a string, try to parse as JSON
+            elif isinstance(services, str):
                 try:
                     services = json.loads(services)
                     logger.debug(f"Parsed services from JSON string: {services}")
                 except json.JSONDecodeError:
-                    logger.error(f"Failed to parse services JSON: {services}")
-                    return Response({
-                        'error': True,
-                        'message': 'Invalid services format. Must be a valid JSON array.',
-                    }, status=400)
+                    # If JSON parsing fails, treat as a single service name
+                    logger.warning(f"Could not parse services as JSON, treating as single service: {services}")
+                    services = [services]
+            else:
+                # For any other type, try to convert to list
+                logger.warning(f"Unexpected services type: {type(services)}, attempting conversion")
+                try:
+                    services = list(services)
+                except (TypeError, ValueError):
+                    services = [str(services)]
             
-            # Ensure services is always a list
+            # Final validation: ensure we have a list of strings
             if not isinstance(services, list):
-                # If it's a single string, wrap it in a list
-                services = [services] if services else []
-                logger.debug(f"Converted single service to list: {services}")
+                logger.error(f"Services is not a list after processing: {type(services)}")
+                return Response({
+                    'error': True,
+                    'message': 'Invalid services format. Must be an array of service names.',
+                }, status=400)
+            
+            # Ensure all items are strings and filter out empty values
+            services = [str(s).strip() for s in services if s]
+            logger.debug(f"Final services list: {services}")
             
             logger.info(f"Processing dealership settings update for {dealer.business_name}")
             logger.debug(f"New Services: {services}")

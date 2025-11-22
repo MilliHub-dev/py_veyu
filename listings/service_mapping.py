@@ -211,12 +211,25 @@ class DealershipServiceProcessor:
         
         # Ensure selected_services is a list (handle edge case of single string)
         if isinstance(selected_services, str):
+            logger.warning(f"validate_services received a string instead of list: {selected_services}")
             selected_services = [selected_services]
+        
+        # Ensure it's actually a list and not some other iterable
+        if not isinstance(selected_services, list):
+            logger.warning(f"validate_services received non-list type: {type(selected_services)}, converting to list")
+            selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
+        
+        # Ensure all items are strings
+        selected_services = [str(s) if not isinstance(s, str) else s for s in selected_services]
         
         unmapped_services = []
         all_suggestions = []
         
         for service in selected_services:
+            # Extra safety: ensure service is a string
+            if not isinstance(service, str):
+                logger.warning(f"Non-string service detected: {service} (type: {type(service)})")
+                service = str(service)
             if not self._find_field_for_service(service):
                 unmapped_services.append(service)
                 service_suggestions = self._suggest_similar_services(service, max_suggestions=5)
@@ -252,7 +265,16 @@ class DealershipServiceProcessor:
         
         # Ensure selected_services is a list (handle edge case of single string)
         if isinstance(selected_services, str):
+            logger.warning(f"process_services received a string instead of list: {selected_services}")
             selected_services = [selected_services]
+        
+        # Ensure it's actually a list and not some other iterable
+        if not isinstance(selected_services, list):
+            logger.warning(f"process_services received non-list type: {type(selected_services)}, converting to list")
+            selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
+        
+        # Ensure all items are strings
+        selected_services = [str(s) if not isinstance(s, str) else s for s in selected_services]
         
         # Validate services first
         is_valid, unmapped_services, suggestions = self.validate_services(selected_services)
