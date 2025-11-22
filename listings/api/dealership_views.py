@@ -963,9 +963,16 @@ class SettingsView(APIView):
                 try:
                     services = json.loads(services)
                     logger.debug(f"Parsed services from JSON string: {services}")
-                except json.JSONDecodeError:
+                    # Verify it's actually a list after parsing
+                    if not isinstance(services, list):
+                        logger.error(f"JSON parsing resulted in non-list type: {type(services)}")
+                        return Response({
+                            'error': True,
+                            'message': 'Invalid services format. Must be an array of service names.',
+                        }, status=400)
+                except json.JSONDecodeError as e:
                     # If JSON parsing fails, treat as a single service name
-                    logger.warning(f"Could not parse services as JSON, treating as single service: {services}")
+                    logger.warning(f"Could not parse services as JSON: {e}, treating as single service: {services}")
                     services = [services]
             else:
                 # For any other type, try to convert to list
@@ -975,7 +982,7 @@ class SettingsView(APIView):
                 except (TypeError, ValueError):
                     services = [str(services)]
             
-            # Final validation: ensure we have a list of strings
+            # Final validation: ensure we have a list
             if not isinstance(services, list):
                 logger.error(f"Services is not a list after processing: {type(services)}")
                 return Response({
@@ -984,7 +991,16 @@ class SettingsView(APIView):
                 }, status=400)
             
             # Ensure all items are strings and filter out empty values
-            services = [str(s).strip() for s in services if s]
+            # CRITICAL: Only iterate if we have a proper list, not a string
+            if services and isinstance(services, list):
+                services = [str(s).strip() for s in services if s and isinstance(s, (str, int, float))]
+            else:
+                logger.error(f"Services validation failed - not a proper list: {type(services)}")
+                return Response({
+                    'error': True,
+                    'message': 'Invalid services format. Must be an array of service names.',
+                }, status=400)
+            
             logger.debug(f"Final services list: {services}")
             
             logger.info(f"Processing dealership settings update for {dealer.business_name}")

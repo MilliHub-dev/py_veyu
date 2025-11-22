@@ -212,15 +212,36 @@ class DealershipServiceProcessor:
         # Ensure selected_services is a list (handle edge case of single string)
         if isinstance(selected_services, str):
             logger.warning(f"validate_services received a string instead of list: {selected_services}")
-            selected_services = [selected_services]
+            # Check if it looks like a JSON array string
+            if selected_services.strip().startswith('['):
+                logger.error(f"validate_services received a JSON string that wasn't parsed: {selected_services[:100]}")
+                import json
+                try:
+                    selected_services = json.loads(selected_services)
+                    logger.info(f"Successfully parsed JSON string in validate_services")
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse JSON string in validate_services")
+                    selected_services = [selected_services]
+            else:
+                selected_services = [selected_services]
         
         # Ensure it's actually a list and not some other iterable
         if not isinstance(selected_services, list):
             logger.warning(f"validate_services received non-list type: {type(selected_services)}, converting to list")
             selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
         
-        # Ensure all items are strings
-        selected_services = [str(s) if not isinstance(s, str) else s for s in selected_services]
+        # Ensure all items are strings and filter out single characters (likely from string iteration bug)
+        filtered_services = []
+        for s in selected_services:
+            if not isinstance(s, str):
+                s = str(s)
+            # Skip single characters that are likely from string iteration bug
+            if len(s) <= 1 and s in '[]",':
+                logger.warning(f"Skipping single character that looks like JSON artifact: '{s}'")
+                continue
+            filtered_services.append(s)
+        
+        selected_services = filtered_services
         
         unmapped_services = []
         all_suggestions = []
@@ -266,15 +287,36 @@ class DealershipServiceProcessor:
         # Ensure selected_services is a list (handle edge case of single string)
         if isinstance(selected_services, str):
             logger.warning(f"process_services received a string instead of list: {selected_services}")
-            selected_services = [selected_services]
+            # Check if it looks like a JSON array string
+            if selected_services.strip().startswith('['):
+                logger.error(f"process_services received a JSON string that wasn't parsed: {selected_services[:100]}")
+                import json
+                try:
+                    selected_services = json.loads(selected_services)
+                    logger.info(f"Successfully parsed JSON string in process_services")
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse JSON string in process_services")
+                    selected_services = [selected_services]
+            else:
+                selected_services = [selected_services]
         
         # Ensure it's actually a list and not some other iterable
         if not isinstance(selected_services, list):
             logger.warning(f"process_services received non-list type: {type(selected_services)}, converting to list")
             selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
         
-        # Ensure all items are strings
-        selected_services = [str(s) if not isinstance(s, str) else s for s in selected_services]
+        # Ensure all items are strings and filter out single characters (likely from string iteration bug)
+        filtered_services = []
+        for s in selected_services:
+            if not isinstance(s, str):
+                s = str(s)
+            # Skip single characters that are likely from string iteration bug
+            if len(s) <= 1 and s in '[]",':
+                logger.warning(f"Skipping single character that looks like JSON artifact: '{s}'")
+                continue
+            filtered_services.append(s)
+        
+        selected_services = filtered_services
         
         # Validate services first
         is_valid, unmapped_services, suggestions = self.validate_services(selected_services)
