@@ -836,13 +836,13 @@ class SettingsView(APIView):
     @swagger_auto_schema(
         operation_summary="Update dealership settings",
         operation_description=(
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'logo' field.\n\n"
+            "Update dealership profile fields. All fields are optional - only provided fields will be updated.\n\n"
+            "For logo upload, send multipart/form-data with 'logo' field.\n\n"
             "**Logo Upload**: Upload business logo using the 'logo' field.\n"
             "**Response**: Returns updated dealership profile including logo URL."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
                 'logo': openapi.Schema(type=openapi.TYPE_FILE, description='Business logo file'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
@@ -881,11 +881,11 @@ class SettingsView(APIView):
         operation_summary="Update dealership settings (DEPRECATED)",
         operation_description=(
             "⚠️ DEPRECATED: Use PUT method instead. This endpoint will be removed on December 1, 2025.\n\n"
-            "Update dealership profile fields. For logo upload, send multipart/form-data with 'logo' field."
+            "Update dealership profile fields. All fields are optional - only provided fields will be updated.\n\n"
+            "For logo upload, send multipart/form-data with 'logo' field."
         ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            required=['business_name','about','headline','services','contact_phone','contact_email'],
             properties={
                 'logo': openapi.Schema(type=openapi.TYPE_FILE, description='Business logo file'),
                 'business_name': openapi.Schema(type=openapi.TYPE_STRING),
@@ -928,20 +928,8 @@ class SettingsView(APIView):
             logger.info(f"Request FILES: {list(request.FILES.keys())}")
             logger.info(f"Request DATA keys: {list(data.keys())}")
 
-            # Validate required fields first
-            required_fields = ['business_name', 'about', 'headline', 'services', 'contact_phone', 'contact_email']
-            missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
-            
-            if missing_fields:
-                return Response({
-                    'error': True,
-                    'message': 'Missing required fields',
-                    'details': {
-                        'field_errors': {
-                            field: [f'{field.replace("_", " ").title()} is required'] for field in missing_fields
-                        }
-                    }
-                }, status=400)
+            # Note: All fields are optional for partial updates
+            # Only validate fields that are provided
 
             # Parse services if it's a JSON string (from FormData)
             import json
@@ -949,83 +937,111 @@ class SettingsView(APIView):
             logger.debug(f"Raw services data: {services}, type: {type(services)}")
             
             # Handle different input formats
-            if services is None:
-                return Response({
-                    'error': True,
-                    'message': 'Services field is required',
-                }, status=400)
+            # Services is optional - skip processing if not provided
+            service_updates = None
+            unmapped_services = []
+            suggestions = []
             
-            # If it's already a list, use it directly
-            if isinstance(services, list):
-                logger.debug(f"Services already a list: {services}")
-            # If it's a string, try to parse as JSON
-            elif isinstance(services, str):
-                try:
-                    services = json.loads(services)
-                    logger.debug(f"Parsed services from JSON string: {services}")
-                    # Verify it's actually a list after parsing
-                    if not isinstance(services, list):
-                        logger.error(f"JSON parsing resulted in non-list type: {type(services)}")
-                        return Response({
-                            'error': True,
-                            'message': 'Invalid services format. Must be an array of service names.',
-                        }, status=400)
-                except json.JSONDecodeError as e:
-                    # If JSON parsing fails, treat as a single service name
-                    logger.warning(f"Could not parse services as JSON: {e}, treating as single service: {services}")
-                    services = [services]
-            else:
-                # For any other type, try to convert to list
-                logger.warning(f"Unexpected services type: {type(services)}, attempting conversion")
-                try:
-                    services = list(services)
-                except (TypeError, ValueError):
+            if services is not None:
+                # If it's already a list, use it directly
+                if isinstance(services, list):
+                    logger.debug(f"Services already a list: {services}")
+                # If it's a string, try to parse as JSON
+                elif isinstance(services, str):
+                    try:
+                        services = json.loads(services)
+                        logger.debug(f"Parsed services from JSON string: {services}")
+                        # Verify it's actually a list after parsing
+                        if not isinstance(services, list):
+                            logger.error(f"JSON parsing resulted in non-list type: {type(services)}")
+                            return Response({
+                                'error': True,
+                                'message': 'Invalid services format. Must be an array of service names.',
+                            }, status=400)
+                    except json.JSONDecodeError as e:
+                        # If JSON parsing fails, treat as a single service name
+                        logger.warning(f"Could not parse services as JSON: {e}, treating as single service: {services}")
+                        services = [services]
+                else:
+                    # For any other type, wrap in a list (don't use list() which splits strings)
+                    logger.warning(f"Unexpected services type: {type(services)}, wrapping in list")
                     services = [str(services)]
-            
-            # Final validation: ensure we have a list
-            if not isinstance(services, list):
-                logger.error(f"Services is not a list after processing: {type(services)}")
-                return Response({
-                    'error': True,
-                    'message': 'Invalid services format. Must be an array of service names.',
-                }, status=400)
-            
-            # Ensure all items are strings and filter out empty values
-            # CRITICAL: Only iterate if we have a proper list, not a string
-            if services and isinstance(services, list):
-                services = [str(s).strip() for s in services if s and isinstance(s, (str, int, float))]
+                
+                # Final validation: ensure we have a list
+                if not isinstance(services, list):
+                    logger.error(f"Services is not a list after processing: {type(services)}")
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid services format. Must be an array of service names.',
+                    }, status=400)
+                
+                # Ensure all items are strings and filter out empty values
+                # CRITICAL: Only iterate if we have a proper list, not a string
+                if services and isinstance(services, list):
+                    services = [str(s).strip() for s in services if s and isinstance(s, (str, int, float))]
+                else:
+                    logger.error(f"Services validation failed - not a proper list: {type(services)}")
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid services format. Must be an array of service names.',
+                    }, status=400)
+                
+                logger.debug(f"Final services list: {services}")
+                
+                logger.info(f"Processing dealership settings update for {dealer.business_name}")
+                logger.debug(f"New Services: {services}")
+                logger.debug(f"Old Services: {getattr(dealer, 'services', [])}")
+                
+                # Process services using DealershipServiceProcessor
+                service_processor = DealershipServiceProcessor()
+                
+                # Validate services first to provide detailed error information
+                is_valid, unmapped_services, suggestions = service_processor.validate_services(services)
+                
+                # Log unmapped services for debugging
+                if unmapped_services:
+                    logger.warning(f"Unmapped services detected for dealership {dealer.business_name}: {unmapped_services}")
+                    for service in unmapped_services:
+                        service_suggestions = service_processor._suggest_similar_services(service, max_suggestions=3)
+                        if service_suggestions:
+                            logger.info(f"Suggestions for '{service}': {service_suggestions}")
+                
+                try:
+                    # Process the selected services
+                    service_updates = service_processor.process_services(services)
+                except DjangoValidationError as ve:
+                    logger.error(f"Service validation failed for dealership {dealer.business_name}: {str(ve)}")
+                    
+                    # Enhanced error response with detailed information
+                    error_details = {
+                        'field_errors': {
+                            'services': [str(ve)]
+                        }
+                    }
+                    
+                    if unmapped_services:
+                        error_details['unmapped_services'] = unmapped_services
+                        error_details['unmapped_count'] = len(unmapped_services)
+                    
+                    if suggestions:
+                        error_details['suggestions'] = suggestions[:5]  # Provide up to 5 suggestions
+                        error_details['suggestion_message'] = f"Did you mean: {', '.join(suggestions[:3])}?"
+                    
+                    # Add helpful context about available services
+                    available_services = service_processor.get_available_services()
+                    error_details['available_service_categories'] = list(available_services.keys())
+                    
+                    return Response({
+                        'error': True,
+                        'message': 'Service validation failed. Please check your service selections.',
+                        'details': error_details
+                    }, status=400)
             else:
-                logger.error(f"Services validation failed - not a proper list: {type(services)}")
-                return Response({
-                    'error': True,
-                    'message': 'Invalid services format. Must be an array of service names.',
-                }, status=400)
-            
-            logger.debug(f"Final services list: {services}")
-            
-            logger.info(f"Processing dealership settings update for {dealer.business_name}")
-            logger.debug(f"New Services: {services}")
-            logger.debug(f"Old Services: {getattr(dealer, 'services', [])}")
-            
-            # Process services using DealershipServiceProcessor
-            service_processor = DealershipServiceProcessor()
-            
-            # Validate services first to provide detailed error information
-            is_valid, unmapped_services, suggestions = service_processor.validate_services(services)
-            
-            # Log unmapped services for debugging
-            if unmapped_services:
-                logger.warning(f"Unmapped services detected for dealership {dealer.business_name}: {unmapped_services}")
-                for service in unmapped_services:
-                    service_suggestions = service_processor._suggest_similar_services(service, max_suggestions=3)
-                    if service_suggestions:
-                        logger.info(f"Suggestions for '{service}': {service_suggestions}")
+                logger.debug("No services provided in request, skipping service updates")
             
             try:
-                # Process the selected services
-                service_updates = service_processor.process_services(services)
                 
-                # Update dealer profile fields
+                # Update dealer profile fields (only if provided)
                 # Handle logo upload
                 logo_file = request.FILES.get('logo') or data.get('logo')
                 if logo_file:
@@ -1035,23 +1051,31 @@ class SettingsView(APIView):
                 else:
                     logger.info(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
                 
-                dealer.business_name = data['business_name']
-                dealer.about = data['about']
-                dealer.slug = data.get('slug', None)
-                dealer.headline = data['headline']
+                # Update fields only if provided
+                if 'business_name' in data:
+                    dealer.business_name = data['business_name']
+                if 'about' in data:
+                    dealer.about = data['about']
+                if 'slug' in data:
+                    dealer.slug = data.get('slug', None)
+                if 'headline' in data:
+                    dealer.headline = data['headline']
                 
-                # Apply service mappings from processor
-                dealer.offers_purchase = service_updates['offers_purchase']
-                dealer.offers_rental = service_updates['offers_rental']
-                dealer.offers_drivers = service_updates['offers_drivers']
-                dealer.offers_trade_in = service_updates['offers_trade_in']
+                # Apply service mappings from processor (only if services were provided)
+                if 'services' in data:
+                    dealer.offers_purchase = service_updates['offers_purchase']
+                    dealer.offers_rental = service_updates['offers_rental']
+                    dealer.offers_drivers = service_updates['offers_drivers']
+                    dealer.offers_trade_in = service_updates['offers_trade_in']
+                    
+                    # Handle extended services if the field exists
+                    if hasattr(dealer, 'extended_services'):
+                        dealer.extended_services = service_updates['extended_services']
                 
-                # Handle extended services if the field exists
-                if hasattr(dealer, 'extended_services'):
-                    dealer.extended_services = service_updates['extended_services']
-                
-                dealer.contact_phone = data['contact_phone']
-                dealer.contact_email = data['contact_email']
+                if 'contact_phone' in data:
+                    dealer.contact_phone = data['contact_phone']
+                if 'contact_email' in data:
+                    dealer.contact_email = data['contact_email']
                 
                 # Handle location update if provided
                 if 'location' in data and data['location']:
@@ -1091,14 +1115,17 @@ class SettingsView(APIView):
                     logger.info(f"Logo saved successfully for {dealer.business_name}. New logo URL: {dealer.logo.url if dealer.logo else 'None'}")
                 
                 # Log successful update
-                mapped_services = sum([
-                    dealer.offers_purchase,
-                    dealer.offers_rental, 
-                    dealer.offers_drivers,
-                    dealer.offers_trade_in
-                ])
-                extended_count = len(service_updates.get('extended_services', []))
-                logger.info(f"Successfully updated dealership {dealer.business_name}: {mapped_services} core services, {extended_count} extended services")
+                if service_updates:
+                    mapped_services = sum([
+                        dealer.offers_purchase,
+                        dealer.offers_rental, 
+                        dealer.offers_drivers,
+                        dealer.offers_trade_in
+                    ])
+                    extended_count = len(service_updates.get('extended_services', []))
+                    logger.info(f"Successfully updated dealership {dealer.business_name}: {mapped_services} core services, {extended_count} extended services")
+                else:
+                    logger.info(f"Successfully updated dealership {dealer.business_name} (no service changes)")
                 
                 response_data = {
                     'error': False,
@@ -1113,34 +1140,6 @@ class SettingsView(APIView):
                     }
                 
                 return Response(response_data, 200)
-                
-            except DjangoValidationError as ve:
-                logger.error(f"Service validation failed for dealership {dealer.business_name}: {str(ve)}")
-                
-                # Enhanced error response with detailed information
-                error_details = {
-                    'field_errors': {
-                        'services': [str(ve)]
-                    }
-                }
-                
-                if unmapped_services:
-                    error_details['unmapped_services'] = unmapped_services
-                    error_details['unmapped_count'] = len(unmapped_services)
-                
-                if suggestions:
-                    error_details['suggestions'] = suggestions[:5]  # Provide up to 5 suggestions
-                    error_details['suggestion_message'] = f"Did you mean: {', '.join(suggestions[:3])}?"
-                
-                # Add helpful context about available services
-                available_services = service_processor.get_available_services()
-                error_details['available_service_categories'] = list(available_services.keys())
-                
-                return Response({
-                    'error': True,
-                    'message': 'Service validation failed. Please check your service selections.',
-                    'details': error_details
-                }, status=400)
             
         except Dealership.DoesNotExist:
             logger.error(f"Dealership profile not found for user {request.user.email}")
