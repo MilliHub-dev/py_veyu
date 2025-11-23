@@ -4,10 +4,34 @@ Inherits from main settings and applies serverless-specific optimizations.
 """
 
 import os
-from .settings import *
+import sys
+import logging
+
+# Configure logging first for better error visibility
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+logger = logging.getLogger(__name__)
+
+# Import base settings with error handling
+try:
+    from .settings import *
+    logger.info("Base settings imported successfully")
+except Exception as e:
+    logger.error(f"Failed to import base settings: {e}", exc_info=True)
+    raise
 
 # Override settings for Vercel serverless environment
 DEBUG = False
+
+# Override SECRET_KEY with better error handling
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    logger.error("DJANGO_SECRET_KEY environment variable is not set!")
+    raise ValueError("DJANGO_SECRET_KEY must be set in Vercel environment variables")
 
 # Remove WebSocket/ASGI apps that aren't compatible with serverless
 INSTALLED_APPS = [app for app in INSTALLED_APPS if app not in ['daphne', 'channels']]
@@ -59,18 +83,28 @@ STATICFILES_FINDERS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'staticfiles', 'media')
 
-# Environment variable loading for Vercel
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
+# Validate SECRET_KEY is set (already done above, but double-check)
+if not SECRET_KEY or SECRET_KEY == 'unsafe-secret-key-change-in-production':
+    logger.error("Invalid or default SECRET_KEY detected!")
+    raise ValueError("DJANGO_SECRET_KEY must be set to a secure value")
 
 # Database URL override for Vercel environment
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=0,  # Critical for serverless
-        conn_health_checks=True,
-    )
+    try:
+        import dj_database_url
+        DATABASES['default'] = dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=0,  # Critical for serverless
+            conn_health_checks=True,
+        )
+        logger.info("Database configured from DATABASE_URL")
+    except Exception as e:
+        logger.error(f"Failed to parse DATABASE_URL: {e}", exc_info=True)
+        raise
+else:
+    logger.error("DATABASE_URL environment variable is not set!")
+    raise ValueError("DATABASE_URL must be set in Vercel environment variables")
 
 # Email configuration for Vercel
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', EMAIL_HOST_USER)

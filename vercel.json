@@ -1,7 +1,18 @@
 {
+  "version": 2,
   "buildCommand": "python3 build.py",
   "outputDirectory": "staticfiles",
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.9",
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api/health"
+    },
     {
       "source": "/(.*)",
       "destination": "/api/vercel_app"
@@ -26,13 +37,16 @@
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
+          "value": "Content-Type, Authorization, X-Requested-With"
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "DJANGO_SETTINGS_MODULE": "veyu.vercel_settings"
+  }
 }
