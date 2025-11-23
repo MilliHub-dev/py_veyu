@@ -1,13 +1,6 @@
 {
-  "version": 2,
   "buildCommand": "python3 build.py",
   "outputDirectory": "staticfiles",
-  "functions": {
-    "api/**/*.py": {
-      "runtime": "python3.9",
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
       "source": "/health",
@@ -45,8 +38,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "DJANGO_SETTINGS_MODULE": "veyu.vercel_settings"
-  }
+  ]
 }
