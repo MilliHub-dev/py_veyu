@@ -246,6 +246,35 @@ PUT /api/v1/admin/dealership/settings/
 }
 ```
 
+### 8. Fixed Serializer Validation
+
+The `services` field in the Dealership model is a read-only property (computed from boolean fields), but the serializer wasn't explicitly marking it as read-only, causing DRF to try to validate it on updates.
+
+**In `listings/api/serializers.py`:**
+
+**Before:**
+```python
+class DealerSerializer(ModelSerializer):
+    location = StringRelatedField()
+    logo = SerializerMethodField()
+    reviews = ReviewSerializer(many=True)
+    owner = SerializerMethodField()
+    extended_services = serializers.JSONField(read_only=True)
+    # services field not explicitly defined
+```
+
+**After:**
+```python
+class DealerSerializer(ModelSerializer):
+    location = StringRelatedField()
+    logo = SerializerMethodField()
+    reviews = ReviewSerializer(many=True)
+    owner = SerializerMethodField()
+    services = serializers.ListField(read_only=True)  # Explicitly mark as read-only
+    extended_services = serializers.JSONField(read_only=True)
+```
+
 ## Files Modified
 - `listings/api/dealership_views.py` - Fixed services parsing and made all fields optional
 - `listings/service_mapping.py` - Fixed services parsing in validate_services() and process_services(), made services optional
+- `listings/api/serializers.py` - Marked services field as read_only in DealerSerializer

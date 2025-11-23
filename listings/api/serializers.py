@@ -40,6 +40,7 @@ class DealerSerializer(ModelSerializer):
     logo = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
     owner = SerializerMethodField()
+    services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
 
     class Meta:
