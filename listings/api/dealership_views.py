@@ -1073,8 +1073,8 @@ class SettingsView(APIView):
                 if 'headline' in data:
                     dealer.headline = data['headline']
                 
-                # Apply service mappings from processor (only if services were provided)
-                if 'services' in data:
+                # Apply service mappings from processor (only if services were provided and processed)
+                if 'services' in data and service_updates is not None:
                     dealer.offers_purchase = service_updates['offers_purchase']
                     dealer.offers_rental = service_updates['offers_rental']
                     dealer.offers_drivers = service_updates['offers_drivers']
@@ -1164,18 +1164,17 @@ class SettingsView(APIView):
                 }
             }, status=404)
         except KeyError as e:
-            logger.error(f"Missing required field in dealership settings update: {str(e)}")
-            field_name = str(e).strip("'\"")
+            # This should not happen since we check 'if field in data' before accessing
+            # But if it does, it's a programming error, not a user error
+            logger.error(f"Unexpected KeyError in dealership settings update: {str(e)}", exc_info=True)
             return Response({
                 'error': True,
-                'message': f'Missing required field: {field_name}',
+                'message': 'An unexpected error occurred while processing your request.',
                 'details': {
-                    'field_errors': {
-                        field_name: [f'{field_name.replace("_", " ").title()} is required']
-                    },
-                    'error_code': 'MISSING_FIELD'
+                    'error_code': 'INTERNAL_ERROR',
+                    'help_text': 'Please try again. If the problem persists, contact support.'
                 }
-            }, status=400)
+            }, status=500)
         except Exception as e:
             logger.error(f"Unexpected error in dealership settings update: {str(e)}", exc_info=True)
             return Response({
