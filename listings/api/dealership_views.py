@@ -933,7 +933,19 @@ class SettingsView(APIView):
 
             # Parse services if it's a JSON string (from FormData)
             import json
-            services = data.get('services')
+            
+            # Check if services is sent as multiple form fields (getlist) or single field (get)
+            # This handles the case where FormData sends array items separately
+            if hasattr(data, 'getlist'):
+                services_list = data.getlist('services')
+                services_single = data.get('services')
+                logger.info(f"🔍 FormData detected - getlist: {services_list}, get: {services_single}")
+                # Use getlist if it has multiple items, otherwise use get
+                services = services_list if len(services_list) > 1 else services_single
+            else:
+                services = data.get('services')
+            
+            logger.info(f"🔍 RAW SERVICES DEBUG - Type: {type(services)}, Value: {repr(services)}")
             logger.debug(f"Raw services data: {services}, type: {type(services)}")
             
             # Handle different input formats

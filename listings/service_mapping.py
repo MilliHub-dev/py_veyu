@@ -226,9 +226,11 @@ class DealershipServiceProcessor:
                 selected_services = [selected_services]
         
         # Ensure it's actually a list and not some other iterable
+        # CRITICAL: Don't use list() on strings as it splits them into characters!
         if not isinstance(selected_services, list):
-            logger.warning(f"validate_services received non-list type: {type(selected_services)}, converting to list")
-            selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
+            logger.warning(f"validate_services received non-list type: {type(selected_services)}, wrapping in list")
+            # Wrap in list instead of converting to avoid splitting strings into characters
+            selected_services = [selected_services]
         
         # Ensure all items are strings and filter out single characters (likely from string iteration bug)
         filtered_services = []
@@ -301,9 +303,11 @@ class DealershipServiceProcessor:
                 selected_services = [selected_services]
         
         # Ensure it's actually a list and not some other iterable
+        # CRITICAL: Don't use list() on strings as it splits them into characters!
         if not isinstance(selected_services, list):
-            logger.warning(f"process_services received non-list type: {type(selected_services)}, converting to list")
-            selected_services = list(selected_services) if hasattr(selected_services, '__iter__') else [selected_services]
+            logger.warning(f"process_services received non-list type: {type(selected_services)}, wrapping in list")
+            # Wrap in list instead of converting to avoid splitting strings into characters
+            selected_services = [selected_services]
         
         # Ensure all items are strings and filter out single characters (likely from string iteration bug)
         filtered_services = []
