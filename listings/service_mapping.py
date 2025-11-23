@@ -274,17 +274,25 @@ class DealershipServiceProcessor:
         """
         Process selected services and return field updates for dealership model.
         
+        Services are optional. If no services are provided or no valid services are found,
+        returns default field updates with all boolean fields set to False.
+        
         Args:
-            selected_services: List of service names from frontend.
+            selected_services: List of service names from frontend (optional).
             
         Returns:
             Dict containing field updates for the dealership model.
-            
-        Raises:
-            ValidationError: If no services are selected or validation fails.
         """
+        # Services are optional - return empty updates if none provided
         if not selected_services:
-            raise ValidationError("At least one service must be selected")
+            logger.info("No services provided, returning default field updates")
+            return {
+                'offers_rental': False,
+                'offers_purchase': False,
+                'offers_drivers': False,
+                'offers_trade_in': False,
+                'extended_services': []
+            }
         
         # Ensure selected_services is a list (handle edge case of single string)
         if isinstance(selected_services, str):
@@ -362,16 +370,23 @@ class DealershipServiceProcessor:
             field_updates['extended_services'] = extended_services
             mapped_services_count += len(extended_services)
         
-        # Validate that at least one service was mapped
-        if mapped_services_count == 0:
-            error_msg = "No valid services were selected from the provided list"
+        # Warn if no services were mapped, but don't fail (services are optional)
+        if mapped_services_count == 0 and selected_services:
+            logger.warning(f"No valid services were mapped from provided list: {selected_services}")
             if unmapped_services:
-                error_msg += f". Unrecognized services: {', '.join(unmapped_services[:3])}"
+                logger.warning(f"Unrecognized services: {', '.join(unmapped_services[:3])}")
                 if len(unmapped_services) > 3:
-                    error_msg += f" and {len(unmapped_services) - 3} more"
+                    logger.warning(f"... and {len(unmapped_services) - 3} more")
             if suggestions:
-                error_msg += f". Did you mean: {', '.join(suggestions[:3])}?"
-            raise ValidationError(error_msg)
+                logger.info(f"Suggestions: {', '.join(suggestions[:3])}")
+            # Return empty updates instead of raising an error
+            return {
+                'offers_rental': False,
+                'offers_purchase': False,
+                'offers_drivers': False,
+                'offers_trade_in': False,
+                'extended_services': []
+            }
         
         # Log successful mapping with details
         core_services = sum([
