@@ -529,15 +529,60 @@ class Listing(DbModel):
         ordering = ['-date_created']
 
 
+class BoostPricing(DbModel):
+    """Admin-configurable pricing for listing boosts"""
+    DURATION_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+    
+    duration_type = models.CharField(max_length=20, choices=DURATION_CHOICES, unique=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price per duration unit")
+    is_active = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.get_duration_type_display()} Boost - ₦{self.price:,.2f}"
+    
+    def __repr__(self):
+        return f"<BoostPricing: {self.duration_type} - ₦{self.price}>"
+    
+    @property
+    def formatted_price(self):
+        """Returns formatted price"""
+        return f"₦{self.price:,.2f}"
+    
+    class Meta:
+        ordering = ['duration_type']
+        verbose_name = 'Boost Pricing'
+        verbose_name_plural = 'Boost Pricing'
+
+
 class ListingBoost(DbModel):
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending Payment'),
+        ('paid', 'Paid'),
+        ('failed', 'Payment Failed'),
+        ('refunded', 'Refunded'),
+    ]
+    
     listing = models.OneToOneField('Listing', on_delete=models.CASCADE, related_name='listing_boost')
+    dealer = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='listing_boosts', null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)  # Track payment amount
-    active = models.BooleanField(default=True)  # Auto-updated by cron job
+    duration_type = models.CharField(max_length=20, choices=BoostPricing.DURATION_CHOICES, default='weekly')
+    duration_count = models.PositiveIntegerField(default=1, help_text="Number of duration units (e.g., 2 weeks)")
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    payment_reference = models.CharField(max_length=200, blank=True, null=True)
+    active = models.BooleanField(default=False)  # Only active when paid and within date range
 
     def is_active(self):
-        return self.start_date <= now().date() <= self.end_date
+        """Check if boost is currently active"""
+        return (
+            self.payment_status == 'paid' and
+            self.start_date <= now().date() <= self.end_date
+        )
 
     def save(self, *args, **kwargs):
         """Ensure `active` is updated before saving."""
@@ -545,7 +590,7 @@ class ListingBoost(DbModel):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        status = "Active" if self.is_active() else "Expired"
+        status = "Active" if self.is_active() else "Inactive"
         return f"Boost: {self.listing.title} - {status} (₦{self.amount_paid:,.2f})"
     
     def __repr__(self):
@@ -563,11 +608,18 @@ class ListingBoost(DbModel):
         """Returns total duration in days"""
         return (self.end_date - self.start_date).days
     
+    @property
+    def formatted_amount(self):
+        """Returns formatted amount paid"""
+        return f"₦{self.amount_paid:,.2f}"
+    
     class Meta:
         indexes = [
             models.Index(fields=['listing']),
+            models.Index(fields=['dealer']),
             models.Index(fields=['start_date', 'end_date']),
             models.Index(fields=['active']),
+            models.Index(fields=['payment_status']),
         ]
         ordering = ['-start_date']
         verbose_name = 'Listing Boost'

@@ -15,7 +15,8 @@ from .models import (
     TradeInRequest,
     OrderInspection,
     PurchaseOffer,
-    
+    BoostPricing,
+    ListingBoost,
 )
 
 
@@ -138,6 +139,31 @@ class BikeAdmin(VehicleAdmin):
 
 
 
+class BoostPricingAdmin(admin.ModelAdmin):
+    list_display = ['duration_type', 'price', 'formatted_price', 'is_active']
+    list_editable = ['price', 'is_active']
+    list_filter = ['is_active', 'duration_type']
+    
+    def has_delete_permission(self, request, obj=None):
+        # Prevent deletion of pricing records
+        return False
+
+
+class ListingBoostAdmin(admin.ModelAdmin):
+    list_display = ['listing', 'dealer', 'start_date', 'end_date', 'duration_type', 
+                    'duration_count', 'amount_paid', 'payment_status', 'active']
+    list_filter = ['payment_status', 'active', 'duration_type', 'start_date']
+    search_fields = ['listing__title', 'dealer__business_name', 'payment_reference']
+    readonly_fields = ['active', 'date_created']
+    list_editable = ['payment_status']
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  # Editing existing object
+            return self.readonly_fields + ['listing', 'dealer', 'start_date', 'end_date', 
+                                          'duration_type', 'duration_count', 'amount_paid']
+        return self.readonly_fields
+
+
 veyu_admin.register(Listing, ListingAdmin)
 veyu_admin.register(RentalOrder, CarRentalAdmin)
 veyu_admin.register(Order, OrderAdmin)
@@ -152,4 +178,6 @@ veyu_admin.register(Boat, BoatAdmin)
 veyu_admin.register(Plane, PlaneAdmin)
 veyu_admin.register(Bike, BikeAdmin)
 veyu_admin.register(OrderInspection)
+veyu_admin.register(BoostPricing, BoostPricingAdmin)
+veyu_admin.register(ListingBoost, ListingBoostAdmin)
 

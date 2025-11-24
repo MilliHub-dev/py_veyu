@@ -13,6 +13,8 @@ from ..models import (
     TestDriveRequest,
     TradeInRequest,
     PurchaseOffer,
+    BoostPricing,
+    ListingBoost,
 )
 from rest_framework.serializers import (
     ModelSerializer,
@@ -334,3 +336,105 @@ class PurchaseOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseOffer
         fields = '__all__'
+
+
+class BoostPricingSerializer(serializers.ModelSerializer):
+    """Serializer for boost pricing configuration (admin only)"""
+    formatted_price = serializers.ReadOnlyField()
+    duration_display = serializers.CharField(source='get_duration_type_display', read_only=True)
+    
+    class Meta:
+        model = BoostPricing
+        fields = ['id', 'duration_type', 'duration_display', 'price', 'formatted_price', 'is_active']
+        read_only_fields = ['id', 'formatted_price', 'duration_display']
+
+
+class ListingBoostSerializer(serializers.ModelSerializer):
+    """Serializer for viewing listing boost details"""
+    listing_title = serializers.CharField(source='listing.title', read_only=True)
+    listing_uuid = serializers.CharField(source='listing.uuid', read_only=True)
+    dealer_name = serializers.CharField(source='dealer.business_name', read_only=True)
+    formatted_amount = serializers.ReadOnlyField()
+    days_remaining = serializers.ReadOnlyField()
+    duration_days = serializers.ReadOnlyField()
+    duration_display = serializers.CharField(source='get_duration_type_display', read_only=True)
+    payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
+    
+    class Meta:
+        model = ListingBoost
+        fields = [
+            'id', 'listing', 'listing_title', 'listing_uuid', 'dealer', 'dealer_name',
+            'start_date', 'end_date', 'duration_type', 'duration_display', 
+            'duration_count', 'amount_paid', 'formatted_amount', 'payment_status',
+            'payment_status_display', 'payment_reference', 'active', 'days_remaining',
+            'duration_days', 'date_created'
+        ]
+        read_only_fields = [
+            'id', 'dealer', 'active', 'formatted_amount', 'days_remaining',
+            'duration_days', 'date_created', 'listing_title', 'listing_uuid',
+            'dealer_name', 'duration_display', 'payment_status_display'
+        ]
+
+
+class CreateListingBoostSerializer(serializers.Serializer):
+    """Serializer for creating a listing boost"""
+    listing = serializers.UUIDField(required=True)
+    duration_type = serializers.ChoiceField(
+        choices=['daily', 'weekly', 'monthly'],
+        required=True,
+        help_text="Type of duration: daily, weekly, or monthly"
+    )
+    duration_count = serializers.IntegerField(
+        required=True,
+        min_value=1,
+        max_value=12,
+        help_text="Number of duration units (e.g., 2 for 2 weeks)"
+    )
+    
+    def validate_listing(self, value):
+        """Validate that the listing exists and belongs to the dealer"""
+        request = self.context.get('request')
+        if not request:
+            raise serializers.ValidationError("Request context is required")
+        
+        try:
+            from accounts.models import Dealership
+            dealer = Dealership.objects.get(user=request.user)
+            listing = Listing.objects.get(uuid=value, vehicle__dealer=dealer)
+            
+            # Check if listing already has an active boost
+            if hasattr(listing, 'listing_boost') and listing.listing_boost.is_active():
+                raise serializers.ValidationError(
+                    f"This listing already has an active boost until {listing.listing_boost.end_date}"
+                )
+            
+            return value
+        except Dealership.DoesNotExist:
+            raise serializers.ValidationError("Dealership profile not found")
+        except Listing.DoesNotExist:
+            raise serializers.ValidationError("Listing not found or does not belong to you")
+    
+    def validate_duration_type(self, value):
+        """Validate that the duration type has active pricing"""
+        try:
+            pricing = BoostPricing.objects.get(duration_type=value, is_active=True)
+        except BoostPricing.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Boost pricing for {value} is not available. Please contact support."
+            )
+        return value
+    
+    def validate(self, data):
+        """Calculate total cost and add to validated data"""
+        duration_type = data['duration_type']
+        duration_count = data['duration_count']
+        
+        try:
+            pricing = BoostPricing.objects.get(duration_type=duration_type, is_active=True)
+            total_cost = pricing.price * duration_count
+            data['total_cost'] = total_cost
+            data['pricing'] = pricing
+        except BoostPricing.DoesNotExist:
+            raise serializers.ValidationError("Boost pricing not found")
+        
+        return data

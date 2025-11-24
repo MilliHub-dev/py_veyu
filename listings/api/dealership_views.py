@@ -1188,3 +1188,458 @@ class SettingsView(APIView):
             }, status=500)
 
 
+
+
+
+class BoostPricingView(APIView):
+    """View for getting boost pricing (public endpoint)"""
+    allowed_methods = ['GET']
+    permission_classes = []  # Public endpoint
+    
+    @swagger_auto_schema(
+        operation_summary="Get boost pricing",
+        operation_description="Retrieve current pricing for listing boosts (daily, weekly, monthly)",
+        responses={
+            200: openapi.Response(
+                description='Boost pricing list',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'data': [
+                            {
+                                'duration_type': 'daily',
+                                'duration_display': 'Daily',
+                                'price': '1000.00',
+                                'formatted_price': '₦1,000.00'
+                            }
+                        ]
+                    }
+                }
+            )
+        },
+        tags=['Boost']
+    )
+    def get(self, request):
+        from .serializers import BoostPricingSerializer
+        from ..models import BoostPricing
+        
+        pricing = BoostPricing.objects.filter(is_active=True)
+        data = {
+            'error': False,
+            'data': BoostPricingSerializer(pricing, many=True).data
+        }
+        return Response(data, 200)
+
+
+class ListingBoostView(APIView):
+    """View for managing listing boosts"""
+    allowed_methods = ['GET', 'POST', 'DELETE']
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
+    
+    @swagger_auto_schema(
+        operation_summary="Get boost status for a listing",
+        operation_description="Retrieve the current boost status for a specific listing",
+        responses={
+            200: openapi.Response(
+                description='Boost details',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'data': {
+                            'listing_uuid': '550e8400-e29b-41d4-a716-446655440000',
+                            'active': True,
+                            'days_remaining': 5,
+                            'amount_paid': '5000.00'
+                        }
+                    }
+                }
+            ),
+            404: openapi.Response(description='No active boost found')
+        },
+        tags=['Boost']
+    )
+    def get(self, request, listing_id):
+        from .serializers import ListingBoostSerializer
+        from ..models import ListingBoost
+        
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            listing = dealer.listings.get(uuid=listing_id)
+            
+            if not hasattr(listing, 'listing_boost'):
+                return Response({
+                    'error': False,
+                    'message': 'No boost found for this listing',
+                    'data': None
+                }, 200)
+            
+            boost = listing.listing_boost
+            data = {
+                'error': False,
+                'data': ListingBoostSerializer(boost).data
+            }
+            return Response(data, 200)
+            
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found'
+            }, 404)
+        except Listing.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Listing not found or does not belong to you'
+            }, 404)
+    
+    @swagger_auto_schema(
+        operation_summary="Create a boost for a listing",
+        operation_description=(
+            "Create a boost for a listing. This will calculate the cost and create a pending boost.\n\n"
+            "**Payment Flow:**\n"
+            "1. Create boost (returns total cost and boost ID)\n"
+            "2. Process payment using your payment gateway\n"
+            "3. Confirm payment using the confirm-payment endpoint\n\n"
+            "**Duration Types:**\n"
+            "- daily: Boost per day\n"
+            "- weekly: Boost per week\n"
+            "- monthly: Boost per month\n\n"
+            "**Duration Count:**\n"
+            "Number of duration units (e.g., duration_count=2 with duration_type=weekly means 2 weeks)"
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['duration_type', 'duration_count'],
+            properties={
+                'duration_type': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    enum=['daily', 'weekly', 'monthly'],
+                    example='weekly'
+                ),
+                'duration_count': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    minimum=1,
+                    maximum=12,
+                    example=2,
+                    description='Number of duration units'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Boost created successfully',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'message': 'Boost created successfully. Please proceed with payment.',
+                        'data': {
+                            'boost_id': 123,
+                            'total_cost': '10000.00',
+                            'duration_type': 'weekly',
+                            'duration_count': 2,
+                            'start_date': '2025-11-24',
+                            'end_date': '2025-12-08'
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(description='Validation error')
+        },
+        tags=['Boost']
+    )
+    def post(self, request, listing_id):
+        from .serializers import CreateListingBoostSerializer, ListingBoostSerializer
+        from ..models import ListingBoost, BoostPricing
+        from datetime import timedelta
+        
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            
+            # Add listing UUID to request data
+            data = request.data.copy()
+            data['listing'] = listing_id
+            
+            serializer = CreateListingBoostSerializer(data=data, context={'request': request})
+            
+            if not serializer.is_valid():
+                return Response({
+                    'error': True,
+                    'message': 'Validation failed',
+                    'errors': serializer.errors
+                }, 400)
+            
+            validated_data = serializer.validated_data
+            listing = Listing.objects.get(uuid=validated_data['listing'])
+            
+            # Calculate dates
+            start_date = now().date()
+            duration_type = validated_data['duration_type']
+            duration_count = validated_data['duration_count']
+            
+            if duration_type == 'daily':
+                end_date = start_date + timedelta(days=duration_count)
+            elif duration_type == 'weekly':
+                end_date = start_date + timedelta(weeks=duration_count)
+            elif duration_type == 'monthly':
+                end_date = start_date + timedelta(days=30 * duration_count)
+            
+            # Delete existing boost if any (replace with new one)
+            if hasattr(listing, 'listing_boost'):
+                listing.listing_boost.delete()
+            
+            # Create boost
+            boost = ListingBoost.objects.create(
+                listing=listing,
+                dealer=dealer,
+                start_date=start_date,
+                end_date=end_date,
+                duration_type=duration_type,
+                duration_count=duration_count,
+                amount_paid=validated_data['total_cost'],
+                payment_status='pending'
+            )
+            
+            response_data = {
+                'error': False,
+                'message': 'Boost created successfully. Please proceed with payment.',
+                'data': {
+                    'boost_id': boost.id,
+                    'boost_uuid': str(boost.uuid),
+                    'total_cost': str(boost.amount_paid),
+                    'formatted_cost': boost.formatted_amount,
+                    'duration_type': duration_type,
+                    'duration_count': duration_count,
+                    'start_date': str(start_date),
+                    'end_date': str(end_date),
+                    'payment_status': 'pending',
+                    'listing': ListingSerializer(listing, context={'request': request}).data
+                }
+            }
+            
+            return Response(response_data, 200)
+            
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found'
+            }, 404)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': True,
+                'message': f'An error occurred: {str(e)}'
+            }, 500)
+    
+    @swagger_auto_schema(
+        operation_summary="Cancel/Delete a boost",
+        operation_description=(
+            "Cancel or delete a boost for a listing.\n\n"
+            "**Note:** Only pending or inactive boosts can be deleted. "
+            "Active paid boosts cannot be deleted (contact support for refunds)."
+        ),
+        responses={
+            200: openapi.Response(
+                description='Boost deleted successfully',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'message': 'Boost cancelled successfully'
+                    }
+                }
+            ),
+            400: openapi.Response(description='Cannot delete active boost'),
+            404: openapi.Response(description='Boost not found')
+        },
+        tags=['Boost']
+    )
+    def delete(self, request, listing_id):
+        from ..models import ListingBoost
+        
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            listing = dealer.listings.get(uuid=listing_id)
+            
+            if not hasattr(listing, 'listing_boost'):
+                return Response({
+                    'error': True,
+                    'message': 'No boost found for this listing'
+                }, 404)
+            
+            boost = listing.listing_boost
+            
+            # Don't allow deletion of active paid boosts
+            if boost.payment_status == 'paid' and boost.is_active():
+                return Response({
+                    'error': True,
+                    'message': 'Cannot delete an active paid boost. Please contact support for refunds.'
+                }, 400)
+            
+            boost.delete()
+            
+            return Response({
+                'error': False,
+                'message': 'Boost cancelled successfully'
+            }, 200)
+            
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found'
+            }, 404)
+        except Listing.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Listing not found or does not belong to you'
+            }, 404)
+
+
+class ConfirmBoostPaymentView(APIView):
+    """View for confirming boost payment"""
+    allowed_methods = ['POST']
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
+    
+    @swagger_auto_schema(
+        operation_summary="Confirm boost payment",
+        operation_description=(
+            "Confirm payment for a boost after successful payment processing.\n\n"
+            "This endpoint should be called after payment is verified through your payment gateway."
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['boost_id', 'payment_reference'],
+            properties={
+                'boost_id': openapi.Schema(type=openapi.TYPE_INTEGER, example=123),
+                'payment_reference': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    example='PAY-123456789',
+                    description='Payment reference from payment gateway'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Payment confirmed',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'message': 'Payment confirmed. Your listing is now boosted!',
+                        'data': {
+                            'boost_id': 123,
+                            'active': True,
+                            'days_remaining': 14
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(description='Invalid payment or boost'),
+            404: openapi.Response(description='Boost not found')
+        },
+        tags=['Boost']
+    )
+    def post(self, request):
+        from .serializers import ListingBoostSerializer
+        from ..models import ListingBoost
+        
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            boost_id = request.data.get('boost_id')
+            payment_reference = request.data.get('payment_reference')
+            
+            if not boost_id or not payment_reference:
+                return Response({
+                    'error': True,
+                    'message': 'boost_id and payment_reference are required'
+                }, 400)
+            
+            boost = ListingBoost.objects.get(id=boost_id, dealer=dealer)
+            
+            if boost.payment_status == 'paid':
+                return Response({
+                    'error': True,
+                    'message': 'Payment already confirmed for this boost'
+                }, 400)
+            
+            # Update payment status
+            boost.payment_status = 'paid'
+            boost.payment_reference = payment_reference
+            boost.save()  # This will auto-update active status
+            
+            return Response({
+                'error': False,
+                'message': 'Payment confirmed. Your listing is now boosted!',
+                'data': ListingBoostSerializer(boost).data
+            }, 200)
+            
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found'
+            }, 404)
+        except ListingBoost.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Boost not found or does not belong to you'
+            }, 404)
+        except Exception as e:
+            return Response({
+                'error': True,
+                'message': f'An error occurred: {str(e)}'
+            }, 500)
+
+
+class MyBoostsView(APIView):
+    """View for listing all boosts for a dealer"""
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticated, IsDealerOrStaff]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
+    
+    @swagger_auto_schema(
+        operation_summary="List all boosts",
+        operation_description="Get all boosts (active and inactive) for the authenticated dealer",
+        responses={
+            200: openapi.Response(
+                description='List of boosts',
+                examples={
+                    'application/json': {
+                        'error': False,
+                        'data': {
+                            'active_boosts': [],
+                            'inactive_boosts': [],
+                            'total_active': 0,
+                            'total_inactive': 0
+                        }
+                    }
+                }
+            )
+        },
+        tags=['Boost']
+    )
+    def get(self, request):
+        from .serializers import ListingBoostSerializer
+        from ..models import ListingBoost
+        
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            boosts = ListingBoost.objects.filter(dealer=dealer).order_by('-date_created')
+            
+            active_boosts = [b for b in boosts if b.is_active()]
+            inactive_boosts = [b for b in boosts if not b.is_active()]
+            
+            data = {
+                'error': False,
+                'data': {
+                    'active_boosts': ListingBoostSerializer(active_boosts, many=True).data,
+                    'inactive_boosts': ListingBoostSerializer(inactive_boosts, many=True).data,
+                    'total_active': len(active_boosts),
+                    'total_inactive': len(inactive_boosts)
+                }
+            }
+            return Response(data, 200)
+            
+        except Dealership.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Dealership profile not found'
+            }, 404)
