@@ -10,6 +10,7 @@ from utils import (
 from rest_framework.parsers import (
     MultiPartParser,
     JSONParser,
+    FormParser,
 )
 from rest_framework.decorators import (
     authentication_classes,
@@ -413,7 +414,7 @@ class ListingsView(ListAPIView):
 
 class CreateListingView(CreateAPIView):
     allowed_methods = ['POST']
-    parser_classes = [MultiPartParser, JSONParser]
+    parser_classes = [MultiPartParser, JSONParser, FormParser]
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
     serializer_class = CreateListingSerializer
@@ -622,6 +623,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
     authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
+    parser_classes = [MultiPartParser, JSONParser, FormParser]
     serializer_class = ListingSerializer
     
     def get_object(self):
@@ -811,7 +813,7 @@ class OrderListView(ListAPIView):
 class SettingsView(APIView):
     allowed_methods = ['PUT', 'POST', 'GET']
     permission_classes = [IsAuthenticated, IsDealerOrStaff]
-    parser_classes = [MultiPartParser, JSONParser]
+    parser_classes = [MultiPartParser, JSONParser, FormParser]
 
     @swagger_auto_schema(
         operation_summary="Get dealership settings",
