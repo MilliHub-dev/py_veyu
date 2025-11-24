@@ -1,4 +1,5 @@
 from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
 # Import views
 from .views import (
@@ -8,6 +9,7 @@ from .views import (
     CartView,
     NotificationView,
     VerifyEmailUnauthenticatedView,
+    LocationViewSet,
 )
 from .test_views import TestEmailView
 from .document_views import (
@@ -26,9 +28,16 @@ from .auth_urls import urlpatterns as auth_urls
 
 app_name = 'accounts_api'
 
+# Create router for viewsets
+router = DefaultRouter()
+router.register(r'locations', LocationViewSet, basename='location')
+
 urlpatterns = [
     # Authentication endpoints (login, register, password reset, etc.)
     path('', include(auth_urls)),
+    
+    # Location endpoints (viewset routes)
+    path('', include(router.urls)),
     
     # Business verification
     path('verify-business/', BusinessVerificationView.as_view(), name='verify-business'),

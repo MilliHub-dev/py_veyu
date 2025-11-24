@@ -70,6 +70,7 @@ from ..models import (
     UserProfile,
     Location,
 )
+from rest_framework import viewsets
 from .serializers import (
     AccountSerializer,
     LoginSerializer,
@@ -85,6 +86,7 @@ from .serializers import (
     SignupSerializer,
     GetDealershipSerializer,
     ListingSerializer,
+    LocationSerializer,
 )
 from listings.api.serializers import OrderSerializer
 from .filters import (
@@ -2018,3 +2020,109 @@ class NotificationView(APIView):
         }
         return Response(data, 200)
 
+
+
+class LocationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing user locations.
+    
+    Supports:
+    - POST /api/v1/locations/ - Create new location
+    - GET /api/v1/locations/ - List user's locations
+    - GET /api/v1/locations/{id}/ - Retrieve specific location
+    - PUT /api/v1/locations/{id}/ - Update location
+    - PATCH /api/v1/locations/{id}/ - Partial update location
+    - DELETE /api/v1/locations/{id}/ - Delete location
+    """
+    serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    
+    def get_queryset(self):
+        """Return only locations belonging to the authenticated user"""
+        return Location.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        """Automatically associate location with authenticated user"""
+        serializer.save(user=self.request.user)
+    
+    @swagger_auto_schema(
+        operation_summary="Create a new location",
+        operation_description=(
+            "Create a new location for the authenticated user.\n\n"
+            "**Required Fields:**\n"
+            "- `state`: State/province (min 2 characters)\n"
+            "- `address`: Street address (min 5 characters)\n\n"
+            "**Optional Fields:**\n"
+            "- `country`: Country code (default: 'NG')\n"
+            "- `city`: City name\n"
+            "- `zip_code`: Postal code\n"
+            "- `lat`: Latitude (-90 to 90)\n"
+            "- `lng`: Longitude (-180 to 180)\n"
+            "- `google_place_id`: Google Places ID\n\n"
+            "**Authentication Required:** Yes"
+        ),
+        responses={
+            201: openapi.Response(
+                description="Location created successfully",
+                schema=LocationSerializer
+            ),
+            400: "Validation error"
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_summary="List user's locations",
+        operation_description="Retrieve all locations belonging to the authenticated user.",
+        responses={200: LocationSerializer(many=True)}
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_summary="Retrieve a location",
+        operation_description="Get details of a specific location.",
+        responses={
+            200: LocationSerializer,
+            404: "Location not found"
+        }
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_summary="Update a location",
+        operation_description="Update all fields of a location.",
+        responses={
+            200: LocationSerializer,
+            400: "Validation error",
+            404: "Location not found"
+        }
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_summary="Partially update a location",
+        operation_description="Update specific fields of a location.",
+        responses={
+            200: LocationSerializer,
+            400: "Validation error",
+            404: "Location not found"
+        }
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_summary="Delete a location",
+        operation_description="Delete a location.",
+        responses={
+            204: "Location deleted successfully",
+            404: "Location not found"
+        }
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)

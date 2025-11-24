@@ -4,6 +4,7 @@ from ..models import (
     Dealer,
     Mechanic,
     PayoutInformation,
+    Location,
 )
 from feedback.api.serializers import (
     RatingSerializer,
@@ -821,3 +822,96 @@ class MechanicUpdateSerializer(serializers.ModelSerializer):
             'business_type': {'required': False},
         }
 
+
+
+class LocationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Location model.
+    Handles creation and updates of user location data.
+    """
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    full_address = serializers.CharField(read_only=True)
+    has_coordinates = serializers.BooleanField(read_only=True)
+    coordinates = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        model = Location
+        fields = [
+            'id', 'user', 'country', 'state', 'city', 'address', 
+            'zip_code', 'lat', 'lng', 'google_place_id', 
+            'full_address', 'has_coordinates', 'coordinates',
+            'date_created', 'last_updated'
+        ]
+        read_only_fields = ['id', 'user', 'date_created', 'last_updated']
+        extra_kwargs = {
+            'state': {'required': True},
+            'address': {'required': True},
+            'country': {'required': False},
+            'city': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'zip_code': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'lat': {'required': False, 'allow_null': True},
+            'lng': {'required': False, 'allow_null': True},
+            'google_place_id': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+    
+    def get_coordinates(self, obj):
+        """Return coordinates as a dict or None"""
+        if obj.has_coordinates:
+            return {
+                'lat': float(obj.lat),
+                'lng': float(obj.lng)
+            }
+        return None
+    
+    def validate(self, attrs):
+        """Validate location data"""
+        # Ensure state is at least 2 characters
+        state = attrs.get('state', '')
+        if state and len(state.strip()) < 2:
+            raise serializers.ValidationError({
+                'state': 'State name must be at least 2 characters long'
+            })
+        
+        # Ensure address is at least 5 characters
+        address = attrs.get('address', '')
+        if address and len(address.strip()) < 5:
+            raise serializers.ValidationError({
+                'address': 'Address must be at least 5 characters long'
+            })
+        
+        # Validate coordinates if provided
+        lat = attrs.get('lat')
+        lng = attrs.get('lng')
+        
+        if lat is not None:
+            try:
+                lat_val = float(lat)
+                if not (-90 <= lat_val <= 90):
+                    raise serializers.ValidationError({
+                        'lat': 'Latitude must be between -90 and 90'
+                    })
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({
+                    'lat': 'Enter a valid latitude'
+                })
+        
+        if lng is not None:
+            try:
+                lng_val = float(lng)
+                if not (-180 <= lng_val <= 180):
+                    raise serializers.ValidationError({
+                        'lng': 'Longitude must be between -180 and 180'
+                    })
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({
+                    'lng': 'Enter a valid longitude'
+                })
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Create location and associate with authenticated user"""
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['user'] = request.user
+        return super().create(validated_data)
