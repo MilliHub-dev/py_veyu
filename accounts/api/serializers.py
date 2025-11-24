@@ -290,6 +290,7 @@ class GetDealershipSerializer(ModelSerializer):
     logo = SerializerMethodField()
     verification_status = SerializerMethodField()
     account_status = SerializerMethodField()
+    services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
 
     class Meta:
@@ -299,7 +300,7 @@ class GetDealershipSerializer(ModelSerializer):
             'verified_phone_number', 'account_status',
             'verified_business', 'verified_tin', 'verification_status',
             'offers_rental', 'offers_purchase', 'offers_drivers', 'offers_trade_in',
-            'extended_services'
+            'services', 'extended_services'
         ]
 
     def get_logo(self, obj):
@@ -323,6 +324,7 @@ class DealershipSerializer(ModelSerializer):
     location = StringRelatedField()
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
+    services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
 
     class Meta:

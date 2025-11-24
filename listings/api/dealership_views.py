@@ -1051,107 +1051,105 @@ class SettingsView(APIView):
             else:
                 logger.debug("No services provided in request, skipping service updates")
             
-            try:
+            # Update dealer profile fields (only if provided)
+            # Handle logo upload
+            logo_file = request.FILES.get('logo') or data.get('logo')
+            if logo_file:
+                logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
+                logger.info(f"Logo file type: {type(logo_file)}, size: {getattr(logo_file, 'size', 'N/A')}")
+                dealer.logo = logo_file
+            else:
+                logger.info(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
+            
+            # Update fields only if provided
+            if 'business_name' in data:
+                dealer.business_name = data['business_name']
+            if 'about' in data:
+                dealer.about = data['about']
+            if 'slug' in data:
+                dealer.slug = data.get('slug', None)
+            if 'headline' in data:
+                dealer.headline = data['headline']
+            
+            # Apply service mappings from processor (only if services were provided and processed)
+            if 'services' in data and service_updates is not None:
+                dealer.offers_purchase = service_updates['offers_purchase']
+                dealer.offers_rental = service_updates['offers_rental']
+                dealer.offers_drivers = service_updates['offers_drivers']
+                dealer.offers_trade_in = service_updates['offers_trade_in']
                 
-                # Update dealer profile fields (only if provided)
-                # Handle logo upload
-                logo_file = request.FILES.get('logo') or data.get('logo')
-                if logo_file:
-                    logger.info(f"Logo file detected for {dealer.business_name}: {logo_file}")
-                    logger.info(f"Logo file type: {type(logo_file)}, size: {getattr(logo_file, 'size', 'N/A')}")
-                    dealer.logo = logo_file
-                else:
-                    logger.info(f"No logo file in request. FILES keys: {list(request.FILES.keys())}, DATA keys: {list(data.keys())}")
-                
-                # Update fields only if provided
-                if 'business_name' in data:
-                    dealer.business_name = data['business_name']
-                if 'about' in data:
-                    dealer.about = data['about']
-                if 'slug' in data:
-                    dealer.slug = data.get('slug', None)
-                if 'headline' in data:
-                    dealer.headline = data['headline']
-                
-                # Apply service mappings from processor (only if services were provided and processed)
-                if 'services' in data and service_updates is not None:
-                    dealer.offers_purchase = service_updates['offers_purchase']
-                    dealer.offers_rental = service_updates['offers_rental']
-                    dealer.offers_drivers = service_updates['offers_drivers']
-                    dealer.offers_trade_in = service_updates['offers_trade_in']
-                    
-                    # Handle extended services if the field exists
-                    if hasattr(dealer, 'extended_services'):
-                        dealer.extended_services = service_updates['extended_services']
-                
-                if 'contact_phone' in data:
-                    dealer.contact_phone = data['contact_phone']
-                if 'contact_email' in data:
-                    dealer.contact_email = data['contact_email']
-                
-                # Handle location update if provided
-                if 'location' in data and data['location']:
-                    from accounts.models import Location
-                    try:
-                        location_id = int(data['location'])
-                        location = Location.objects.get(id=location_id, user=request.user)
-                        dealer.location = location
-                        logger.info(f"Updated location for dealership {dealer.business_name} to location ID {location_id}")
-                    except Location.DoesNotExist:
-                        logger.warning(f"Location ID {data['location']} not found for user {request.user.email}")
-                        return Response({
-                            'error': True,
-                            'message': 'Invalid location ID. Location not found or does not belong to you.',
-                            'details': {
-                                'field_errors': {
-                                    'location': ['Location not found or access denied']
-                                }
+                # Handle extended services if the field exists
+                if hasattr(dealer, 'extended_services'):
+                    dealer.extended_services = service_updates['extended_services']
+            
+            if 'contact_phone' in data:
+                dealer.contact_phone = data['contact_phone']
+            if 'contact_email' in data:
+                dealer.contact_email = data['contact_email']
+            
+            # Handle location update if provided
+            if 'location' in data and data['location']:
+                from accounts.models import Location
+                try:
+                    location_id = int(data['location'])
+                    location = Location.objects.get(id=location_id, user=request.user)
+                    dealer.location = location
+                    logger.info(f"Updated location for dealership {dealer.business_name} to location ID {location_id}")
+                except Location.DoesNotExist:
+                    logger.warning(f"Location ID {data['location']} not found for user {request.user.email}")
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid location ID. Location not found or does not belong to you.',
+                        'details': {
+                            'field_errors': {
+                                'location': ['Location not found or access denied']
                             }
-                        }, status=400)
-                    except (ValueError, TypeError):
-                        logger.warning(f"Invalid location ID format: {data['location']}")
-                        return Response({
-                            'error': True,
-                            'message': 'Invalid location ID format. Must be an integer.',
-                            'details': {
-                                'field_errors': {
-                                    'location': ['Invalid location ID format']
-                                }
+                        }
+                    }, status=400)
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid location ID format: {data['location']}")
+                    return Response({
+                        'error': True,
+                        'message': 'Invalid location ID format. Must be an integer.',
+                        'details': {
+                            'field_errors': {
+                                'location': ['Invalid location ID format']
                             }
-                        }, status=400)
-                
-                dealer.save()
-                
-                # Log logo status after save
-                if logo_file:
-                    logger.info(f"Logo saved successfully for {dealer.business_name}. New logo URL: {dealer.logo.url if dealer.logo else 'None'}")
-                
-                # Log successful update
-                if service_updates:
-                    mapped_services = sum([
-                        dealer.offers_purchase,
-                        dealer.offers_rental, 
-                        dealer.offers_drivers,
-                        dealer.offers_trade_in
-                    ])
-                    extended_count = len(service_updates.get('extended_services', []))
-                    logger.info(f"Successfully updated dealership {dealer.business_name}: {mapped_services} core services, {extended_count} extended services")
-                else:
-                    logger.info(f"Successfully updated dealership {dealer.business_name} (no service changes)")
-                
-                response_data = {
-                    'error': False,
-                    'data': DealerSerializer(dealer, context={'request': request}).data
+                        }
+                    }, status=400)
+            
+            dealer.save()
+            
+            # Log logo status after save
+            if logo_file:
+                logger.info(f"Logo saved successfully for {dealer.business_name}. New logo URL: {dealer.logo.url if dealer.logo else 'None'}")
+            
+            # Log successful update
+            if service_updates:
+                mapped_services = sum([
+                    dealer.offers_purchase,
+                    dealer.offers_rental, 
+                    dealer.offers_drivers,
+                    dealer.offers_trade_in
+                ])
+                extended_count = len(service_updates.get('extended_services', []))
+                logger.info(f"Successfully updated dealership {dealer.business_name}: {mapped_services} core services, {extended_count} extended services")
+            else:
+                logger.info(f"Successfully updated dealership {dealer.business_name} (no service changes)")
+            
+            response_data = {
+                'error': False,
+                'data': DealerSerializer(dealer, context={'request': request}).data
+            }
+            
+            # Include debug information if there were unmapped services
+            if unmapped_services and suggestions:
+                response_data['warnings'] = {
+                    'unmapped_services': unmapped_services,
+                    'suggestions': suggestions[:5]  # Provide up to 5 suggestions
                 }
-                
-                # Include debug information if there were unmapped services
-                if unmapped_services and suggestions:
-                    response_data['warnings'] = {
-                        'unmapped_services': unmapped_services,
-                        'suggestions': suggestions[:5]  # Provide up to 5 suggestions
-                    }
-                
-                return Response(response_data, 200)
+            
+            return Response(response_data, 200)
             
         except Dealership.DoesNotExist:
             logger.error(f"Dealership profile not found for user {request.user.email}")
