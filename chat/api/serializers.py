@@ -44,11 +44,11 @@ class ChatMemberSerializer(ModelSerializer):
 
 	def get_name(self, obj):
 		if obj.user_type == 'dealer':
-			if hasattr(obj, 'dealership') and obj.dealership.business_name:
-				return obj.dealership.business_name
+			if hasattr(obj, 'dealership_profile') and obj.dealership_profile.business_name:
+				return obj.dealership_profile.business_name
 		elif obj.user_type == 'mechanic':
-			if hasattr(obj, 'mechanic') and obj.mechanic.business_name:
-				return obj.mechanic.business_name
+			if hasattr(obj, 'mechanic_profile') and obj.mechanic_profile.business_name:
+				return obj.mechanic_profile.business_name
 		return obj.name
 
 	def get_image(self, obj):
@@ -56,14 +56,14 @@ class ChatMemberSerializer(ModelSerializer):
 		request = self.context.get('request', None)
 		if not request: return url
 		if obj.user_type == 'customer':
-			if hasattr(obj, 'customer') and obj.customer.image:
-				url= request.build_absolute_uri(obj.customer.image.url)
+			if hasattr(obj, 'customer_profile') and obj.customer_profile.image:
+				url= request.build_absolute_uri(obj.customer_profile.image.url)
 		elif obj.user_type == 'dealer':
-			if hasattr(obj, 'dealership') and obj.dealership.logo:
-				url= request.build_absolute_uri(obj.dealership.logo.url)
+			if hasattr(obj, 'dealership_profile') and obj.dealership_profile.logo:
+				url= request.build_absolute_uri(obj.dealership_profile.logo.url)
 		elif obj.user_type == 'mechanic':
-			if hasattr(obj, 'mechanic') and obj.mechanic.logo:
-				url= request.build_absolute_uri(obj.mechanic.logo.url)
+			if hasattr(obj, 'mechanic_profile') and obj.mechanic_profile.logo:
+				url= request.build_absolute_uri(obj.mechanic_profile.logo.url)
 		return url
 
 
@@ -106,18 +106,18 @@ class ChatRoomListSerializer(ModelSerializer):
 		}
 
 		if other_person.user_type == 'customer':
-			if hasattr(other_person, 'customer') and other_person.customer.image:
-				data['image'] = request.build_absolute_uri(other_person.customer.image.url)
+			if hasattr(other_person, 'customer_profile') and other_person.customer_profile.image:
+				data['image'] = request.build_absolute_uri(other_person.customer_profile.image.url)
 		elif other_person.user_type == 'dealer':
-			if hasattr(other_person, 'dealership'):
-				data['name'] = other_person.dealership.business_name
-				if other_person.dealership.logo:
-					data['image'] = request.build_absolute_uri(other_person.dealership.logo.url)
+			if hasattr(other_person, 'dealership_profile'):
+				data['name'] = other_person.dealership_profile.business_name
+				if other_person.dealership_profile.logo:
+					data['image'] = request.build_absolute_uri(other_person.dealership_profile.logo.url)
 		elif other_person.user_type == 'mechanic':
-			if hasattr(other_person, 'mechanic'):
-				data['name'] = other_person.mechanic.business_name
-				if other_person.mechanic.logo:
-					data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url)
+			if hasattr(other_person, 'mechanic_profile'):
+				data['name'] = other_person.mechanic_profile.business_name
+				if other_person.mechanic_profile.logo:
+					data['image'] = request.build_absolute_uri(other_person.mechanic_profile.logo.url)
 		return data
 
 
