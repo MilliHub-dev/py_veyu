@@ -642,22 +642,31 @@ class CheckoutView(APIView):
         tags=["Listings"],
     )
     def get(self, request, *args, **kwargs):
+        from listings.models import PlatformFeeSettings
+        
         listing = Listing.objects.get(uuid=kwargs['listingId'])
         
-        # Calculate inspection fee (5% of listing price or fixed amount)
-        inspection_fee = 0
-        if listing.price:
-            # Use 5% of price or minimum of 10,000 NGN
-            inspection_fee = max(float(listing.price) * 0.05, 10000)
+        # Get active fee settings
+        fee_settings = PlatformFeeSettings.get_active_settings()
+        
+        # Calculate fees
+        listing_price = float(listing.price) if listing.price else 0
+        tax = fee_settings.calculate_tax(listing_price) if listing_price else 0
+        inspection_fee = fee_settings.calculate_inspection_fee(listing_price) if listing_price else 0
+        service_fee = fee_settings.calculate_service_fee(listing_price) if listing_price else 0
+        
+        # Calculate total
+        total = listing_price + tax + inspection_fee + service_fee
         
         data = {
             'error': False,
-            'total': 0,
+            'listing_price': listing_price,
             'fees': {
-                'tax': (0.075 * float(listing.price)) if listing.price else 0,
-                'inspection_fee': inspection_fee,
-                'veyu_fee': (0.02 * float(listing.price)) if listing.price else 0,
+                'tax': round(tax, 2),
+                'inspection_fee': round(inspection_fee, 2),
+                'service_fee': round(service_fee, 2),
             },
+            'total': round(total, 2),
             'listing': ListingSerializer(listing, context={'request': request}).data,
         }
         return Response(data)

@@ -17,6 +17,7 @@ from .models import (
     PurchaseOffer,
     BoostPricing,
     ListingBoost,
+    PlatformFeeSettings,
 )
 
 
@@ -164,6 +165,35 @@ class ListingBoostAdmin(admin.ModelAdmin):
         return self.readonly_fields
 
 
+class PlatformFeeSettingsAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'service_fee_percentage', 'inspection_fee_percentage', 
+                    'tax_percentage', 'is_active', 'effective_date']
+    list_filter = ['is_active', 'effective_date']
+    list_editable = ['is_active']
+    readonly_fields = ['effective_date']
+    
+    fieldsets = (
+        ('Service Fee', {
+            'fields': ('service_fee_percentage', 'service_fee_fixed')
+        }),
+        ('Inspection Fee', {
+            'fields': ('inspection_fee_percentage', 'inspection_fee_minimum', 'inspection_fee_maximum')
+        }),
+        ('Tax', {
+            'fields': ('tax_percentage',)
+        }),
+        ('Status', {
+            'fields': ('is_active', 'effective_date')
+        }),
+    )
+    
+    def has_delete_permission(self, request, obj=None):
+        # Allow deletion of inactive settings only
+        if obj and obj.is_active:
+            return False
+        return True
+
+
 veyu_admin.register(Listing, ListingAdmin)
 veyu_admin.register(RentalOrder, CarRentalAdmin)
 veyu_admin.register(Order, OrderAdmin)
@@ -180,4 +210,5 @@ veyu_admin.register(Bike, BikeAdmin)
 veyu_admin.register(OrderInspection)
 veyu_admin.register(BoostPricing, BoostPricingAdmin)
 veyu_admin.register(ListingBoost, ListingBoostAdmin)
+veyu_admin.register(PlatformFeeSettings, PlatformFeeSettingsAdmin)
 

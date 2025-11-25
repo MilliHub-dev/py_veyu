@@ -738,3 +738,99 @@ class TradeInRequest(DbModel):
         verbose_name_plural = 'Trade-in Requests'
 
 
+
+
+
+class PlatformFeeSettings(DbModel):
+    """
+    Admin-configurable platform fees for transactions.
+    Only one active instance should exist at a time.
+    """
+    # Service/Platform fee (Veyu fee)
+    service_fee_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=2.00,
+        help_text="Platform service fee as percentage (e.g., 2.00 for 2%)"
+    )
+    service_fee_fixed = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Fixed service fee amount in NGN (added to percentage)"
+    )
+    
+    # Inspection fee
+    inspection_fee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=5.00,
+        help_text="Inspection fee as percentage of listing price (e.g., 5.00 for 5%)"
+    )
+    inspection_fee_minimum = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=10000,
+        help_text="Minimum inspection fee in NGN"
+    )
+    inspection_fee_maximum = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=100000,
+        help_text="Maximum inspection fee in NGN (0 for no limit)"
+    )
+    
+    # Tax
+    tax_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=7.5,
+        help_text="Tax percentage (e.g., 7.5 for 7.5% VAT)"
+    )
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    effective_date = models.DateTimeField(default=timezone.now)
+    
+    class Meta:
+        verbose_name = "Platform Fee Settings"
+        verbose_name_plural = "Platform Fee Settings"
+        ordering = ['-effective_date']
+    
+    def __str__(self):
+        status = "Active" if self.is_active else "Inactive"
+        return f"Fee Settings ({status}) - Service: {self.service_fee_percentage}%, Inspection: {self.inspection_fee_percentage}%"
+    
+    def calculate_service_fee(self, amount):
+        """Calculate service fee for a given amount"""
+        percentage_fee = (Decimal(amount) * self.service_fee_percentage) / 100
+        return float(percentage_fee + self.service_fee_fixed)
+    
+    def calculate_inspection_fee(self, listing_price):
+        """Calculate inspection fee for a listing"""
+        percentage_fee = (Decimal(listing_price) * self.inspection_fee_percentage) / 100
+        fee = max(float(percentage_fee), float(self.inspection_fee_minimum))
+        
+        if self.inspection_fee_maximum > 0:
+            fee = min(fee, float(self.inspection_fee_maximum))
+        
+        return fee
+    
+    def calculate_tax(self, amount):
+        """Calculate tax for a given amount"""
+        return float((Decimal(amount) * self.tax_percentage) / 100)
+    
+    @classmethod
+    def get_active_settings(cls):
+        """Get the currently active fee settings"""
+        settings = cls.objects.filter(is_active=True).first()
+        if not settings:
+            # Create default settings if none exist
+            settings = cls.objects.create(is_active=True)
+        return settings
+    
+    def save(self, *args, **kwargs):
+        # If this is being set as active, deactivate all others
+        if self.is_active:
+            PlatformFeeSettings.objects.filter(is_active=True).update(is_active=False)
+        super().save(*args, **kwargs)

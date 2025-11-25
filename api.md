@@ -882,6 +882,39 @@ GET /api/v1/listings/my-listings/
 
 ### 2.4 Checkout
 
+#### Get Checkout Summary
+```http
+GET /api/v1/listings/checkout/{listingId}/
+```
+**Description:** Get pricing breakdown including all fees and total amount for a listing.
+
+**Response:**
+```json
+{
+  "error": false,
+  "listing_price": 5000000,
+  "fees": {
+    "tax": 375000,
+    "inspection_fee": 250000,
+    "service_fee": 100000
+  },
+  "total": 5725000,
+  "listing": {
+    "uuid": "listing-uuid",
+    "title": "2020 Toyota Camry",
+    "price": 5000000
+  }
+}
+```
+
+**Fee Calculation:**
+- **Tax**: Configurable percentage (default 7.5% VAT)
+- **Inspection Fee**: Configurable percentage with min/max limits (default 5% with ₦10,000 min)
+- **Service Fee**: Platform fee - configurable percentage + fixed amount (default 2%)
+- **Total**: Listing price + all fees
+
+**Note:** All fees are configurable by administrators through the Platform Fee Settings in the admin panel.
+
 #### Checkout Listing
 ```http
 POST /api/v1/listings/checkout/{listingId}/
