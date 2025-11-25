@@ -643,12 +643,19 @@ class CheckoutView(APIView):
     )
     def get(self, request, *args, **kwargs):
         listing = Listing.objects.get(uuid=kwargs['listingId'])
+        
+        # Calculate inspection fee (5% of listing price or fixed amount)
+        inspection_fee = 0
+        if listing.price:
+            # Use 5% of price or minimum of 10,000 NGN
+            inspection_fee = max(float(listing.price) * 0.05, 10000)
+        
         data = {
             'error': False,
             'total': 0,
             'fees': {
                 'tax': (0.075 * float(listing.price)) if listing.price else 0,
-                'inspection_fee': get_inspection_fee(listing) if listing.price else 0,
+                'inspection_fee': inspection_fee,
                 'veyu_fee': (0.02 * float(listing.price)) if listing.price else 0,
             },
             'listing': ListingSerializer(listing, context={'request': request}).data,
