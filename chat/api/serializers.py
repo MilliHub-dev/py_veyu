@@ -106,16 +106,18 @@ class ChatRoomListSerializer(ModelSerializer):
 		}
 
 		if other_person.user_type == 'customer':
-			if other_person.customer.image:
+			if hasattr(other_person, 'customer') and other_person.customer.image:
 				data['image'] = request.build_absolute_uri(other_person.customer.image.url)
 		elif other_person.user_type == 'dealer':
-			data['name'] = other_person.dealership.business_name
-			if other_person.dealership.logo:
-				data['image'] = request.build_absolute_uri(other_person.dealership.logo.url)
+			if hasattr(other_person, 'dealer'):
+				data['name'] = other_person.dealer.business_name
+				if other_person.dealer.logo:
+					data['image'] = request.build_absolute_uri(other_person.dealer.logo.url)
 		elif other_person.user_type == 'mechanic':
-			data['name'] = other_person.mechanic.business_name
-			if other_person.mechanic.logo:
-				data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url)
+			if hasattr(other_person, 'mechanic'):
+				data['name'] = other_person.mechanic.business_name
+				if other_person.mechanic.logo:
+					data['image'] = request.build_absolute_uri(other_person.mechanic.logo.url)
 		return data
 
 

@@ -431,6 +431,10 @@ class CartView(views.APIView):
 
     def post(self, request, *args, **kwargs):
         action = request.data.get('action', None)
+        
+        # Log the incoming request for debugging
+        logger.info(f"Cart POST - Action: '{action}', Data: {request.data}, Content-Type: {request.content_type}")
+        
         customer = Customer.objects.get(user=request.user)
         cart = customer.cart
 
