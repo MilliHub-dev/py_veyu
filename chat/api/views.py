@@ -37,37 +37,66 @@ def send_message_view(request, room_id=None):
 	room = None
 	other_member = None
 
-	if data['other_member'] == 'dealer':
-		other_member = Dealership.objects.get(uuid=data['dealer_id']).user
-	elif data['other_member'] == 'mechanic':
-		other_member = Mechanic.objects.get(uuid=data['mechanic_id']).user
-	elif data['other_member'] == 'customer':
-		other_member = Customer.objects.get(uuid=data['customer_id']).user
+	# Handle case where room_id is provided (existing chat)
+	if room_id is not None:
+		try:
+			room = ChatRoom.objects.get(uuid=room_id)
+		except ChatRoom.DoesNotExist:
+			return Response({'error': True, 'message': 'Chat room not found'}, 404)
+	else:
+		# For new chats, we need other_member info
+		other_member_type = data.get('other_member')
+		
+		if not other_member_type:
+			return Response({'error': True, 'message': 'other_member field is required for new chats'}, 400)
+		
+		try:
+			if other_member_type == 'dealer':
+				dealer_id = data.get('dealer_id')
+				if not dealer_id:
+					return Response({'error': True, 'message': 'dealer_id is required'}, 400)
+				other_member = Dealership.objects.get(uuid=dealer_id).user
+			elif other_member_type == 'mechanic':
+				mechanic_id = data.get('mechanic_id')
+				if not mechanic_id:
+					return Response({'error': True, 'message': 'mechanic_id is required'}, 400)
+				other_member = Mechanic.objects.get(uuid=mechanic_id).user
+			elif other_member_type == 'customer':
+				customer_id = data.get('customer_id')
+				if not customer_id:
+					return Response({'error': True, 'message': 'customer_id is required'}, 400)
+				other_member = Customer.objects.get(uuid=customer_id).user
+			else:
+				return Response({'error': True, 'message': 'Invalid other_member type'}, 400)
+		except (Dealership.DoesNotExist, Mechanic.DoesNotExist, Customer.DoesNotExist):
+			return Response({'error': True, 'message': 'Recipient not found'}, 404)
 
-	members = [request.user, other_member]
-	member_ids = [member.id for member in members]
-	
-	print("Members:", members)
-	if room_id is None:
+		members = [request.user, other_member]
+		
+		# Try to find existing room
 		try:
 			room = ChatRoom.objects.filter(members__in=[request.user]).get(members=other_member.id)
-			print("Room:", room)
 		except ChatRoom.DoesNotExist:
 			room = ChatRoom.objects.create(room_type='sales-chat')
 			room.members.add(*members)
 			room.save()
-	else:
-		room = ChatRoom.objects.get(uuid=room_id)
 
+	# Validate message content
+	message_text = data.get('message')
+	if not message_text:
+		return Response({'error': True, 'message': 'message field is required'}, 400)
+
+	# Create and save message
 	message = ChatMessage.objects.create(
 		room=room,
 		sender=request.user,
 		message_type='user',
-		text=data['message']
+		text=message_text
 	)
 	room.messages.add(message,)
 	room.save()
-	return Response({'error': False, 'message': 'Message sent!'}, 200)
+	
+	return Response({'error': False, 'message': 'Message sent!', 'data': {'room_id': str(room.uuid)}}, 200)
 
 
 @permission_classes([IsAuthenticated])
