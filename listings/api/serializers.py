@@ -183,6 +183,10 @@ class CreateVehicleSerializer(serializers.ModelSerializer):
 class ListingSerializer(ModelSerializer):
     vehicle = VehicleSerializer()
     cycle = serializers.SerializerMethodField()
+    total_views = serializers.SerializerMethodField()
+    date_listed = serializers.SerializerMethodField()
+    total_reviews = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
@@ -190,6 +194,35 @@ class ListingSerializer(ModelSerializer):
 
     def get_cycle(self, obj):
         return obj.get_payment_cycle_display()
+    
+    def get_total_views(self, obj):
+        """Returns total number of viewers"""
+        return obj.viewers.count()
+    
+    def get_date_listed(self, obj):
+        """Returns the date when listing was created"""
+        return obj.date_created.isoformat() if obj.date_created else None
+    
+    def get_total_reviews(self, obj):
+        """Returns total number of reviews for this listing"""
+        from feedback.models import Review
+        return Review.objects.filter(
+            object_type='vehicle',
+            related_object=obj.uuid
+        ).count()
+    
+    def get_average_rating(self, obj):
+        """Returns average rating from all reviews"""
+        from feedback.models import Review
+        reviews = Review.objects.filter(
+            object_type='vehicle',
+            related_object=obj.uuid
+        )
+        if not reviews.exists():
+            return 0.0
+        
+        total_rating = sum(review.avg_rating for review in reviews)
+        return round(total_rating / reviews.count(), 1) if reviews.count() > 0 else 0.0
 
 
 class CreateListingSerializer(ModelSerializer):
