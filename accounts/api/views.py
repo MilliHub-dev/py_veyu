@@ -434,13 +434,44 @@ class CartView(views.APIView):
         customer = Customer.objects.get(user=request.user)
         cart = customer.cart
 
-        if action == "remove-from-cart":
-            item = cart.get(uuid=request.data['item'])
-            cart.remove(item)
-            customer.save()
-            return Response({'error': False, 'message': 'Successfully removed from your cart'})
+        if action == "add-to-cart":
+            listing_id = request.data.get('listing_id')
+            if not listing_id:
+                return Response({'error': True, 'message': 'listing_id is required'}, status=400)
+            
+            try:
+                from listings.models import Listing
+                listing = Listing.objects.get(uuid=listing_id)
+                
+                # Check if already in cart
+                if cart.filter(uuid=listing_id).exists():
+                    return Response({'error': False, 'message': 'Item already in cart'}, status=200)
+                
+                # Add to cart
+                cart.add(listing)
+                customer.save()
+                return Response({'error': False, 'message': 'Successfully added to cart'}, status=200)
+            
+            except Listing.DoesNotExist:
+                return Response({'error': True, 'message': 'Listing not found'}, status=404)
+            except Exception as e:
+                return Response({'error': True, 'message': str(e)}, status=400)
+
+        elif action == "remove-from-cart":
+            item_id = request.data.get('item')
+            if not item_id:
+                return Response({'error': True, 'message': 'item is required'}, status=400)
+            
+            try:
+                item = cart.get(uuid=item_id)
+                cart.remove(item)
+                customer.save()
+                return Response({'error': False, 'message': 'Successfully removed from your cart'}, status=200)
+            except Exception as e:
+                return Response({'error': True, 'message': 'Item not found in cart'}, status=404)
+        
         else:
-            return Response({'error': True, 'message': 'Invalid action parameter!'}, status=400)
+            return Response({'error': True, 'message': 'Invalid action parameter! Use "add-to-cart" or "remove-from-cart"'}, status=400)
 
 
 class UpdateProfileView(views.APIView):

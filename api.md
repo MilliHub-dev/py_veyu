@@ -745,15 +745,59 @@ GET /api/v1/accounts/otp/system/status/
 
 ### 1.7 Cart & Notifications
 
-#### Get/Update Cart
+#### Get Cart
 ```http
-GET/POST /api/v1/accounts/cart/
+GET /api/v1/accounts/cart/
 ```
-**Add to Cart:**
+**Response:**
 ```json
 {
-  "listing_id": "uuid",
-  "quantity": 1
+  "error": false,
+  "message": "Loaded your cart",
+  "data": {
+    "cars": [],
+    "rentals": [],
+    "bookings": [],
+    "orders": []
+  }
+}
+```
+
+#### Add to Cart
+```http
+POST /api/v1/accounts/cart/
+```
+**Request:**
+```json
+{
+  "action": "add-to-cart",
+  "listing_id": "listing-uuid-here"
+}
+```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Successfully added to cart"
+}
+```
+
+#### Remove from Cart
+```http
+POST /api/v1/accounts/cart/
+```
+**Request:**
+```json
+{
+  "action": "remove-from-cart",
+  "item": "listing-uuid-here"
+}
+```
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Successfully removed from your cart"
 }
 ```
 
