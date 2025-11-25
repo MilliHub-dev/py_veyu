@@ -23,6 +23,7 @@ from rest_framework.authentication import (
     TokenAuthentication,
     SessionAuthentication
 )
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import (
     BasePermission,
     IsAuthenticated,
@@ -529,7 +530,7 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
 class BuyListingDetailView(RetrieveAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticated,]
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
     allowed_methods = ['GET', 'POST']
     lookup_field = 'uuid'
     queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
