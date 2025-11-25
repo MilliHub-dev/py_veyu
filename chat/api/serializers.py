@@ -44,10 +44,10 @@ class ChatMemberSerializer(ModelSerializer):
 
 	def get_name(self, obj):
 		if obj.user_type == 'dealer':
-			if obj.dealership.business_name:
+			if hasattr(obj, 'dealership') and obj.dealership.business_name:
 				return obj.dealership.business_name
 		elif obj.user_type == 'mechanic':
-			if obj.mechanic.business_name:
+			if hasattr(obj, 'mechanic') and obj.mechanic.business_name:
 				return obj.mechanic.business_name
 		return obj.name
 
@@ -56,13 +56,13 @@ class ChatMemberSerializer(ModelSerializer):
 		request = self.context.get('request', None)
 		if not request: return url
 		if obj.user_type == 'customer':
-			if obj.customer.image:
+			if hasattr(obj, 'customer') and obj.customer.image:
 				url= request.build_absolute_uri(obj.customer.image.url)
 		elif obj.user_type == 'dealer':
-			if obj.dealership.logo:
+			if hasattr(obj, 'dealership') and obj.dealership.logo:
 				url= request.build_absolute_uri(obj.dealership.logo.url)
 		elif obj.user_type == 'mechanic':
-			if obj.mechanic.logo:
+			if hasattr(obj, 'mechanic') and obj.mechanic.logo:
 				url= request.build_absolute_uri(obj.mechanic.logo.url)
 		return url
 
