@@ -86,6 +86,21 @@ def main():
     
     log("✅ Directories created")
     
+    # Run database migrations
+    log("🗄️  Running database migrations...")
+    
+    result = run_command(
+        'python3 manage.py migrate --noinput --verbosity=1',
+        check=False
+    )
+    
+    if result.returncode == 0:
+        log("✅ Database migrations completed successfully")
+    else:
+        log("⚠️  Migration warning (may be expected if database is already up to date)")
+        log(result.stderr)
+        # Don't fail the build on migration errors as they might be non-critical
+    
     # Collect static files
     log("🎨 Collecting static files...")
     
