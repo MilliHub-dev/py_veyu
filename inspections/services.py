@@ -819,6 +819,76 @@ class DocumentManagementService:
         }
 
 
+class InspectionFeeService:
+    """
+    Service for calculating inspection fees
+    """
+    
+    # Base fees for different inspection types (in NGN)
+    BASE_FEES = {
+        'pre_purchase': 50000.00,      # ₦50,000
+        'pre_rental': 30000.00,         # ₦30,000
+        'maintenance': 25000.00,        # ₦25,000
+        'insurance': 40000.00,          # ₦40,000
+    }
+    
+    @classmethod
+    def calculate_inspection_fee(cls, inspection_type: str, vehicle=None) -> float:
+        """
+        Calculate inspection fee based on type and vehicle
+        
+        Args:
+            inspection_type: Type of inspection
+            vehicle: Optional vehicle object for additional calculations
+            
+        Returns:
+            Calculated fee amount
+        """
+        base_fee = cls.BASE_FEES.get(inspection_type, 30000.00)
+        
+        # Future: Add vehicle-based adjustments
+        # if vehicle:
+        #     if vehicle.price > 10000000:  # High-value vehicles
+        #         base_fee *= 1.5
+        
+        return float(base_fee)
+    
+    @classmethod
+    def get_fee_quote(cls, inspection_type: str, vehicle_id: int = None) -> Dict:
+        """
+        Get a fee quote for an inspection
+        
+        Returns:
+            Dictionary with fee breakdown
+        """
+        from listings.models import Vehicle
+        
+        vehicle = None
+        vehicle_info = None
+        
+        if vehicle_id:
+            try:
+                vehicle = Vehicle.objects.get(id=vehicle_id)
+                vehicle_info = {
+                    'id': vehicle.id,
+                    'name': vehicle.name,
+                    'brand': vehicle.brand,
+                    'model': vehicle.model,
+                }
+            except Vehicle.DoesNotExist:
+                pass
+        
+        base_fee = cls.calculate_inspection_fee(inspection_type, vehicle)
+        
+        return {
+            'inspection_type': inspection_type,
+            'base_fee': base_fee,
+            'vehicle_info': vehicle_info,
+            'total_fee': base_fee,
+            'currency': 'NGN'
+        }
+
+
 class InspectionValidationService:
     """
     Service for validating inspection data and business logic

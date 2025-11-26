@@ -83,11 +83,25 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         """Set default values when creating inspection"""
+        from .services import InspectionFeeService
+        
+        # Calculate inspection fee
+        inspection_type = serializer.validated_data.get('inspection_type')
+        vehicle = serializer.validated_data.get('vehicle')
+        inspection_fee = InspectionFeeService.calculate_inspection_fee(inspection_type, vehicle)
+        
         # Auto-assign inspector if user is a mechanic
         if getattr(self.request.user, 'user_type', None) == 'mechanic':
-            serializer.save(inspector=self.request.user)
+            serializer.save(
+                inspector=self.request.user,
+                inspection_fee=inspection_fee,
+                status='pending_payment'
+            )
         else:
-            serializer.save()
+            serializer.save(
+                inspection_fee=inspection_fee,
+                status='pending_payment'
+            )
 
 
 class VehicleInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -571,5 +585,262 @@ def inspection_validation(request):
         logger.error(f"Error validating inspection data: {str(e)}")
         return Response(
             {'error': 'Failed to validate inspection data'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def get_inspection_quote(request):
+    """
+    Get fee quote for an inspection
+    """
+    from .serializers import InspectionQuoteSerializer, InspectionQuoteResponseSerializer
+    from .services import InspectionFeeService
+    
+    try:
+        serializer = InspectionQuoteSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        inspection_type = serializer.validated_data['inspection_type']
+        vehicle_id = serializer.validated_data.get('vehicle_id')
+        
+        # Get fee quote
+        quote = InspectionFeeService.get_fee_quote(inspection_type, vehicle_id)
+        
+        response_serializer = InspectionQuoteResponseSerializer(quote)
+        
+        return Response({
+            'success': True,
+            'data': response_serializer.data,
+            'message': 'Fee quote generated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting inspection quote: {str(e)}")
+        return Response(
+            {'error': 'Failed to get inspection quote'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def pay_for_inspection(request, inspection_id):
+    """
+    Process payment for an inspection
+    """
+    from .serializers import InspectionPaymentSerializer
+    from wallet.models import Wallet, Transaction
+    from wallet.gateway.payment_adapter import PaystackAdapter
+    from django.db import transaction as db_transaction
+    import uuid
+    
+    try:
+        inspection = get_object_or_404(VehicleInspection, id=inspection_id)
+        
+        # Check if user is the customer
+        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+            return Response(
+                {'error': 'Only the customer can pay for this inspection'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if already paid
+        if inspection.is_paid:
+            return Response(
+                {'error': 'Inspection has already been paid for'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate payment data
+        serializer = InspectionPaymentSerializer(
+            data=request.data,
+            context={'inspection': inspection}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        payment_method = serializer.validated_data['payment_method']
+        amount = serializer.validated_data['amount']
+        
+        if payment_method == 'wallet':
+            # Process wallet payment
+            with db_transaction.atomic():
+                customer_wallet = get_object_or_404(Wallet, user=request.user)
+                
+                # Check balance
+                if customer_wallet.balance < amount:
+                    return Response(
+                        {
+                            'error': 'Insufficient wallet balance',
+                            'available_balance': float(customer_wallet.balance),
+                            'required_amount': float(amount)
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Create transaction
+                payment_transaction = Transaction.objects.create(
+                    sender=request.user.name,
+                    sender_wallet=customer_wallet,
+                    recipient='Veyu Inspection Service',
+                    type='payment',
+                    amount=amount,
+                    status='completed',
+                    source='wallet',
+                    narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
+                    related_inspection=inspection
+                )
+                
+                # Deduct from wallet
+                customer_wallet.ledger_balance -= amount
+                customer_wallet.transactions.add(payment_transaction)
+                customer_wallet.save()
+                
+                # Mark inspection as paid
+                inspection.mark_paid(payment_transaction, payment_method='wallet')
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'inspection_id': inspection.id,
+                        'transaction_id': payment_transaction.id,
+                        'amount_paid': float(amount),
+                        'payment_method': payment_method,
+                        'payment_status': inspection.payment_status,
+                        'inspection_status': inspection.get_status_display(),
+                        'paid_at': inspection.paid_at,
+                        'remaining_balance': float(customer_wallet.balance)
+                    },
+                    'message': 'Payment successful. Inspection can now begin.'
+                })
+        
+        elif payment_method == 'bank':
+            # Initiate Paystack payment
+            # Generate unique reference
+            uid = str(uuid.uuid4())
+            parts = uid.split('-')
+            reference = f'veyu-inspection-{inspection.id}-' + ''.join(parts[1:3])
+            
+            # Store pending transaction
+            payment_transaction = Transaction.objects.create(
+                sender=request.user.name,
+                recipient='Veyu Inspection Service',
+                type='payment',
+                amount=amount,
+                status='pending',
+                source='bank',
+                tx_ref=reference,
+                narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
+                related_inspection=inspection
+            )
+            
+            # Return payment initialization data for frontend
+            return Response({
+                'success': True,
+                'data': {
+                    'payment_method': 'bank',
+                    'amount': float(amount),
+                    'inspection_id': inspection.id,
+                    'transaction_id': payment_transaction.id,
+                    'reference': reference,
+                    'email': request.user.email,
+                    'currency': 'NGN',
+                    'callback_url': f'{request.build_absolute_uri("/api/v1/inspections/")}{inspection.id}/verify-payment/',
+                },
+                'message': 'Initialize Paystack payment on frontend with the provided reference'
+            })
+        
+    except Exception as e:
+        logger.error(f"Error processing payment for inspection {inspection_id}: {str(e)}")
+        return Response(
+            {'error': 'Failed to process payment'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def verify_inspection_payment(request, inspection_id):
+    """
+    Verify Paystack payment for inspection
+    """
+    from wallet.models import Wallet, Transaction
+    from wallet.gateway.payment_adapter import PaystackAdapter
+    from django.db import transaction as db_transaction
+    
+    try:
+        inspection = get_object_or_404(VehicleInspection, id=inspection_id)
+        
+        # Check if user is the customer
+        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+            return Response(
+                {'error': 'Only the customer can verify payment for this inspection'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get reference from request
+        reference = request.data.get('reference')
+        if not reference:
+            return Response(
+                {'error': 'Payment reference is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify with Paystack
+        gateway = PaystackAdapter()
+        verification_response = gateway.verify_transaction(reference)
+        
+        if verification_response.get('status') == 'success':
+            # Payment successful
+            with db_transaction.atomic():
+                # Get the pending transaction
+                payment_transaction = Transaction.objects.filter(
+                    tx_ref=reference,
+                    related_inspection=inspection,
+                    status='pending'
+                ).first()
+                
+                if not payment_transaction:
+                    return Response(
+                        {'error': 'Transaction not found'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                # Update transaction status
+                payment_transaction.status = 'completed'
+                payment_transaction.save()
+                
+                # Mark inspection as paid
+                inspection.mark_paid(payment_transaction, payment_method='bank')
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'inspection_id': inspection.id,
+                        'transaction_id': payment_transaction.id,
+                        'amount_paid': float(payment_transaction.amount),
+                        'payment_method': 'bank',
+                        'payment_status': inspection.payment_status,
+                        'inspection_status': inspection.get_status_display(),
+                        'paid_at': inspection.paid_at,
+                        'reference': reference
+                    },
+                    'message': 'Payment verified successfully. Inspection can now begin.'
+                })
+        else:
+            # Payment failed
+            return Response({
+                'success': False,
+                'error': 'Payment verification failed',
+                'message': verification_response.get('message', 'Unable to verify payment')
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        logger.error(f"Error verifying payment for inspection {inspection_id}: {str(e)}")
+        return Response(
+            {'error': 'Failed to verify payment'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

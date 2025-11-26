@@ -79,13 +79,15 @@ class VehicleInspectionListSerializer(serializers.ModelSerializer):
     inspection_type_display = serializers.CharField(source='get_inspection_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     overall_rating_display = serializers.CharField(source='get_overall_rating_display', read_only=True)
+    payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
     
     class Meta:
         model = VehicleInspection
         fields = [
             'id', 'vehicle_name', 'inspector_name', 'customer_name', 'dealer_name',
             'inspection_type', 'inspection_type_display', 'status', 'status_display',
-            'overall_rating', 'overall_rating_display', 'inspection_date', 'completed_at'
+            'overall_rating', 'overall_rating_display', 'inspection_date', 'completed_at',
+            'inspection_fee', 'payment_status', 'payment_status_display', 'paid_at'
         ]
 
 
@@ -110,10 +112,12 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
             'overall_rating', 'overall_rating_display', 'exterior_data', 'interior_data',
             'engine_data', 'mechanical_data', 'safety_data', 'documentation_data',
             'inspector_notes', 'recommended_actions', 'inspection_date', 'completed_at',
+            'inspection_fee', 'payment_status', 'payment_method', 'paid_at',
             'photos', 'documents', 'inspection_summary'
         ]
         read_only_fields = [
             'id', 'inspection_type_display', 'status_display', 'overall_rating_display',
+            'inspection_fee', 'payment_status', 'payment_method', 'paid_at',
             'photos', 'documents', 'inspection_summary'
         ]
     
@@ -271,3 +275,43 @@ class InspectionStatsSerializer(serializers.Serializer):
     inspections_by_type = serializers.DictField()
     inspections_by_status = serializers.DictField()
     recent_inspections = VehicleInspectionListSerializer(many=True)
+
+
+class InspectionPaymentSerializer(serializers.Serializer):
+    """Serializer for inspection payment requests"""
+    payment_method = serializers.ChoiceField(
+        choices=['wallet', 'bank'],
+        default='wallet',
+        help_text="Payment method: wallet or bank"
+    )
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Payment amount"
+    )
+    
+    def validate_amount(self, value):
+        """Validate payment amount matches inspection fee"""
+        inspection = self.context.get('inspection')
+        if inspection and value != inspection.inspection_fee:
+            raise serializers.ValidationError(
+                f"Payment amount must match inspection fee of ₦{inspection.inspection_fee:,.2f}"
+            )
+        return value
+
+
+class InspectionQuoteSerializer(serializers.Serializer):
+    """Serializer for inspection fee quote"""
+    inspection_type = serializers.ChoiceField(
+        choices=['pre_purchase', 'pre_rental', 'maintenance', 'insurance']
+    )
+    vehicle_id = serializers.IntegerField(required=False, allow_null=True)
+    
+    
+class InspectionQuoteResponseSerializer(serializers.Serializer):
+    """Serializer for inspection fee quote response"""
+    inspection_type = serializers.CharField()
+    base_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    vehicle_info = serializers.DictField(required=False)
+    total_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField(default='NGN')

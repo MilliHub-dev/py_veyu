@@ -27,7 +27,15 @@ This creates the logo at `static/images/veyu-logo.png`
 
 ## Features
 
-### 1. Vehicle Inspection Management
+### 1. Payment Integration (NEW)
+- **Pay-before-inspection** model
+- Automatic fee calculation based on inspection type
+- Wallet payment integration
+- Transaction tracking and receipts
+- Payment status monitoring
+- Fee quotes before booking
+
+### 2. Vehicle Inspection Management
 - Create and manage vehicle inspections
 - Support for multiple inspection types (pre-purchase, pre-rental, maintenance, insurance)
 - Comprehensive inspection data collection (exterior, interior, engine, mechanical, safety)
@@ -35,14 +43,14 @@ This creates the logo at `static/images/veyu-logo.png`
 - Inspector notes and recommendations
 - Overall rating calculation
 
-### 2. PDF Document Generation
+### 3. PDF Document Generation
 - Generate professional inspection reports in PDF format
 - Multiple template types (standard, detailed, legal compliance)
 - Customizable report content (photos, recommendations)
 - Multi-language support
 - Legal compliance features
 
-### 3. Digital Signature Integration
+### 4. Digital Signature Integration
 - Multi-party signature support (inspector, customer, dealer)
 - Signature validation and verification
 - Tamper-proof signature storage
@@ -50,7 +58,7 @@ This creates the logo at `static/images/veyu-logo.png`
 - Signature status tracking
 - Rate limiting and security features
 
-### 4. Frontend Integration APIs
+### 5. Frontend Integration APIs
 - Simplified endpoints for frontend applications
 - Inspection data collection
 - Document preview generation
@@ -58,7 +66,7 @@ This creates the logo at `static/images/veyu-logo.png`
 - Real-time status updates
 - Form schema for dynamic form generation
 
-### 5. Document Management System
+### 6. Document Management System
 - Secure document storage with access controls
 - Document versioning and history
 - Comprehensive audit trail
@@ -67,6 +75,18 @@ This creates the logo at `static/images/veyu-logo.png`
 - Document sharing and permission management
 
 ## API Endpoints
+
+### Payment Endpoints (NEW)
+
+#### Get Fee Quote
+```
+POST /api/v1/inspections/quote/
+```
+
+#### Pay for Inspection
+```
+POST /api/v1/inspections/{inspection_id}/pay/
+```
 
 ### Inspection Endpoints
 

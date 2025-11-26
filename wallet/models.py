@@ -185,6 +185,7 @@ class Transaction(DbModel):
     # optional if not paying for a car, rental or service on veyu
     related_order = models.ForeignKey('listings.Order', blank=True, null=True, on_delete=models.CASCADE, related_name='order_transactions')
     related_booking = models.ForeignKey('bookings.ServiceBooking', blank=True, null=True, on_delete=models.CASCADE, related_name='booking_transactions')
+    related_inspection = models.ForeignKey('inspections.VehicleInspection', blank=True, null=True, on_delete=models.CASCADE, related_name='inspection_transactions')
 
     def __str__(self):
         return f"{self.get_type_display()}: ₦{self.amount:,.2f} - {self.get_status_display()} ({self.date_created.strftime('%d/%m/%Y %H:%M')})"

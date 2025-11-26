@@ -28,6 +28,11 @@ urlpatterns = [
     # Validation utilities
     path('validate/', views.inspection_validation, name='inspection-validation'),
     
+    # Payment endpoints
+    path('quote/', views.get_inspection_quote, name='inspection-quote'),
+    path('<int:inspection_id>/pay/', views.pay_for_inspection, name='inspection-pay'),
+    path('<int:inspection_id>/verify-payment/', views.verify_inspection_payment, name='inspection-verify-payment'),
+    
     # Digital signature endpoints
     path('signatures/', include('inspections.signature_urls')),
     

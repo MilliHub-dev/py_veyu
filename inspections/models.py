@@ -21,11 +21,19 @@ class VehicleInspection(DbModel):
     ]
     
     STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
         ('draft', 'Draft'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
         ('signed', 'Signed'),
         ('archived', 'Archived'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('unpaid', 'Unpaid'),
+        ('paid', 'Paid'),
+        ('refunded', 'Refunded'),
+        ('failed', 'Failed'),
     ]
     
     CONDITION_CHOICES = [
@@ -43,8 +51,15 @@ class VehicleInspection(DbModel):
     
     # Inspection metadata
     inspection_type = models.CharField(max_length=20, choices=INSPECTION_TYPES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_payment')
     overall_rating = models.CharField(max_length=20, choices=CONDITION_CHOICES, blank=True, null=True)
+    
+    # Payment fields
+    inspection_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Inspection fee amount")
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
+    payment_method = models.CharField(max_length=20, blank=True, null=True, help_text="Payment method used (wallet, bank)")
+    payment_transaction = models.ForeignKey('wallet.Transaction', null=True, blank=True, on_delete=models.SET_NULL, related_name='inspection_payments')
+    paid_at = models.DateTimeField(blank=True, null=True, help_text="Timestamp when payment was completed")
     
     # Inspection data (stored as JSON for flexibility)
     exterior_data = models.JSONField(default=dict, blank=True)
@@ -78,10 +93,29 @@ class VehicleInspection(DbModel):
         """Check if inspection requires signatures"""
         return self.status == 'completed'
     
+    @property
+    def is_paid(self):
+        """Check if inspection fee is paid"""
+        return self.payment_status == 'paid'
+    
+    @property
+    def can_start_inspection(self):
+        """Check if inspection can be started (payment completed)"""
+        return self.is_paid and self.status in ['pending_payment', 'draft']
+    
     def mark_completed(self):
         """Mark inspection as completed"""
         self.status = 'completed'
         self.completed_at = timezone.now()
+        self.save()
+    
+    def mark_paid(self, transaction, payment_method='wallet'):
+        """Mark inspection as paid"""
+        self.payment_status = 'paid'
+        self.payment_transaction = transaction
+        self.payment_method = payment_method
+        self.paid_at = timezone.now()
+        self.status = 'draft'  # Move to draft after payment
         self.save()
     
     def get_inspection_summary(self):
