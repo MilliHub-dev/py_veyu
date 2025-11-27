@@ -3,6 +3,7 @@ from django.utils.html import format_html
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 from .models import Wallet, Transaction
 from utils.admin import veyu_admin
 
@@ -50,19 +51,25 @@ class WalletAdmin(admin.ModelAdmin):
     user_name.short_description = 'User Name'
     
     def formatted_ledger_balance(self, obj):
-        return format_html('<strong>₦{:,.2f}</strong>', float(obj.ledger_balance))
+        amount = Decimal(str(obj.ledger_balance))
+        formatted = f'₦{amount:,.2f}'
+        return format_html('<strong>{}</strong>', formatted)
     formatted_ledger_balance.short_description = 'Ledger Balance'
     formatted_ledger_balance.admin_order_field = 'ledger_balance'
     
     def formatted_available_balance(self, obj):
         color = 'green' if obj.balance > 0 else 'red'
-        return format_html('<span style="color: {};">₦{:,.2f}</span>', color, float(obj.balance))
+        amount = Decimal(str(obj.balance))
+        formatted = f'₦{amount:,.2f}'
+        return format_html('<span style="color: {};">{}</span>', color, formatted)
     formatted_available_balance.short_description = 'Available Balance'
     
     def formatted_locked_amount(self, obj):
         locked = obj.locked_amount
         if locked > 0:
-            return format_html('<span style="color: orange;">₦{:,.2f}</span>', float(locked))
+            amount = Decimal(str(locked))
+            formatted = f'₦{amount:,.2f}'
+            return format_html('<span style="color: orange;">{}</span>', formatted)
         return '₦0.00'
     formatted_locked_amount.short_description = 'Locked Amount'
     
@@ -75,16 +82,20 @@ class WalletAdmin(admin.ModelAdmin):
         total_payments = transactions.filter(type='payment', status='completed').aggregate(Sum('amount'))['amount__sum'] or 0
         pending_count = transactions.filter(status='pending').count()
         
+        deposits_fmt = f'₦{Decimal(str(total_deposits)):,.2f}'
+        withdrawals_fmt = f'₦{Decimal(str(total_withdrawals)):,.2f}'
+        payments_fmt = f'₦{Decimal(str(total_payments)):,.2f}'
+        
         return format_html(
             '<div style="line-height: 1.8;">'
-            '<strong>Total Deposits:</strong> ₦{:,.2f}<br>'
-            '<strong>Total Withdrawals:</strong> ₦{:,.2f}<br>'
-            '<strong>Total Payments:</strong> ₦{:,.2f}<br>'
+            '<strong>Total Deposits:</strong> {}<br>'
+            '<strong>Total Withdrawals:</strong> {}<br>'
+            '<strong>Total Payments:</strong> {}<br>'
             '<strong>Pending Transactions:</strong> {}'
             '</div>',
-            float(total_deposits),
-            float(total_withdrawals),
-            float(total_payments),
+            deposits_fmt,
+            withdrawals_fmt,
+            payments_fmt,
             pending_count
         )
     transaction_summary.short_description = 'Transaction Summary'
@@ -201,11 +212,13 @@ class TransactionAdmin(admin.ModelAdmin):
     
     def formatted_amount(self, obj):
         """Display formatted amount with direction indicator"""
+        amount = Decimal(str(obj.amount))
+        formatted = f'₦{amount:,.2f}'
         if obj.type in ['deposit', 'transfer_in']:
-            return format_html('<span style="color: green;">+₦{:,.2f}</span>', float(obj.amount))
+            return format_html('<span style="color: green;">+{}</span>', formatted)
         elif obj.type in ['withdraw', 'transfer_out', 'payment', 'charge']:
-            return format_html('<span style="color: red;">-₦{:,.2f}</span>', float(obj.amount))
-        return format_html('₦{:,.2f}', float(obj.amount))
+            return format_html('<span style="color: red;">-{}</span>', formatted)
+        return format_html('{}', formatted)
     formatted_amount.short_description = 'Amount'
     formatted_amount.admin_order_field = 'amount'
     
