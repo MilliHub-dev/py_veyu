@@ -714,7 +714,7 @@ class CheckoutView(APIView):
             
             order_details = {
                 'order_number': f"ORD-{order.uuid}",
-                'order_date': order.created_at.strftime("%B %d, %Y"),
+                'order_date': order.date_created.strftime("%B %d, %Y"),
                 'customer_name': request.user.get_full_name() or request.user.email,
                 'order_status': 'confirmed',
                 'order_items': [{
@@ -738,6 +738,8 @@ class CheckoutView(APIView):
             send_order_confirmation(request.user, order_details)
             
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
             logger.error(f"Failed to send order confirmation email: {str(e)}", exc_info=True)
         return Response({'error': False, 'message': 'Your order was created', 'data': OrderSerializer(order).data}, 200)
 
