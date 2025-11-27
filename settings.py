@@ -327,7 +327,8 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": "Welcome to Veyu Admin!",
     "topmenu_links": [
         {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},  # Direct link to an app
+        {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},
+        {"name": "Wallet", "app": "wallet"},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
