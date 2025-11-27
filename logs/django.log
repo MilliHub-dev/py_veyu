@@ -82,3 +82,9 @@
 [2025-11-27 03:36:30] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
 [2025-11-27 05:18:32] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
 [2025-11-27 05:18:52] INFO [django.channels.server:187] HTTP GET / 301 [0.01, 127.0.0.1:50316]
+[2025-11-27 05:23:45] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\wallet\admin.py changed, reloading.
+[2025-11-27 05:23:54] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-27 05:24:04] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\wallet\admin.py changed, reloading.
+[2025-11-27 05:24:13] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+[2025-11-27 05:24:40] INFO [django.utils.autoreload:265] C:\Users\milli\Downloads\project\py_veyu\wallet\admin.py changed, reloading.
+[2025-11-27 05:24:46] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader

@@ -50,19 +50,19 @@ class WalletAdmin(admin.ModelAdmin):
     user_name.short_description = 'User Name'
     
     def formatted_ledger_balance(self, obj):
-        return format_html('<strong>₦{:,.2f}</strong>', obj.ledger_balance)
+        return format_html('<strong>₦{:,.2f}</strong>', float(obj.ledger_balance))
     formatted_ledger_balance.short_description = 'Ledger Balance'
     formatted_ledger_balance.admin_order_field = 'ledger_balance'
     
     def formatted_available_balance(self, obj):
         color = 'green' if obj.balance > 0 else 'red'
-        return format_html('<span style="color: {};">₦{:,.2f}</span>', color, obj.balance)
+        return format_html('<span style="color: {};">₦{:,.2f}</span>', color, float(obj.balance))
     formatted_available_balance.short_description = 'Available Balance'
     
     def formatted_locked_amount(self, obj):
         locked = obj.locked_amount
         if locked > 0:
-            return format_html('<span style="color: orange;">₦{:,.2f}</span>', locked)
+            return format_html('<span style="color: orange;">₦{:,.2f}</span>', float(locked))
         return '₦0.00'
     formatted_locked_amount.short_description = 'Locked Amount'
     
@@ -82,9 +82,9 @@ class WalletAdmin(admin.ModelAdmin):
             '<strong>Total Payments:</strong> ₦{:,.2f}<br>'
             '<strong>Pending Transactions:</strong> {}'
             '</div>',
-            total_deposits,
-            total_withdrawals,
-            total_payments,
+            float(total_deposits),
+            float(total_withdrawals),
+            float(total_payments),
             pending_count
         )
     transaction_summary.short_description = 'Transaction Summary'
@@ -202,10 +202,10 @@ class TransactionAdmin(admin.ModelAdmin):
     def formatted_amount(self, obj):
         """Display formatted amount with direction indicator"""
         if obj.type in ['deposit', 'transfer_in']:
-            return format_html('<span style="color: green;">+₦{:,.2f}</span>', obj.amount)
+            return format_html('<span style="color: green;">+₦{:,.2f}</span>', float(obj.amount))
         elif obj.type in ['withdraw', 'transfer_out', 'payment', 'charge']:
-            return format_html('<span style="color: red;">-₦{:,.2f}</span>', obj.amount)
-        return format_html('₦{:,.2f}', obj.amount)
+            return format_html('<span style="color: red;">-₦{:,.2f}</span>', float(obj.amount))
+        return format_html('₦{:,.2f}', float(obj.amount))
     formatted_amount.short_description = 'Amount'
     formatted_amount.admin_order_field = 'amount'
     
