@@ -4,9 +4,10 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
 from .models import Wallet, Transaction
+from utils.admin import veyu_admin
 
 
-@admin.register(Wallet)
+@admin.register(Wallet, site=veyu_admin)
 class WalletAdmin(admin.ModelAdmin):
     list_display = [
         'user_email',
@@ -89,7 +90,7 @@ class WalletAdmin(admin.ModelAdmin):
     transaction_summary.short_description = 'Transaction Summary'
 
 
-@admin.register(Transaction)
+@admin.register(Transaction, site=veyu_admin)
 class TransactionAdmin(admin.ModelAdmin):
     list_display = [
         'id',
