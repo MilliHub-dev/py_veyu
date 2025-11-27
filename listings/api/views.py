@@ -688,12 +688,15 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Get payment_option with a sensible default
+        payment_option = data.get('payment_option', 'pay-after-inspection')
+        
         order = Order(
-            payment_option=data.get('payment_option'),
+            payment_option=payment_option,
             customer=customer,
             order_type=listing.listing_type,
             order_item=listing,
-            paid=True if data.get('payment_option') == 'card' else False
+            paid=True if payment_option == 'card' else False
         )
         order.save()
         listing.vehicle.available = False

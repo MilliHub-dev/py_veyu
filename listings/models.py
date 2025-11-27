@@ -289,7 +289,7 @@ class Order(DbModel):
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='customer_orders')
     order_type = models.CharField(max_length=20, choices=ORDER_TYPES)
     order_item = models.ForeignKey('Listing', blank=True, null=True, on_delete=models.CASCADE, related_name='listing_orders')
-    payment_option = models.CharField(max_length=20, choices=PAYMENT_OPTION, default="Not Available")
+    payment_option = models.CharField(max_length=20, choices=PAYMENT_OPTION, default='pay-after-inspection')
     paid = models.BooleanField(default=False)
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
     applied_coupons = models.ManyToManyField('Coupon', blank=True, related_name='coupon_orders')
