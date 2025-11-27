@@ -678,9 +678,19 @@ class CheckoutView(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         listing = Listing.objects.get(uuid=kwargs['listingId'])
+        
+        # Get customer profile - handle case where profile doesn't exist
+        try:
+            customer = request.user.customer_profile
+        except AttributeError:
+            return Response(
+                {'error': 'Customer profile not found. Please complete your profile first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         order = Order(
             payment_option=data.get('payment_option'),
-            customer=request.user.customer,
+            customer=customer,
             order_type=listing.listing_type,
             order_item=listing,
             paid=True if data.get('payment_option') == 'card' else False
@@ -688,12 +698,12 @@ class CheckoutView(APIView):
         order.save()
         listing.vehicle.available = False
         listing.vehicle.save()
-        request.user.customer.orders.add(order,)
+        customer.orders.add(order,)
         listing.vehicle.dealer.orders.add(order,)
-        request.user.customer.save()
+        customer.save()
         listing.vehicle.dealer.save()
 
-        on_checkout_success.send(order, listing=listing, customer=request.user.customer,)
+        on_checkout_success.send(order, listing=listing, customer=customer,)
         # Send order confirmation email using the new template
         try:
             from accounts.utils.email_notifications import send_order_confirmation
@@ -739,9 +749,18 @@ class BookInspectionView(APIView):
     )
     def post(self, request):
         try:
+            # Get customer profile - handle case where profile doesn't exist
+            try:
+                customer = request.user.customer_profile
+            except AttributeError:
+                return Response(
+                    {'error': 'Customer profile not found. Please complete your profile first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = request.data
             listing = Listing.objects.get(uuid=request.data['listing_id'])
-            order = Order.objects.get(customer=request.user.customer, order_item=listing)
+            order = Order.objects.get(customer=customer, order_item=listing)
             order.order_status = 'awaiting-inspection'
             order.save()
             date = django_date(data['date'])
@@ -749,12 +768,11 @@ class BookInspectionView(APIView):
 
             inspection = OrderInspection(
                 order=order,
-                customer=request.user.customer,
+                customer=customer,
                 inspection_date=date,
                 inspection_time=time,
             )
             inspection.save()
-            on_inspection_created.send(request.user.customer, date=date, time=time)
             
             # Send inspection scheduled email using the new template
             try:

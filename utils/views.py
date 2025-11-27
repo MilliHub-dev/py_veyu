@@ -115,12 +115,31 @@ def email_webhook_receiver(request):
 @csrf_exempt
 @api_view(['POST'])
 def payment_webhook(request, **kwargs):
+    """
+    Paystack webhook handler for processing payment events.
+    Handles: charge.success, transfer.success, transfer.failed, transfer.reversed
+    """
+    from wallet.models import Wallet, Transaction
+    from inspections.models import VehicleInspection
+    from listings.models import Order
+    from bookings.models import ServiceBooking
+    from django.contrib.auth import get_user_model
+    from utils.mail import send_email
+    
+    User = get_user_model()
+    
     # Paystack webhook secret key
-    secret = os.environ.get("PAYSTACK_SECRET_KEY", None).encode()
+    secret = os.environ.get("PAYSTACK_SECRET_KEY", None)
+    if not secret:
+        logging.error("PAYSTACK_SECRET_KEY not configured")
+        return Response({'detail': 'Webhook configuration error'}, status=500)
+    
+    secret = secret.encode()
 
     # Get the signature from the header
     signature = request.META.get('HTTP_X_PAYSTACK_SIGNATURE')
     if not signature:
+        logging.warning("Webhook received without signature")
         return Response({'detail': 'Signature missing'}, status=400)
 
     # Get request body and verify signature
@@ -128,26 +147,205 @@ def payment_webhook(request, **kwargs):
     computed_signature = hmac.new(secret, payload, hashlib.sha512).hexdigest()
 
     if not hmac.compare_digest(computed_signature, signature):
+        logging.warning("Invalid webhook signature received")
         return Response({'detail': 'Invalid signature'}, status=400)
 
     # Decode and handle event
-    event = json.loads(payload)
-    event_type = event.get('event')
-    customer = event.get('customer')
-    metadata = event.get['customer']['metadata']
-
-    if event_type == 'charge.success':
-        # Mark order as paid, notify user, send emails, update listings.
-        if metadata['reason'] == 'listing.order.paid':pass
-        elif metadata['reason'] == 'listing.order.paid':pass
-        elif metadata['reason'] == 'listing.order.paid':pass
-    pass
-
-    # for payout
-    if event_type == 'transfer.successful':pass
+    try:
+        event = json.loads(payload)
+        event_type = event.get('event')
+        data = event.get('data', {})
         
-
-    return Response(status=200)
+        logging.info(f"Processing Paystack webhook: {event_type}")
+        
+        # Handle successful charge/payment
+        if event_type == 'charge.success':
+            reference = data.get('reference')
+            amount = data.get('amount', 0) / 100  # Convert from kobo to naira
+            customer_email = data.get('customer', {}).get('email')
+            metadata = data.get('metadata', {})
+            
+            # Get payment purpose from metadata
+            purpose = metadata.get('purpose')  # 'wallet_deposit', 'inspection', 'order', 'booking'
+            related_id = metadata.get('related_id')
+            user_id = metadata.get('user_id')
+            
+            try:
+                user = User.objects.get(id=user_id) if user_id else User.objects.get(email=customer_email)
+                wallet = Wallet.objects.get(user=user)
+                
+                # Check if transaction already exists
+                existing_tx = Transaction.objects.filter(tx_ref=reference).first()
+                if existing_tx:
+                    logging.info(f"Transaction {reference} already processed")
+                    return Response({'status': 'already_processed'}, status=200)
+                
+                # Handle different payment purposes
+                if purpose == 'wallet_deposit':
+                    # Wallet top-up
+                    transaction = Transaction.objects.create(
+                        sender=user.name,
+                        recipient_wallet=wallet,
+                        type='deposit',
+                        source='bank',
+                        amount=amount,
+                        tx_ref=reference,
+                        status='completed',
+                        narration=f'Wallet deposit via Paystack'
+                    )
+                    wallet.ledger_balance += amount
+                    wallet.transactions.add(transaction)
+                    wallet.save()
+                    
+                    # Send notification
+                    send_email(
+                        subject='Wallet Deposit Successful',
+                        recipients=[user.email],
+                        template='wallet_deposit_success',
+                        context={
+                            'user': user,
+                            'amount': amount,
+                            'balance': wallet.balance,
+                            'reference': reference
+                        }
+                    )
+                    
+                elif purpose == 'inspection':
+                    # Inspection payment
+                    inspection = VehicleInspection.objects.get(id=related_id)
+                    transaction = Transaction.objects.create(
+                        sender=user.name,
+                        recipient='Veyu',
+                        type='payment',
+                        source='bank',
+                        amount=amount,
+                        tx_ref=reference,
+                        status='completed',
+                        narration=f'Inspection payment for #{inspection.id}',
+                        related_inspection=inspection
+                    )
+                    
+                    # Update inspection payment status
+                    inspection.mark_paid(transaction, payment_method='bank')
+                    
+                    # Send notification
+                    send_email(
+                        subject='Inspection Payment Confirmed',
+                        recipients=[user.email],
+                        template='inspection_payment_success',
+                        context={
+                            'user': user,
+                            'inspection': inspection,
+                            'amount': amount,
+                            'reference': reference
+                        }
+                    )
+                    
+                elif purpose == 'order':
+                    # Vehicle order payment
+                    order = Order.objects.get(id=related_id)
+                    transaction = Transaction.objects.create(
+                        sender=user.name,
+                        recipient=order.listing.dealer.business_name,
+                        type='payment',
+                        source='bank',
+                        amount=amount,
+                        tx_ref=reference,
+                        status='completed',
+                        narration=f'Order payment for #{order.id}',
+                        related_order=order
+                    )
+                    
+                    # Update order status
+                    order.payment_status = 'paid'
+                    order.save()
+                    
+                elif purpose == 'booking':
+                    # Service booking payment
+                    booking = ServiceBooking.objects.get(id=related_id)
+                    transaction = Transaction.objects.create(
+                        sender=user.name,
+                        recipient='Veyu',
+                        type='payment',
+                        source='bank',
+                        amount=amount,
+                        tx_ref=reference,
+                        status='completed',
+                        narration=f'Booking payment for #{booking.id}',
+                        related_booking=booking
+                    )
+                    
+                    # Update booking status
+                    booking.payment_status = 'paid'
+                    booking.save()
+                
+                logging.info(f"Successfully processed payment: {reference}")
+                
+            except User.DoesNotExist:
+                logging.error(f"User not found for payment: {customer_email}")
+                return Response({'detail': 'User not found'}, status=404)
+            except (VehicleInspection.DoesNotExist, Order.DoesNotExist, ServiceBooking.DoesNotExist) as e:
+                logging.error(f"Related object not found: {str(e)}")
+                return Response({'detail': 'Related object not found'}, status=404)
+            except Exception as e:
+                logging.error(f"Error processing payment webhook: {str(e)}")
+                return Response({'detail': 'Processing error'}, status=500)
+        
+        # Handle successful transfer/payout
+        elif event_type == 'transfer.success':
+            reference = data.get('reference')
+            amount = data.get('amount', 0) / 100
+            recipient_code = data.get('recipient_code')
+            
+            # Update transaction status
+            transaction = Transaction.objects.filter(tx_ref=reference).first()
+            if transaction:
+                transaction.status = 'completed'
+                transaction.save()
+                logging.info(f"Transfer completed: {reference}")
+        
+        # Handle failed transfer
+        elif event_type == 'transfer.failed':
+            reference = data.get('reference')
+            
+            # Update transaction status and refund wallet
+            transaction = Transaction.objects.filter(tx_ref=reference).first()
+            if transaction and transaction.sender_wallet:
+                transaction.status = 'failed'
+                transaction.save()
+                
+                # Refund wallet
+                wallet = transaction.sender_wallet
+                wallet.ledger_balance += transaction.amount
+                wallet.save()
+                
+                logging.info(f"Transfer failed and refunded: {reference}")
+        
+        # Handle reversed transfer
+        elif event_type == 'transfer.reversed':
+            reference = data.get('reference')
+            
+            # Update transaction status and refund wallet
+            transaction = Transaction.objects.filter(tx_ref=reference).first()
+            if transaction and transaction.sender_wallet:
+                transaction.status = 'reversed'
+                transaction.save()
+                
+                # Refund wallet
+                wallet = transaction.sender_wallet
+                wallet.ledger_balance += transaction.amount
+                wallet.save()
+                
+                logging.info(f"Transfer reversed and refunded: {reference}")
+        
+        return Response({'status': 'success'}, status=200)
+        
+    except json.JSONDecodeError:
+        logging.error("Invalid JSON in webhook payload")
+        return Response({'detail': 'Invalid payload'}, status=400)
+    except Exception as e:
+        logging.error(f"Unexpected error in webhook: {str(e)}")
+        return Response({'detail': 'Internal error'}, status=500)
 
 
 @csrf_exempt

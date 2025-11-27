@@ -1,6 +1,7 @@
 """
 Signal handlers for accounts app.
-Handles automatic profile updates when business verification status changes.
+Handles automatic profile updates when business verification status changes
+and auto-creates user profiles based on user type.
 """
 
 import logging
@@ -10,6 +11,50 @@ from django.utils import timezone
 from utils.async_email import send_email_async
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender='accounts.Account')
+def create_user_profile(sender, instance, created, **kwargs):
+    """
+    Automatically create appropriate profile (Customer, Dealership, or Mechanic)
+    when a new Account is created based on user_type.
+    
+    This prevents AttributeError when accessing profile relationships like
+    request.user.customer_profile, request.user.dealership_profile, etc.
+    
+    Args:
+        sender: The model class (Account)
+        instance: The Account instance being saved
+        created: Boolean indicating if this is a new instance
+        **kwargs: Additional keyword arguments
+    """
+    if not created:
+        return
+    
+    try:
+        from accounts.models import Customer, Dealership, Mechanic
+        
+        # Create profile based on user_type
+        if instance.user_type == 'customer':
+            Customer.objects.get_or_create(user=instance)
+            logger.info(f"Created Customer profile for user {instance.email}")
+            
+        elif instance.user_type == 'dealer':
+            Dealership.objects.get_or_create(user=instance)
+            logger.info(f"Created Dealership profile for user {instance.email}")
+            
+        elif instance.user_type == 'mechanic':
+            Mechanic.objects.get_or_create(user=instance)
+            logger.info(f"Created Mechanic profile for user {instance.email}")
+            
+        # Admin and staff don't need profiles
+        
+    except Exception as e:
+        logger.error(
+            f"Failed to create profile for user {instance.email} "
+            f"with user_type '{instance.user_type}': {str(e)}",
+            exc_info=True
+        )
 
 
 @receiver(post_save, sender='accounts.BusinessVerificationSubmission')
