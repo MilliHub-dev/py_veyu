@@ -262,7 +262,7 @@ class PaystackAdapter(PaymentGateway):
 
     def get_banks(self, country="nigeria"):
         headers = {
-            'Authorization': f"Bearer {secret_key}"
+            'Authorization': f"Bearer {self.secret_key}"
         }
         url = "https://api.paystack.co/bank"
 
@@ -272,5 +272,23 @@ class PaystackAdapter(PaymentGateway):
             return data['data']
         else:
             return data
+    
+    def resolve_account(self, account_number, bank_code):
+        """
+        Verify bank account details with Paystack
+        Returns account name if valid
+        """
+        headers = {
+            'Authorization': f"Bearer {self.secret_key}",
+            'Content-Type': 'application/json'
+        }
+        url = f"https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}"
+        
+        try:
+            response = requests.get(url, headers=headers)
+            data = response.json()
+            return data
+        except Exception as error:
+            return {'status': False, 'message': str(error)}
 
 

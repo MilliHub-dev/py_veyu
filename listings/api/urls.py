@@ -12,6 +12,8 @@ from .views import (
     CheckoutDocumentView,
     AllListingsView,
     FeaturedListingsView,
+    UserOrdersView,
+    CancelOrderView,
 )
 
 
@@ -29,6 +31,8 @@ urlpatterns = [
     path('dealer/<uuid>/', DealershipView.as_view(), name='dealer'),
     path('dealer/<slug>/', DealershipView.as_view(), name='dealer'),
     path('my-listings/', MyListingsView.as_view()),
+    path('my-orders/', UserOrdersView.as_view(), name='user-orders'),
+    path('orders/<uuid:order_id>/cancel/', CancelOrderView.as_view(), name='cancel-order'),
     path('buy/<uuid>/', BuyListingDetailView.as_view(), name='buy-listing-detail'),
     path('rentals/<uuid>/', RentListingDetailView.as_view(), name='rental-detail'),
     path('checkout/documents/', CheckoutDocumentView.as_view()),

@@ -10,6 +10,12 @@ from .models import (
     DigitalSignature,
     InspectionTemplate
 )
+# Import revenue admin configurations
+from .admin_revenue import (
+    InspectionRevenueSettingsAdmin,
+    InspectionRevenueSplitAdmin,
+    WithdrawalRequestAdmin
+)
 
 
 @admin.register(VehicleInspection)

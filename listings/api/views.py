@@ -643,6 +643,7 @@ class CheckoutView(APIView):
     )
     def get(self, request, *args, **kwargs):
         from listings.models import PlatformFeeSettings
+        from inspections.models import VehicleInspection
         
         listing = Listing.objects.get(uuid=kwargs['listingId'])
         
@@ -658,6 +659,41 @@ class CheckoutView(APIView):
         # Calculate total
         total = listing_price + tax + inspection_fee + service_fee
         
+        # Check inspection payment status for sale listings
+        inspection_status = None
+        if listing.listing_type == 'sale':
+            try:
+                customer = request.user.customer_profile
+                paid_inspection = VehicleInspection.objects.filter(
+                    vehicle=listing.vehicle,
+                    customer=customer,
+                    payment_status='paid'
+                ).first()
+                
+                if paid_inspection:
+                    inspection_status = {
+                        'paid': True,
+                        'inspection_id': paid_inspection.id,
+                        'status': paid_inspection.status,
+                        'can_proceed': True
+                    }
+                else:
+                    inspection_status = {
+                        'paid': False,
+                        'inspection_id': None,
+                        'status': None,
+                        'can_proceed': False,
+                        'message': 'Inspection payment required before checkout'
+                    }
+            except AttributeError:
+                inspection_status = {
+                    'paid': False,
+                    'inspection_id': None,
+                    'status': None,
+                    'can_proceed': False,
+                    'message': 'Customer profile required'
+                }
+        
         data = {
             'error': False,
             'listing_price': listing_price,
@@ -668,6 +704,7 @@ class CheckoutView(APIView):
             },
             'total': round(total, 2),
             'listing': ListingSerializer(listing, context={'request': request}).data,
+            'inspection_status': inspection_status,
         }
         return Response(data)
 
@@ -687,6 +724,28 @@ class CheckoutView(APIView):
                 {'error': 'Customer profile not found. Please complete your profile first.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # CHECK IF INSPECTION FEE HAS BEEN PAID
+        # For sale listings, inspection payment is REQUIRED before order creation
+        if listing.listing_type == 'sale':
+            from inspections.models import VehicleInspection
+            
+            # Check if there's a paid inspection for this vehicle and customer
+            paid_inspection = VehicleInspection.objects.filter(
+                vehicle=listing.vehicle,
+                customer=customer,
+                payment_status='paid',
+                status__in=['draft', 'in_progress', 'completed', 'signed']
+            ).first()
+            
+            if not paid_inspection:
+                return Response({
+                    'error': 'Inspection payment required',
+                    'message': 'You must pay for and complete a vehicle inspection before placing an order for this vehicle.',
+                    'required_action': 'pay_inspection',
+                    'vehicle_id': listing.vehicle.id,
+                    'listing_id': str(listing.uuid)
+                }, status=status.HTTP_402_PAYMENT_REQUIRED)
         
         # Get payment_option with a sensible default
         payment_option = data.get('payment_option', 'pay-after-inspection')
@@ -1034,3 +1093,109 @@ class CheckoutDocumentView(APIView):
             "",
             "Signed and agreed by both parties on the date above."
         ]
+
+
+class UserOrdersView(ListAPIView):
+    """
+    Get all orders for the authenticated user
+    """
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = OffsetPaginator
+    
+    @swagger_auto_schema(
+        operation_summary="Get user's orders",
+        operation_description="Retrieve all orders placed by the authenticated user",
+        tags=["Orders"],
+    )
+    def get(self, request):
+        user = request.user
+        
+        # Get orders for the user based on their role
+        if hasattr(user, 'customer'):
+            orders = Order.objects.filter(customer=user.customer).order_by('-date_created')
+        else:
+            orders = Order.objects.filter(customer__user=user).order_by('-date_created')
+        
+        # Paginate results
+        paginator = self.pagination_class()
+        paginated_orders = paginator.paginate_queryset(orders, request)
+        
+        serializer = self.serializer_class(paginated_orders, many=True)
+        
+        return Response({
+            'error': False,
+            'message': 'Orders retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'count': orders.count(),
+                'next': paginator.get_next_link(),
+                'previous': paginator.get_previous_link()
+            }
+        }, 200)
+
+
+
+class CancelOrderView(APIView):
+    """
+    Cancel or delete an unpaid order
+    """
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary="Cancel an unpaid order",
+        operation_description="Allows customers to cancel/delete their unpaid orders",
+        tags=["Orders"],
+    )
+    def delete(self, request, order_id):
+        try:
+            # Get the order
+            order = Order.objects.get(uuid=order_id)
+            
+            # Verify the order belongs to the requesting user
+            if hasattr(request.user, 'customer'):
+                if order.customer != request.user.customer:
+                    return Response({
+                        'error': True,
+                        'message': 'You do not have permission to cancel this order'
+                    }, 403)
+            else:
+                if order.customer.user != request.user:
+                    return Response({
+                        'error': True,
+                        'message': 'You do not have permission to cancel this order'
+                    }, 403)
+            
+            # Check if order is already paid
+            if order.paid:
+                return Response({
+                    'error': True,
+                    'message': 'Cannot cancel a paid order. Please contact support for refunds.'
+                }, 400)
+            
+            # Check if order status allows cancellation
+            if order.order_status in ['completed', 'expired']:
+                return Response({
+                    'error': True,
+                    'message': f'Cannot cancel an order with status: {order.get_order_status_display()}'
+                }, 400)
+            
+            # Delete the order
+            order_number = f"ORD-{order.uuid}"
+            order.delete()
+            
+            return Response({
+                'error': False,
+                'message': f'Order {order_number} has been cancelled successfully'
+            }, 200)
+            
+        except Order.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Order not found'
+            }, 404)
+        except Exception as e:
+            return Response({
+                'error': True,
+                'message': f'Failed to cancel order: {str(e)}'
+            }, 500)

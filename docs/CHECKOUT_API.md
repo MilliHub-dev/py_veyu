@@ -44,9 +44,17 @@ Content-Type: application/json
       "model": "Camry"
     },
     // ... other listing details
+  },
+  "inspection_status": {
+    "paid": true,
+    "inspection_id": 123,
+    "status": "completed",
+    "can_proceed": true
   }
 }
 ```
+
+**Note:** For sale listings, `inspection_status` indicates whether the customer has paid for a vehicle inspection. If `can_proceed` is `false`, the customer must pay for an inspection before creating an order.
 
 ### Fee Calculation Details
 
@@ -152,9 +160,101 @@ Fee settings are configurable via Django admin at `/admin/listings/platformfeese
 
 Only one `PlatformFeeSettings` record can be active at a time. The system automatically uses the active settings for all calculations.
 
+## Endpoint: Create Order
+
+Create an order for a listing. **For sale listings, inspection payment is REQUIRED before order creation.**
+
+### Request
+
+```
+POST /api/v1/listings/checkout/{listingId}/
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "payment_option": "pay-after-inspection"
+}
+```
+
+**Payment Options:**
+- `pay-after-inspection` - Payment after inspection (default)
+- `wallet` - Pay from Veyu wallet
+- `card` - Credit/Debit card payment
+- `financial-aid` - Financing aid
+
+### Response
+
+**Success Response (200 OK):**
+
+```json
+{
+  "error": false,
+  "message": "Your order was created",
+  "data": {
+    "id": 456,
+    "uuid": "abc-123-def",
+    "order_type": "sale",
+    "order_status": "pending",
+    "paid": false,
+    "payment_option": "pay-after-inspection",
+    "customer": {...},
+    "order_item": {...}
+  }
+}
+```
+
+**Error Response - Inspection Not Paid (402 Payment Required):**
+
+```json
+{
+  "error": "Inspection payment required",
+  "message": "You must pay for and complete a vehicle inspection before placing an order for this vehicle.",
+  "required_action": "pay_inspection",
+  "vehicle_id": 789,
+  "listing_id": "c87678f6-c930-11f0-a5b2-cdce16ffe435"
+}
+```
+
+**Error Response - No Customer Profile (400 Bad Request):**
+
+```json
+{
+  "error": "Customer profile not found. Please complete your profile first."
+}
+```
+
+### Inspection Payment Requirement
+
+**For Sale Listings:**
+- ✅ Customer MUST pay for vehicle inspection before creating order
+- ✅ Inspection payment is verified via Paystack
+- ✅ Dealer receives 60% of inspection fee
+- ✅ Platform retains 40% of inspection fee
+- ✅ Order creation blocked until inspection is paid
+
+**Workflow:**
+1. Customer views listing
+2. Customer pays for inspection via Paystack
+3. Inspection payment verified and revenue split
+4. Dealer wallet credited with 60%
+5. Customer can now create order ✅
+
+**For Rental Listings:**
+- Inspection payment is optional
+- Order can be created without inspection
+
 ### Related Endpoints
 
-- `POST /api/v1/listings/checkout/{listingId}/` - Create order for listing
+- `GET /api/v1/listings/checkout/{listingId}/` - Get checkout summary
+- `POST /api/v1/inspections/{id}/pay/` - Pay for inspection
+- `POST /api/v1/inspections/{id}/verify-payment/` - Verify inspection payment
 - `GET /api/v1/listings/buy/{uuid}/` - Get listing details
 - `POST /api/v1/listings/checkout/inspection/` - Book inspection
 
@@ -165,3 +265,6 @@ Only one `PlatformFeeSettings` record can be active at a time. The system automa
 3. The endpoint requires authentication
 4. Fee settings can be updated by admins without code changes
 5. If no active fee settings exist, default settings are automatically created
+6. **Inspection payment is REQUIRED for sale listings before order creation**
+7. Inspection payments use Paystack only (no wallet option)
+8. Revenue split is automatic: 60% dealer, 40% platform
