@@ -759,7 +759,8 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": "Welcome to Veyu Admin!",
     "topmenu_links": [
         {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},  # Direct link to an app
+        {"name": "Listings", "app": "listings", "models": ['Listing', 'Order']},
+        {"name": "Wallet", "app": "wallet"},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
@@ -768,13 +769,16 @@ JAZZMIN_SETTINGS = {
         "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",
         "listings.Listing": "fas fa-car",
+        "wallet": "fas fa-wallet",
+        "wallet.Wallet": "fas fa-wallet",
+        "wallet.Transaction": "fas fa-exchange-alt",
     },
     "hide_models": [
         'listings.VehicleCategories',
         'listings.VehicleTags',
         'listings.PurchaseOffers',
     ],
-    "order_with_respect_to": ["auth", "listings.Listing"],
+    "order_with_respect_to": ["auth", "wallet", "listings.Listing"],
     "custom_links": {
     },
 }
