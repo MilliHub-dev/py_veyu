@@ -1,4 +1,5 @@
 import os, json, base64
+import requests
 from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
 import decimal
@@ -725,30 +726,98 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # CHECK IF INSPECTION FEE HAS BEEN PAID
-        # For sale listings, inspection payment is REQUIRED before order creation
-        if listing.listing_type == 'sale':
-            from inspections.models import VehicleInspection
-            
-            # Check if there's a paid inspection for this vehicle and customer
-            paid_inspection = VehicleInspection.objects.filter(
-                vehicle=listing.vehicle,
-                customer=customer,
-                payment_status='paid',
-                status__in=['draft', 'in_progress', 'completed', 'signed']
-            ).first()
-            
-            if not paid_inspection:
-                return Response({
-                    'error': 'Inspection payment required',
-                    'message': 'You must pay for and complete a vehicle inspection before placing an order for this vehicle.',
-                    'required_action': 'pay_inspection',
-                    'vehicle_id': listing.vehicle.id,
-                    'listing_id': str(listing.uuid)
-                }, status=status.HTTP_402_PAYMENT_REQUIRED)
-        
         # Get payment_option with a sensible default
         payment_option = data.get('payment_option', 'pay-after-inspection')
+        payment_reference = data.get('payment_reference')  # Paystack reference
+        
+        # CHECK IF INSPECTION FEE HAS BEEN PAID
+        # For sale listings with pay-after-inspection option
+        if listing.listing_type == 'sale' and payment_option == 'pay-after-inspection':
+            from inspections.models import VehicleInspection
+            import requests
+            
+            # If payment reference is provided, verify and create inspection payment
+            if payment_reference:
+                # Verify payment with Paystack
+                paystack_secret = settings.PAYSTACK_SECRET_KEY
+                headers = {
+                    'Authorization': f'Bearer {paystack_secret}',
+                    'Content-Type': 'application/json'
+                }
+                
+                try:
+                    verify_url = f'https://api.paystack.co/transaction/verify/{payment_reference}'
+                    response = requests.get(verify_url, headers=headers)
+                    response_data = response.json()
+                    
+                    if response_data.get('status') and response_data.get('data', {}).get('status') == 'success':
+                        # Payment verified, create or update inspection
+                        amount = response_data['data']['amount'] / 100  # Convert from kobo
+                        
+                        # Get or create inspection
+                        inspection, created = VehicleInspection.objects.get_or_create(
+                            vehicle=listing.vehicle,
+                            customer=customer,
+                            defaults={
+                                'status': 'draft',
+                                'payment_status': 'paid',
+                                'payment_method': 'bank',
+                                'payment_reference': payment_reference
+                            }
+                        )
+                        
+                        if not created and inspection.payment_status != 'paid':
+                            inspection.payment_status = 'paid'
+                            inspection.payment_method = 'bank'
+                            inspection.payment_reference = payment_reference
+                            inspection.save()
+                        
+                        # Create transaction record
+                        from wallet.models import Transaction
+                        Transaction.objects.get_or_create(
+                            tx_ref=payment_reference,
+                            defaults={
+                                'sender': request.user.get_full_name() or request.user.email,
+                                'recipient': 'Veyu',
+                                'type': 'payment',
+                                'source': 'bank',
+                                'amount': amount,
+                                'status': 'completed',
+                                'narration': f'Inspection payment for vehicle {listing.vehicle.name}',
+                            }
+                        )
+                        
+                    else:
+                        return Response({
+                            'error': 'Payment verification failed',
+                            'message': 'Could not verify your payment. Please try again or contact support.',
+                        }, status=status.HTTP_402_PAYMENT_REQUIRED)
+                        
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Payment verification error: {str(e)}", exc_info=True)
+                    return Response({
+                        'error': 'Payment verification error',
+                        'message': f'Error verifying payment: {str(e)}',
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                # No payment reference provided, check if inspection was already paid
+                paid_inspection = VehicleInspection.objects.filter(
+                    vehicle=listing.vehicle,
+                    customer=customer,
+                    payment_status='paid',
+                    status__in=['draft', 'in_progress', 'completed', 'signed']
+                ).first()
+                
+                if not paid_inspection:
+                    return Response({
+                        'error': 'Inspection payment required',
+                        'message': 'You must pay for and complete a vehicle inspection before placing an order for this vehicle.',
+                        'required_action': 'pay_inspection',
+                        'vehicle_id': listing.vehicle.id,
+                        'listing_id': str(listing.uuid)
+                    }, status=status.HTTP_402_PAYMENT_REQUIRED)
         
         order = Order(
             payment_option=payment_option,

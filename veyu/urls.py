@@ -70,8 +70,10 @@ urlpatterns = [
     # Log Viewer
     path('logs/', include('utils.log_urls', namespace='logs')),
     
+    # Utils (webhooks, email relay, etc.)
+    path('api/v1/', include('utils.urls', namespace='utils')),
+    
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
-    # path('', include('utils.urls', namespace='utils')),
 ]
 
 if settings.DEBUG:
