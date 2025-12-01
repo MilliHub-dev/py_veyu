@@ -754,25 +754,7 @@ class CheckoutView(APIView):
                         # Payment verified, create or update inspection
                         amount = response_data['data']['amount'] / 100  # Convert from kobo
                         
-                        # Get or create inspection
-                        inspection, created = VehicleInspection.objects.get_or_create(
-                            vehicle=listing.vehicle,
-                            customer=customer,
-                            defaults={
-                                'status': 'draft',
-                                'payment_status': 'paid',
-                                'payment_method': 'bank',
-                                'payment_reference': payment_reference
-                            }
-                        )
-                        
-                        if not created and inspection.payment_status != 'paid':
-                            inspection.payment_status = 'paid'
-                            inspection.payment_method = 'bank'
-                            inspection.payment_reference = payment_reference
-                            inspection.save()
-                        
-                        # Create transaction record
+                        # Create transaction record first
                         from wallet.models import Transaction
                         
                         # Truncate fields to fit database constraints
@@ -780,7 +762,7 @@ class CheckoutView(APIView):
                         tx_reference = payment_reference[:40]
                         narration = f'Inspection payment for vehicle {listing.vehicle.name}'[:200]
                         
-                        Transaction.objects.get_or_create(
+                        transaction, tx_created = Transaction.objects.get_or_create(
                             tx_ref=tx_reference,
                             defaults={
                                 'sender': sender_name,
@@ -792,6 +774,33 @@ class CheckoutView(APIView):
                                 'narration': narration,
                             }
                         )
+                        
+                        # Get dealer and inspector
+                        dealer = listing.vehicle.dealer
+                        inspector = dealer.user if hasattr(dealer, 'user') else request.user
+                        
+                        # Get or create inspection
+                        inspection, created = VehicleInspection.objects.get_or_create(
+                            vehicle=listing.vehicle,
+                            customer=customer,
+                            defaults={
+                                'dealer': dealer,
+                                'inspector': inspector,
+                                'inspection_type': 'pre_purchase',
+                                'status': 'draft',
+                                'payment_status': 'paid',
+                                'payment_method': 'bank',
+                                'payment_transaction': transaction,
+                                'paid_at': transaction.date_created
+                            }
+                        )
+                        
+                        if not created and inspection.payment_status != 'paid':
+                            inspection.payment_status = 'paid'
+                            inspection.payment_method = 'bank'
+                            inspection.payment_transaction = transaction
+                            inspection.paid_at = transaction.date_created
+                            inspection.save()
                         
                     else:
                         return Response({
@@ -842,13 +851,24 @@ class CheckoutView(APIView):
                     if recent_payment:
                         # Found a recent payment, create inspection record
                         logger.info(f"Found recent payment {recent_payment.tx_ref}, creating inspection record")
+                        
+                        # Get dealer from vehicle
+                        dealer = listing.vehicle.dealer
+                        
+                        # Use a system account as inspector (or the dealer's account)
+                        inspector = dealer.user if hasattr(dealer, 'user') else request.user
+                        
                         paid_inspection = VehicleInspection.objects.create(
                             vehicle=listing.vehicle,
                             customer=customer,
+                            dealer=dealer,
+                            inspector=inspector,
+                            inspection_type='pre_purchase',
                             status='draft',
                             payment_status='paid',
                             payment_method='bank',
-                            payment_reference=recent_payment.tx_ref
+                            payment_transaction=recent_payment,
+                            paid_at=recent_payment.date_created
                         )
                         logger.info(f"Created inspection {paid_inspection.id} from recent payment")
                     else:
