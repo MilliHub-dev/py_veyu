@@ -777,7 +777,7 @@ class CheckoutView(APIView):
                         Transaction.objects.get_or_create(
                             tx_ref=payment_reference,
                             defaults={
-                                'sender': request.user.get_full_name() or request.user.email,
+                                'sender': request.user.name or request.user.email,
                                 'recipient': 'Veyu',
                                 'type': 'payment',
                                 'source': 'bank',
@@ -822,14 +822,18 @@ class CheckoutView(APIView):
                     from datetime import timedelta
                     from django.utils import timezone
                     
+                    # Look for recent payments by email or name
                     recent_payment = Transaction.objects.filter(
-                        sender__icontains=request.user.email,
+                        Q(sender__icontains=request.user.email) | Q(sender__icontains=request.user.name),
                         type='payment',
                         status='completed',
                         date_created__gte=timezone.now() - timedelta(minutes=5)
                     ).order_by('-date_created').first()
                     
-                    if recent_payment and not recent_payment.tx_ref.startswith('INSP-'):
+                    logger.info(f"Looking for recent payment for user: {request.user.email} / {request.user.name}")
+                    logger.info(f"Found recent payment: {recent_payment.tx_ref if recent_payment else 'None'}")
+                    
+                    if recent_payment:
                         # Found a recent payment, create inspection record
                         logger.info(f"Found recent payment {recent_payment.tx_ref}, creating inspection record")
                         paid_inspection = VehicleInspection.objects.create(
@@ -885,7 +889,7 @@ class CheckoutView(APIView):
             order_details = {
                 'order_number': f"ORD-{order.uuid}",
                 'order_date': order.date_created.strftime("%B %d, %Y"),
-                'customer_name': request.user.get_full_name() or request.user.email,
+                'customer_name': request.user.name or request.user.email,
                 'order_status': 'confirmed',
                 'order_items': [{
                     'name': listing.title,

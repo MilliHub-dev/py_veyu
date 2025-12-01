@@ -215,7 +215,7 @@ def payment_webhook(request, **kwargs):
                     try:
                         inspection = VehicleInspection.objects.get(id=related_id)
                         transaction = Transaction.objects.create(
-                            sender=user.get_full_name() or user.email,
+                            sender=user.name or user.email,
                             recipient='Veyu',
                             type='payment',
                             source='bank',
@@ -246,7 +246,7 @@ def payment_webhook(request, **kwargs):
                         # The checkout endpoint will create the inspection later
                         logging.warning(f"Inspection {related_id} not found, creating generic transaction")
                         transaction = Transaction.objects.create(
-                            sender=user.get_full_name() or user.email,
+                            sender=user.name or user.email,
                             recipient='Veyu',
                             type='payment',
                             source='bank',
@@ -300,7 +300,7 @@ def payment_webhook(request, **kwargs):
                     # This handles cases where frontend doesn't send metadata
                     logging.warning(f"Payment received without purpose metadata: {reference}")
                     transaction = Transaction.objects.create(
-                        sender=user.get_full_name() or user.email,
+                        sender=user.name or user.email,
                         recipient='Veyu',
                         type='payment',
                         source='bank',
