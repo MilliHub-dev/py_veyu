@@ -954,6 +954,9 @@ class BookInspectionView(APIView):
     )
     def post(self, request):
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Get customer profile - handle case where profile doesn't exist
             try:
                 customer = request.user.customer_profile
@@ -964,7 +967,32 @@ class BookInspectionView(APIView):
                 )
             
             data = request.data
-            listing = Listing.objects.get(uuid=request.data['listing_id'])
+            logger.info(f"Received inspection booking data: {data}")
+            
+            # Validate required fields
+            if 'listing_id' not in data:
+                return Response(
+                    {'error': 'listing_id is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Accept multiple field name variations for date
+            date_value = data.get('date') or data.get('inspection_date') or data.get('scheduled_date')
+            if not date_value:
+                return Response(
+                    {'error': 'date, inspection_date, or scheduled_date is required', 'received_fields': list(data.keys())},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Accept multiple field name variations for time
+            time_value = data.get('time') or data.get('inspection_time') or data.get('scheduled_time')
+            if not time_value:
+                return Response(
+                    {'error': 'time, inspection_time, or scheduled_time is required', 'received_fields': list(data.keys())},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            listing = Listing.objects.get(uuid=data['listing_id'])
             
             # Get the most recent order for this customer and listing
             order = Order.objects.filter(
@@ -980,8 +1008,8 @@ class BookInspectionView(APIView):
             
             order.order_status = 'awaiting-inspection'
             order.save()
-            date_str = django_date(data['date'])
-            time = data['time']
+            date_str = django_date(date_value)
+            time = time_value
 
             inspection = OrderInspection(
                 order=order,
@@ -1060,7 +1088,20 @@ class BookInspectionView(APIView):
             except Exception:
                 pass
             return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
+        except KeyError as error:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Missing required field in inspection booking: {str(error)}", exc_info=True)
+            logger.error(f"Received data: {request.data}")
+            return Response({
+                'error': True, 
+                'message': f'Missing required field: {str(error)}',
+                'received_fields': list(request.data.keys())
+            }, 400)
         except Exception as error:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error booking inspection: {str(error)}", exc_info=True)
             return Response({'error': True, 'message': str(error)}, 500)
 
 class CompleteOrderView(APIView):
