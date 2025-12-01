@@ -968,13 +968,13 @@ class BookInspectionView(APIView):
             order = Order.objects.get(customer=customer, order_item=listing)
             order.order_status = 'awaiting-inspection'
             order.save()
-            date = django_date(data['date'])
+            date_str = django_date(data['date'])
             time = data['time']
 
             inspection = OrderInspection(
                 order=order,
                 customer=customer,
-                inspection_date=date,
+                inspection_date=date_str,
                 inspection_time=time,
             )
             inspection.save()
@@ -984,6 +984,12 @@ class BookInspectionView(APIView):
                 from accounts.utils.email_notifications import send_inspection_scheduled
                 from datetime import datetime, time as dt_time
                 
+                # Parse the date string to a datetime object for formatting
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                except (ValueError, TypeError):
+                    date_obj = datetime.now()
+                
                 # Parse the time string to a time object
                 try:
                     inspection_time = datetime.strptime(time, "%H:%M").time()
@@ -992,7 +998,7 @@ class BookInspectionView(APIView):
                 
                 inspection_details = {
                     'inspection_reference': f"INSP-{inspection.id}",
-                    'inspection_date': date.strftime("%A, %B %d, %Y"),
+                    'inspection_date': date_obj.strftime("%A, %B %d, %Y"),
                     'inspection_time': inspection_time.strftime("%I:%M %p"),
                     'vehicle_name': inspection.order.order_item.vehicle.name,
                     'vehicle_year': inspection.order.order_item.vehicle.year,
@@ -1020,6 +1026,8 @@ class BookInspectionView(APIView):
                 send_inspection_scheduled(request.user, inspection_details)
                 
             except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
                 logger.error(f"Failed to send inspection scheduled email: {str(e)}", exc_info=True)
                 
             # Original email sending code (kept as fallback)
@@ -1033,7 +1041,7 @@ class BookInspectionView(APIView):
                         "customer_name": request.user.first_name or request.user.email,
                         "listing_title": listing.title,
                         "vehicle_name": listing.vehicle.name,
-                        "date": date,
+                        "date": date_str,
                         "time": time,
                     }
                 )
