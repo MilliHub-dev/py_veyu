@@ -23,3 +23,5 @@ python manage.py runserver
 
 trigger the server by running the following command:
 python manage.py runserver
+
+run
