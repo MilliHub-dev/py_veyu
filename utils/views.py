@@ -212,34 +212,50 @@ def payment_webhook(request, **kwargs):
                     
                 elif purpose == 'inspection':
                     # Inspection payment
-                    inspection = VehicleInspection.objects.get(id=related_id)
-                    transaction = Transaction.objects.create(
-                        sender=user.name,
-                        recipient='Veyu',
-                        type='payment',
-                        source='bank',
-                        amount=amount,
-                        tx_ref=reference,
-                        status='completed',
-                        narration=f'Inspection payment for #{inspection.id}',
-                        related_inspection=inspection
-                    )
-                    
-                    # Update inspection payment status
-                    inspection.mark_paid(transaction, payment_method='bank')
-                    
-                    # Send notification
-                    send_email(
-                        subject='Inspection Payment Confirmed',
-                        recipients=[user.email],
-                        template='inspection_payment_success',
-                        context={
-                            'user': user,
-                            'inspection': inspection,
-                            'amount': amount,
-                            'reference': reference
-                        }
-                    )
+                    try:
+                        inspection = VehicleInspection.objects.get(id=related_id)
+                        transaction = Transaction.objects.create(
+                            sender=user.get_full_name() or user.email,
+                            recipient='Veyu',
+                            type='payment',
+                            source='bank',
+                            amount=amount,
+                            tx_ref=reference,
+                            status='completed',
+                            narration=f'Inspection payment for #{inspection.id}',
+                            related_inspection=inspection
+                        )
+                        
+                        # Update inspection payment status
+                        inspection.mark_paid(transaction, payment_method='bank')
+                        
+                        # Send notification
+                        send_email(
+                            subject='Inspection Payment Confirmed',
+                            recipients=[user.email],
+                            template='inspection_payment_success',
+                            context={
+                                'user': user,
+                                'inspection': inspection,
+                                'amount': amount,
+                                'reference': reference
+                            }
+                        )
+                    except VehicleInspection.DoesNotExist:
+                        # Inspection doesn't exist yet, create generic transaction
+                        # The checkout endpoint will create the inspection later
+                        logging.warning(f"Inspection {related_id} not found, creating generic transaction")
+                        transaction = Transaction.objects.create(
+                            sender=user.get_full_name() or user.email,
+                            recipient='Veyu',
+                            type='payment',
+                            source='bank',
+                            amount=amount,
+                            tx_ref=reference,
+                            status='completed',
+                            narration=f'Inspection payment - {reference}'
+                        )
+                        logging.info(f"Created generic transaction for inspection payment: {reference}")
                     
                 elif purpose == 'order':
                     # Vehicle order payment

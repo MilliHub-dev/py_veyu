@@ -826,8 +826,8 @@ class CheckoutView(APIView):
                         sender__icontains=request.user.email,
                         type='payment',
                         status='completed',
-                        created_at__gte=timezone.now() - timedelta(minutes=5)
-                    ).order_by('-created_at').first()
+                        date_created__gte=timezone.now() - timedelta(minutes=5)
+                    ).order_by('-date_created').first()
                     
                     if recent_payment and not recent_payment.tx_ref.startswith('INSP-'):
                         # Found a recent payment, create inspection record
