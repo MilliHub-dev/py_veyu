@@ -803,21 +803,63 @@ class CheckoutView(APIView):
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 # No payment reference provided, check if inspection was already paid
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                # First check if there's a paid inspection
                 paid_inspection = VehicleInspection.objects.filter(
                     vehicle=listing.vehicle,
                     customer=customer,
-                    payment_status='paid',
-                    status__in=['draft', 'in_progress', 'completed', 'signed']
+                    payment_status='paid'
                 ).first()
                 
+                logger.info(f"Checking for paid inspection - Vehicle: {listing.vehicle.id}, Customer: {customer.id}")
+                logger.info(f"Found paid inspection: {paid_inspection.id if paid_inspection else 'None'}")
+                
                 if not paid_inspection:
-                    return Response({
-                        'error': 'Inspection payment required',
-                        'message': 'You must pay for and complete a vehicle inspection before placing an order for this vehicle.',
-                        'required_action': 'pay_inspection',
-                        'vehicle_id': listing.vehicle.id,
-                        'listing_id': str(listing.uuid)
-                    }, status=status.HTTP_402_PAYMENT_REQUIRED)
+                    # Check if there's a recent successful transaction that might be for this inspection
+                    from wallet.models import Transaction
+                    from datetime import timedelta
+                    from django.utils import timezone
+                    
+                    recent_payment = Transaction.objects.filter(
+                        sender__icontains=request.user.email,
+                        type='payment',
+                        status='completed',
+                        created_at__gte=timezone.now() - timedelta(minutes=5)
+                    ).order_by('-created_at').first()
+                    
+                    if recent_payment and not recent_payment.tx_ref.startswith('INSP-'):
+                        # Found a recent payment, create inspection record
+                        logger.info(f"Found recent payment {recent_payment.tx_ref}, creating inspection record")
+                        paid_inspection = VehicleInspection.objects.create(
+                            vehicle=listing.vehicle,
+                            customer=customer,
+                            status='draft',
+                            payment_status='paid',
+                            payment_method='bank',
+                            payment_reference=recent_payment.tx_ref
+                        )
+                        logger.info(f"Created inspection {paid_inspection.id} from recent payment")
+                    else:
+                        # No recent payment found, require payment
+                        all_inspections = VehicleInspection.objects.filter(
+                            vehicle=listing.vehicle,
+                            customer=customer
+                        )
+                        logger.warning(f"No paid inspection found. Total inspections: {all_inspections.count()}")
+                        for insp in all_inspections:
+                            logger.warning(f"  - Inspection {insp.id}: status={insp.status}, payment_status={insp.payment_status}")
+                        
+                        return Response({
+                            'error': 'Inspection payment required',
+                            'message': 'You must pay for and complete a vehicle inspection before placing an order for this vehicle.',
+                            'required_action': 'pay_inspection',
+                            'vehicle_id': listing.vehicle.id,
+                            'listing_id': str(listing.uuid)
+                        }, status=status.HTTP_402_PAYMENT_REQUIRED)
+                else:
+                    logger.info(f"Paid inspection found: {paid_inspection.id}, proceeding with order creation")
         
         order = Order(
             payment_option=payment_option,

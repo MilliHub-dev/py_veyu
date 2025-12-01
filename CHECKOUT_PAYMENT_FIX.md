@@ -138,6 +138,28 @@ curl -X POST "https://dev.veyu.cc/api/v1/hooks/payment-webhook/" \
 3. **Database**: No migrations needed (uses existing models)
 4. **Frontend**: Update to send `payment_reference` in checkout request
 
+## Additional Improvements
+
+### Webhook Fallback Handler
+Added fallback in `utils/views.py` to handle payments without metadata:
+- Creates generic transaction record
+- Logs warning for tracking
+- Prevents payment from being lost
+
+### Smart Inspection Detection
+Updated checkout to detect recent payments:
+- Checks for transactions in last 5 minutes
+- Automatically creates inspection record if payment found
+- Handles race condition between webhook and checkout
+
+### Enhanced Logging
+Added detailed logging throughout:
+- Payment verification steps
+- Inspection lookup results
+- Transaction creation
+- Helps debug payment flow issues
+
 ## Files Modified
 - `veyu/urls.py` - Enabled utils URLs for webhook
-- `listings/api/views.py` - Added payment verification to checkout flow
+- `listings/api/views.py` - Added payment verification and smart inspection detection
+- `utils/views.py` - Added fallback handler for payments without metadata

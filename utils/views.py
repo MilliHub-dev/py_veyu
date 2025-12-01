@@ -279,6 +279,22 @@ def payment_webhook(request, **kwargs):
                     booking.payment_status = 'paid'
                     booking.save()
                 
+                else:
+                    # No purpose specified - treat as generic payment/wallet deposit
+                    # This handles cases where frontend doesn't send metadata
+                    logging.warning(f"Payment received without purpose metadata: {reference}")
+                    transaction = Transaction.objects.create(
+                        sender=user.get_full_name() or user.email,
+                        recipient='Veyu',
+                        type='payment',
+                        source='bank',
+                        amount=amount,
+                        tx_ref=reference,
+                        status='completed',
+                        narration=f'Payment via Paystack - {reference}'
+                    )
+                    logging.info(f"Created generic transaction for payment: {reference}")
+                
                 logging.info(f"Successfully processed payment: {reference}")
                 
             except User.DoesNotExist:
