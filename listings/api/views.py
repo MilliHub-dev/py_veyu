@@ -965,7 +965,19 @@ class BookInspectionView(APIView):
             
             data = request.data
             listing = Listing.objects.get(uuid=request.data['listing_id'])
-            order = Order.objects.get(customer=customer, order_item=listing)
+            
+            # Get the most recent order for this customer and listing
+            order = Order.objects.filter(
+                customer=customer, 
+                order_item=listing
+            ).order_by('-date_created').first()
+            
+            if not order:
+                return Response(
+                    {'error': 'No order found for this listing. Please create an order first.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
             order.order_status = 'awaiting-inspection'
             order.save()
             date_str = django_date(data['date'])
