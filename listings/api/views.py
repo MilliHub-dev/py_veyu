@@ -774,16 +774,22 @@ class CheckoutView(APIView):
                         
                         # Create transaction record
                         from wallet.models import Transaction
+                        
+                        # Truncate fields to fit database constraints
+                        sender_name = (request.user.name or request.user.email)[:50]
+                        tx_reference = payment_reference[:40]
+                        narration = f'Inspection payment for vehicle {listing.vehicle.name}'[:200]
+                        
                         Transaction.objects.get_or_create(
-                            tx_ref=payment_reference,
+                            tx_ref=tx_reference,
                             defaults={
-                                'sender': request.user.name or request.user.email,
+                                'sender': sender_name,
                                 'recipient': 'Veyu',
                                 'type': 'payment',
                                 'source': 'bank',
                                 'amount': amount,
                                 'status': 'completed',
-                                'narration': f'Inspection payment for vehicle {listing.vehicle.name}',
+                                'narration': narration,
                             }
                         )
                         

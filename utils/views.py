@@ -214,15 +214,20 @@ def payment_webhook(request, **kwargs):
                     # Inspection payment
                     try:
                         inspection = VehicleInspection.objects.get(id=related_id)
+                        
+                        # Truncate fields to fit database constraints
+                        sender_name = (user.name or user.email)[:50]
+                        tx_reference = reference[:40]
+                        
                         transaction = Transaction.objects.create(
-                            sender=user.name or user.email,
+                            sender=sender_name,
                             recipient='Veyu',
                             type='payment',
                             source='bank',
                             amount=amount,
-                            tx_ref=reference,
+                            tx_ref=tx_reference,
                             status='completed',
-                            narration=f'Inspection payment for #{inspection.id}',
+                            narration=f'Inspection payment for #{inspection.id}'[:200],
                             related_inspection=inspection
                         )
                         
@@ -245,17 +250,22 @@ def payment_webhook(request, **kwargs):
                         # Inspection doesn't exist yet, create generic transaction
                         # The checkout endpoint will create the inspection later
                         logging.warning(f"Inspection {related_id} not found, creating generic transaction")
+                        
+                        # Truncate fields to fit database constraints
+                        sender_name = (user.name or user.email)[:50]
+                        tx_reference = reference[:40]
+                        
                         transaction = Transaction.objects.create(
-                            sender=user.name or user.email,
+                            sender=sender_name,
                             recipient='Veyu',
                             type='payment',
                             source='bank',
                             amount=amount,
-                            tx_ref=reference,
+                            tx_ref=tx_reference,
                             status='completed',
-                            narration=f'Inspection payment - {reference}'
+                            narration=f'Inspection payment'[:200]
                         )
-                        logging.info(f"Created generic transaction for inspection payment: {reference}")
+                        logging.info(f"Created generic transaction for inspection payment: {tx_reference}")
                     
                 elif purpose == 'order':
                     # Vehicle order payment
@@ -299,17 +309,22 @@ def payment_webhook(request, **kwargs):
                     # No purpose specified - treat as generic payment/wallet deposit
                     # This handles cases where frontend doesn't send metadata
                     logging.warning(f"Payment received without purpose metadata: {reference}")
+                    
+                    # Truncate fields to fit database constraints
+                    sender_name = (user.name or user.email)[:50]
+                    tx_reference = reference[:40]
+                    
                     transaction = Transaction.objects.create(
-                        sender=user.name or user.email,
+                        sender=sender_name,
                         recipient='Veyu',
                         type='payment',
                         source='bank',
                         amount=amount,
-                        tx_ref=reference,
+                        tx_ref=tx_reference,
                         status='completed',
-                        narration=f'Payment via Paystack - {reference}'
+                        narration=f'Payment via Paystack'[:200]
                     )
-                    logging.info(f"Created generic transaction for payment: {reference}")
+                    logging.info(f"Created generic transaction for payment: {tx_reference}")
                 
                 logging.info(f"Successfully processed payment: {reference}")
                 
