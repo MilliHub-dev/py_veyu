@@ -1019,6 +1019,9 @@ class BookInspectionView(APIView):
             )
             inspection.save()
             
+            # Trigger inspection created signal for notification
+            on_inspection_created.send(customer, date=date_str, time=time)
+            
             # Send inspection scheduled email using the new template
             try:
                 from accounts.utils.email_notifications import send_inspection_scheduled

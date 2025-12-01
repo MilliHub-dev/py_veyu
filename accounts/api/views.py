@@ -2046,14 +2046,41 @@ class NotificationView(APIView):
         return Response(data, 200)
 
     def post(self, request):
-        notifications = Notification.objects.filter(user=request.user)
-        notification = notifications.get(uuid=request.data['notification_id'])
-        notification.mark_as_read()
-        data = {
-            'error': False,
-            'data': NotificationSerializer(notifications.filter(read=False), many=True).data
-        }
-        return Response(data, 200)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get notification_id from request data
+        notification_id = request.data.get('notification_id')
+        
+        if not notification_id:
+            logger.error(f"Missing notification_id in request. Received data: {request.data}")
+            return Response({
+                'error': True,
+                'message': 'notification_id is required',
+                'received_fields': list(request.data.keys())
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            notifications = Notification.objects.filter(user=request.user)
+            notification = notifications.get(uuid=notification_id)
+            notification.mark_as_read()
+            
+            data = {
+                'error': False,
+                'data': NotificationSerializer(notifications.filter(read=False), many=True).data
+            }
+            return Response(data, 200)
+        except Notification.DoesNotExist:
+            return Response({
+                'error': True,
+                'message': 'Notification not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error marking notification as read: {str(e)}", exc_info=True)
+            return Response({
+                'error': True,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
