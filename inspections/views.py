@@ -59,10 +59,10 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
         if not user.is_authenticated:
             return queryset.none()
             
-        if hasattr(user, 'customer'):
-            queryset = queryset.filter(customer=user.customer)
-        elif hasattr(user, 'dealership'):
-            queryset = queryset.filter(dealer=user.dealership)
+        if hasattr(user, 'customer_profile'):
+            queryset = queryset.filter(customer=user.customer_profile)
+        elif hasattr(user, 'dealership_profile'):
+            queryset = queryset.filter(dealer=user.dealership_profile)
         elif getattr(user, 'user_type', None) == 'mechanic':
             queryset = queryset.filter(inspector=user)
         
@@ -125,10 +125,10 @@ class VehicleInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):
         if not user.is_authenticated:
             return queryset.none()
             
-        if hasattr(user, 'customer'):
-            queryset = queryset.filter(customer=user.customer)
-        elif hasattr(user, 'dealership'):
-            queryset = queryset.filter(dealer=user.dealership)
+        if hasattr(user, 'customer_profile'):
+            queryset = queryset.filter(customer=user.customer_profile)
+        elif hasattr(user, 'dealership_profile'):
+            queryset = queryset.filter(dealer=user.dealership_profile)
         elif getattr(user, 'user_type', None) == 'mechanic':
             queryset = queryset.filter(inspector=user)
         
@@ -171,8 +171,8 @@ class InspectionPhotoUploadView(APIView):
         """Check if user has permission to upload photos"""
         return (
             user == inspection.inspector or
-            (hasattr(user, 'customer') and user.customer == inspection.customer) or
-            (hasattr(user, 'dealership') and user.dealership == inspection.dealer)
+            (hasattr(user, 'customer_profile') and user.customer_profile == inspection.customer) or
+            (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer)
         )
 
 
@@ -225,7 +225,7 @@ class DocumentGenerationView(APIView):
         """Check if user has permission to generate documents"""
         return (
             user == inspection.inspector or
-            (hasattr(user, 'dealership') and user.dealership == inspection.dealer)
+            (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer)
         )
 
 
@@ -284,8 +284,8 @@ class DocumentPreviewView(APIView):
         """Check if user has permission to view document"""
         return (
             user == inspection.inspector or
-            (hasattr(user, 'customer') and user.customer == inspection.customer) or
-            (hasattr(user, 'dealership') and user.dealership == inspection.dealer)
+            (hasattr(user, 'customer_profile') and user.customer_profile == inspection.customer) or
+            (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer)
         )
     
     def _get_signature_fields(self, document):
@@ -409,8 +409,8 @@ class DocumentDownloadView(APIView):
         """Check if user has permission to download document"""
         return (
             user == inspection.inspector or
-            (hasattr(user, 'customer') and user.customer == inspection.customer) or
-            (hasattr(user, 'dealership') and user.dealership == inspection.dealer)
+            (hasattr(user, 'customer_profile') and user.customer_profile == inspection.customer) or
+            (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer)
         )
 
 
@@ -426,10 +426,10 @@ class InspectionStatsView(APIView):
             user = request.user
             
             # Get base queryset based on user role
-            if hasattr(user, 'customer'):
-                queryset = VehicleInspection.objects.filter(customer=user.customer)
-            elif hasattr(user, 'dealership'):
-                queryset = VehicleInspection.objects.filter(dealer=user.dealership)
+            if hasattr(user, 'customer_profile'):
+                queryset = VehicleInspection.objects.filter(customer=user.customer_profile)
+            elif hasattr(user, 'dealership_profile'):
+                queryset = VehicleInspection.objects.filter(dealer=user.dealership_profile)
             elif getattr(user, 'user_type', None) == 'mechanic':
                 queryset = VehicleInspection.objects.filter(inspector=user)
             else:
@@ -642,7 +642,7 @@ def pay_for_inspection(request, inspection_id):
         inspection = get_object_or_404(VehicleInspection, id=inspection_id)
         
         # Check if user is the customer
-        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+        if not hasattr(request.user, 'customer_profile') or request.user.customer_profile != inspection.customer:
             return Response(
                 {'error': 'Only the customer can pay for this inspection'},
                 status=status.HTTP_403_FORBIDDEN
@@ -725,7 +725,7 @@ def verify_inspection_payment(request, inspection_id):
         inspection = get_object_or_404(VehicleInspection, id=inspection_id)
         
         # Check if user is the customer
-        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+        if not hasattr(request.user, 'customer_profile') or request.user.customer_profile != inspection.customer:
             return Response(
                 {'error': 'Only the customer can verify payment for this inspection'},
                 status=status.HTTP_403_FORBIDDEN
@@ -836,20 +836,30 @@ class InspectionSlipRetrievalView(APIView):
         """
         try:
             # Try to find by slip number
-            inspection = get_object_or_404(VehicleInspection, inspection_number=slip_number)
+            try:
+                inspection = VehicleInspection.objects.get(inspection_number=slip_number)
+            except VehicleInspection.DoesNotExist:
+                logger.error(f"Error retrieving inspection slip {slip_number}: No VehicleInspection matches the given query.")
+                return Response({
+                    'success': False,
+                    'error': 'Inspection slip not found',
+                    'message': f'No inspection found with slip number "{slip_number}". Please verify the slip number and try again.'
+                }, status=status.HTTP_404_NOT_FOUND)
             
             # Check permissions
             user = request.user
             has_permission = (
-                (hasattr(user, 'customer') and user.customer == inspection.customer) or
-                (hasattr(user, 'dealership') and user.dealership == inspection.dealer) or
+                (hasattr(user, 'customer_profile') and user.customer_profile == inspection.customer) or
+                (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer) or
                 user == inspection.inspector or
                 user.is_staff
             )
             
             if not has_permission:
                 return Response({
-                    'error': 'Permission denied'
+                    'success': False,
+                    'error': 'Permission denied',
+                    'message': 'You do not have permission to view this inspection slip.'
                 }, status=status.HTTP_403_FORBIDDEN)
             
             # Return slip details
@@ -867,18 +877,19 @@ class InspectionSlipRetrievalView(APIView):
                     'vehicle': {
                         'id': inspection.vehicle.id,
                         'name': inspection.vehicle.name,
-                        'make': inspection.vehicle.make,
-                        'model': inspection.vehicle.model,
-                        'year': inspection.vehicle.year,
+                        'brand': inspection.vehicle.brand,
+                        'model': inspection.vehicle.model or 'N/A',
+                        'condition': inspection.vehicle.get_condition_display(),
+                        'color': inspection.vehicle.color,
                     },
                     'customer': {
                         'name': inspection.customer.user.name,
-                        'phone': inspection.customer.user.phone_number,
+                        'phone': inspection.customer.phone_number or 'N/A',
                         'email': inspection.customer.user.email,
                     },
                     'dealer': {
                         'name': inspection.dealer.business_name,
-                        'phone': inspection.dealer.user.phone_number,
+                        'phone': inspection.dealer.phone_number or 'N/A',
                     }
                 }
             })
@@ -886,7 +897,9 @@ class InspectionSlipRetrievalView(APIView):
         except Exception as e:
             logger.error(f"Error retrieving inspection slip {slip_number}: {str(e)}")
             return Response({
+                'success': False,
                 'error': 'Failed to retrieve inspection slip',
+                'message': 'An unexpected error occurred while retrieving the inspection slip.',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -934,7 +947,7 @@ class InspectionSlipVerificationView(APIView):
             
             # Check if dealer is authorized
             user = request.user
-            if hasattr(user, 'dealership') and user.dealership != inspection.dealer:
+            if hasattr(user, 'dealership_profile') and user.dealership_profile != inspection.dealer:
                 return Response({
                     'error': 'This slip is not for your dealership'
                 }, status=status.HTTP_403_FORBIDDEN)
@@ -955,13 +968,13 @@ class InspectionSlipVerificationView(APIView):
                     'amount_paid': float(inspection.inspection_fee),
                     'vehicle': {
                         'name': inspection.vehicle.name,
-                        'make': inspection.vehicle.make,
-                        'model': inspection.vehicle.model,
-                        'year': inspection.vehicle.year,
+                        'brand': inspection.vehicle.brand,
+                        'model': inspection.vehicle.model or 'N/A',
+                        'condition': inspection.vehicle.get_condition_display(),
                     },
                     'customer': {
                         'name': inspection.customer.user.name,
-                        'phone': inspection.customer.user.phone_number,
+                        'phone': inspection.customer.phone_number or 'N/A',
                     }
                 },
                 'message': 'Slip verified successfully. Customer has paid.' if is_valid else 'Slip is not valid for inspection.'
@@ -985,7 +998,7 @@ def regenerate_inspection_slip(request, inspection_id):
         inspection = get_object_or_404(VehicleInspection, id=inspection_id)
         
         # Check if user is the customer
-        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+        if not hasattr(request.user, 'customer_profile') or request.user.customer_profile != inspection.customer:
             return Response({
                 'error': 'Only the customer can regenerate their inspection slip'
             }, status=status.HTTP_403_FORBIDDEN)
