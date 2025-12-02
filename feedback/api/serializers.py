@@ -102,7 +102,7 @@ class SupportTicketSerializer(ModelSerializer):
             'id', 'uuid', 'customer', 'customer_name', 'customer_email',
             'status', 'status_display', 'severity_level', 'severity_display',
             'subject', 'tags', 'category', 'chat_room', 'correspondents',
-            'days_open', 'is_overdue', 'total_correspondents', 'date_created', 'date_updated'
+            'days_open', 'is_overdue', 'total_correspondents', 'date_created', 'last_updated'
         )
         read_only_fields = ('customer', 'chat_room', 'days_open', 'is_overdue', 'total_correspondents')
     
