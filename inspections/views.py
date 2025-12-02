@@ -772,10 +772,23 @@ def verify_inspection_payment(request, inspection_id):
                     payment_transaction=payment_transaction
                 )
                 
+                # Generate inspection slip
+                from .slip_service import InspectionSlipService
+                slip_service = InspectionSlipService()
+                try:
+                    slip_file, slip_filename = slip_service.generate_inspection_slip(inspection)
+                    inspection.inspection_slip = slip_file
+                    inspection.save()
+                    slip_url = inspection.inspection_slip.url if inspection.inspection_slip else None
+                except Exception as e:
+                    logger.error(f"Error generating inspection slip: {str(e)}")
+                    slip_url = None
+                
                 return Response({
                     'success': True,
                     'data': {
                         'inspection_id': inspection.id,
+                        'inspection_number': inspection.inspection_number,
                         'transaction_id': payment_transaction.id,
                         'amount_paid': float(payment_transaction.amount),
                         'payment_method': 'paystack',
@@ -783,6 +796,7 @@ def verify_inspection_payment(request, inspection_id):
                         'inspection_status': inspection.get_status_display(),
                         'paid_at': inspection.paid_at,
                         'reference': reference,
+                        'inspection_slip_url': slip_url,
                         'revenue_split': {
                             'dealer_amount': float(revenue_split.dealer_amount),
                             'dealer_percentage': float(revenue_split.dealer_percentage),
@@ -791,7 +805,7 @@ def verify_inspection_payment(request, inspection_id):
                             'dealer_credited': revenue_split.dealer_credited
                         }
                     },
-                    'message': 'Payment verified successfully. Dealer wallet credited. Inspection can now begin.'
+                    'message': 'Payment verified successfully. Dealer wallet credited. Inspection slip generated. Inspection can now begin.'
                 })
         else:
             # Payment failed
@@ -807,3 +821,202 @@ def verify_inspection_payment(request, inspection_id):
             {'error': 'Failed to verify payment'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+class InspectionSlipRetrievalView(APIView):
+    """
+    Retrieve inspection slip by slip number or inspection ID
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, slip_number):
+        """
+        Get inspection slip details
+        """
+        try:
+            # Try to find by slip number
+            inspection = get_object_or_404(VehicleInspection, inspection_number=slip_number)
+            
+            # Check permissions
+            user = request.user
+            has_permission = (
+                (hasattr(user, 'customer') and user.customer == inspection.customer) or
+                (hasattr(user, 'dealership') and user.dealership == inspection.dealer) or
+                user == inspection.inspector or
+                user.is_staff
+            )
+            
+            if not has_permission:
+                return Response({
+                    'error': 'Permission denied'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Return slip details
+            return Response({
+                'success': True,
+                'data': {
+                    'inspection_id': inspection.id,
+                    'inspection_number': inspection.inspection_number,
+                    'inspection_type': inspection.get_inspection_type_display(),
+                    'payment_status': inspection.payment_status,
+                    'inspection_status': inspection.get_status_display(),
+                    'paid_at': inspection.paid_at,
+                    'inspection_fee': float(inspection.inspection_fee),
+                    'slip_url': inspection.inspection_slip.url if inspection.inspection_slip else None,
+                    'vehicle': {
+                        'id': inspection.vehicle.id,
+                        'name': inspection.vehicle.name,
+                        'make': inspection.vehicle.make,
+                        'model': inspection.vehicle.model,
+                        'year': inspection.vehicle.year,
+                    },
+                    'customer': {
+                        'name': inspection.customer.user.name,
+                        'phone': inspection.customer.user.phone_number,
+                        'email': inspection.customer.user.email,
+                    },
+                    'dealer': {
+                        'name': inspection.dealer.business_name,
+                        'phone': inspection.dealer.user.phone_number,
+                    }
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error retrieving inspection slip {slip_number}: {str(e)}")
+            return Response({
+                'error': 'Failed to retrieve inspection slip',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class InspectionSlipVerificationView(APIView):
+    """
+    Verify inspection slip (for dealers to verify customer payment)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """
+        Verify inspection slip by slip number or QR code data
+        """
+        try:
+            slip_number = request.data.get('slip_number')
+            qr_data = request.data.get('qr_data')
+            
+            if not slip_number and not qr_data:
+                return Response({
+                    'error': 'Either slip_number or qr_data is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Extract slip number from QR data if provided
+            if qr_data:
+                # QR format: VEYU-INSPECTION:<slip_number>:<inspection_id>
+                try:
+                    parts = qr_data.split(':')
+                    if len(parts) >= 2 and parts[0] == 'VEYU-INSPECTION':
+                        slip_number = parts[1]
+                except Exception:
+                    return Response({
+                        'error': 'Invalid QR code format'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Find inspection
+            try:
+                inspection = VehicleInspection.objects.get(inspection_number=slip_number)
+            except VehicleInspection.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'valid': False,
+                    'message': 'Invalid slip number'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if dealer is authorized
+            user = request.user
+            if hasattr(user, 'dealership') and user.dealership != inspection.dealer:
+                return Response({
+                    'error': 'This slip is not for your dealership'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Verify payment status
+            is_valid = inspection.is_paid and inspection.status in ['draft', 'in_progress']
+            
+            return Response({
+                'success': True,
+                'valid': is_valid,
+                'data': {
+                    'inspection_id': inspection.id,
+                    'inspection_number': inspection.inspection_number,
+                    'inspection_type': inspection.get_inspection_type_display(),
+                    'payment_status': inspection.payment_status,
+                    'inspection_status': inspection.get_status_display(),
+                    'paid_at': inspection.paid_at,
+                    'amount_paid': float(inspection.inspection_fee),
+                    'vehicle': {
+                        'name': inspection.vehicle.name,
+                        'make': inspection.vehicle.make,
+                        'model': inspection.vehicle.model,
+                        'year': inspection.vehicle.year,
+                    },
+                    'customer': {
+                        'name': inspection.customer.user.name,
+                        'phone': inspection.customer.user.phone_number,
+                    }
+                },
+                'message': 'Slip verified successfully. Customer has paid.' if is_valid else 'Slip is not valid for inspection.'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error verifying inspection slip: {str(e)}")
+            return Response({
+                'error': 'Failed to verify inspection slip',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def regenerate_inspection_slip(request, inspection_id):
+    """
+    Regenerate inspection slip (in case of loss or damage)
+    """
+    try:
+        inspection = get_object_or_404(VehicleInspection, id=inspection_id)
+        
+        # Check if user is the customer
+        if not hasattr(request.user, 'customer') or request.user.customer != inspection.customer:
+            return Response({
+                'error': 'Only the customer can regenerate their inspection slip'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if inspection is paid
+        if not inspection.is_paid:
+            return Response({
+                'error': 'Inspection must be paid before generating slip'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate slip
+        from .slip_service import InspectionSlipService
+        slip_service = InspectionSlipService()
+        
+        slip_file, slip_filename = slip_service.generate_inspection_slip(inspection)
+        inspection.inspection_slip = slip_file
+        inspection.save()
+        
+        return Response({
+            'success': True,
+            'data': {
+                'inspection_id': inspection.id,
+                'inspection_number': inspection.inspection_number,
+                'slip_url': inspection.inspection_slip.url if inspection.inspection_slip else None
+            },
+            'message': 'Inspection slip regenerated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error regenerating inspection slip for {inspection_id}: {str(e)}")
+        return Response({
+            'error': 'Failed to regenerate inspection slip',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

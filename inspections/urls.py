@@ -33,6 +33,11 @@ urlpatterns = [
     path('<int:inspection_id>/pay/', views.pay_for_inspection, name='inspection-pay'),
     path('<int:inspection_id>/verify-payment/', views.verify_inspection_payment, name='inspection-verify-payment'),
     
+    # Inspection slip endpoints
+    path('slips/<str:slip_number>/', views.InspectionSlipRetrievalView.as_view(), name='inspection-slip-retrieve'),
+    path('slips/verify/', views.InspectionSlipVerificationView.as_view(), name='inspection-slip-verify'),
+    path('<int:inspection_id>/regenerate-slip/', views.regenerate_inspection_slip, name='inspection-slip-regenerate'),
+    
     # Digital signature endpoints
     path('signatures/', include('inspections.signature_urls')),
     

@@ -46,6 +46,7 @@ vonage-jwt==1.1.0
 # PDF Processing
 PyPDF2==3.0.1
 reportlab==4.4.0
+qrcode==7.4.2
 
 # Money & Financial
 django-money==3.5.3

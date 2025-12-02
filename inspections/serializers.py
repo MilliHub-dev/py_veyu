@@ -84,10 +84,10 @@ class VehicleInspectionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleInspection
         fields = [
-            'id', 'vehicle_name', 'inspector_name', 'customer_name', 'dealer_name',
+            'id', 'inspection_number', 'vehicle_name', 'inspector_name', 'customer_name', 'dealer_name',
             'inspection_type', 'inspection_type_display', 'status', 'status_display',
             'overall_rating', 'overall_rating_display', 'inspection_date', 'completed_at',
-            'inspection_fee', 'payment_status', 'payment_status_display', 'paid_at'
+            'inspection_fee', 'payment_status', 'payment_status_display', 'paid_at', 'inspection_slip'
         ]
 
 
@@ -107,18 +107,18 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleInspection
         fields = [
-            'id', 'vehicle', 'inspector', 'customer', 'dealer',
+            'id', 'inspection_number', 'vehicle', 'inspector', 'customer', 'dealer',
             'inspection_type', 'inspection_type_display', 'status', 'status_display',
             'overall_rating', 'overall_rating_display', 'exterior_data', 'interior_data',
             'engine_data', 'mechanical_data', 'safety_data', 'documentation_data',
             'inspector_notes', 'recommended_actions', 'inspection_date', 'completed_at',
             'inspection_fee', 'payment_status', 'payment_method', 'paid_at',
-            'photos', 'documents', 'inspection_summary'
+            'inspection_slip', 'photos', 'documents', 'inspection_summary'
         ]
         read_only_fields = [
-            'id', 'inspection_type_display', 'status_display', 'overall_rating_display',
+            'id', 'inspection_number', 'inspection_type_display', 'status_display', 'overall_rating_display',
             'inspection_fee', 'payment_status', 'payment_method', 'paid_at',
-            'photos', 'documents', 'inspection_summary'
+            'inspection_slip', 'photos', 'documents', 'inspection_summary'
         ]
     
     def get_vehicle(self, obj):

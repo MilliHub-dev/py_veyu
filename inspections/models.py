@@ -50,9 +50,13 @@ class VehicleInspection(DbModel):
     dealer = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='dealer_inspections')
     
     # Inspection metadata
+    inspection_number = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Unique inspection slip number (e.g., INSP-7)")
     inspection_type = models.CharField(max_length=20, choices=INSPECTION_TYPES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_payment')
     overall_rating = models.CharField(max_length=20, choices=CONDITION_CHOICES, blank=True, null=True)
+    
+    # Inspection slip
+    inspection_slip = CloudinaryField('inspection_slip', folder='inspections/slips/', blank=True, null=True, help_text="PDF slip for customer to show dealer")
     
     # Payment fields
     inspection_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Inspection fee amount")
@@ -116,7 +120,31 @@ class VehicleInspection(DbModel):
         self.payment_method = payment_method
         self.paid_at = timezone.now()
         self.status = 'draft'  # Move to draft after payment
+        
+        # Generate inspection number if not exists
+        if not self.inspection_number:
+            self.inspection_number = self._generate_inspection_number()
+        
         self.save()
+    
+    def _generate_inspection_number(self):
+        """Generate unique inspection number"""
+        prefix = 'INSP'
+        # Get the last inspection number
+        last_inspection = VehicleInspection.objects.filter(
+            inspection_number__startswith=prefix
+        ).order_by('-id').first()
+        
+        if last_inspection and last_inspection.inspection_number:
+            try:
+                last_number = int(last_inspection.inspection_number.split('-')[1])
+                new_number = last_number + 1
+            except (IndexError, ValueError):
+                new_number = 1
+        else:
+            new_number = 1
+        
+        return f"{prefix}-{new_number}"
     
     def get_inspection_summary(self):
         """Get a summary of inspection results"""
