@@ -1048,7 +1048,7 @@ class BookInspectionView(APIView):
                     'vehicle_make': inspection.order.order_item.vehicle.brand,
                     'vehicle_model': inspection.order.order_item.vehicle.model or 'N/A',
                     'listing_title': inspection.order.order_item.title,
-                    'location': inspection.order.order_item.vehicle.dealer.location.address if hasattr(inspection.order.order_item.vehicle.dealer, 'location') else 'To be determined',
+                    'location': inspection.order.order_item.vehicle.dealer.location.address if (hasattr(inspection.order.order_item.vehicle.dealer, 'location') and inspection.order.order_item.vehicle.dealer.location) else 'To be determined',
                     'contact_person': inspection.order.order_item.vehicle.dealer.contact_name if hasattr(inspection.order.order_item.vehicle.dealer, 'contact_name') else 'Dealership Representative',
                     'contact_phone': inspection.order.order_item.vehicle.dealer.phone_number if hasattr(inspection.order.order_item.vehicle.dealer, 'phone_number') else 'N/A',
                     'support_email': settings.DEFAULT_FROM_EMAIL,
@@ -1120,7 +1120,7 @@ class BookInspectionView(APIView):
                 'dealer': {
                     'id': listing.vehicle.dealer.id,
                     'name': listing.vehicle.dealer.business_name or listing.vehicle.dealer.user.name,
-                    'location': listing.vehicle.dealer.location.address if hasattr(listing.vehicle.dealer, 'location') else 'To be determined',
+                    'location': listing.vehicle.dealer.location.address if (hasattr(listing.vehicle.dealer, 'location') and listing.vehicle.dealer.location) else 'To be determined',
                     'contact_person': listing.vehicle.dealer.contact_name if hasattr(listing.vehicle.dealer, 'contact_name') else 'Dealership Representative',
                     'contact_phone': listing.vehicle.dealer.phone_number if hasattr(listing.vehicle.dealer, 'phone_number') else 'N/A',
                 },
