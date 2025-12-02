@@ -1098,7 +1098,7 @@ class BookInspectionView(APIView):
                 'slip_reference': slip_reference,
                 'inspection_date': date_str,
                 'inspection_time': time,
-                'status': inspection.status,
+                'status': 'scheduled' if not inspection.completed else 'completed',
                 'order_id': order.id,
                 'customer': {
                     'id': customer.id,
