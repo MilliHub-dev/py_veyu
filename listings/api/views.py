@@ -1090,7 +1090,49 @@ class BookInspectionView(APIView):
                 )
             except Exception:
                 pass
-            return Response({'error': False, 'data': 'Inspection Scheduled'}, 200)
+            
+            # Build inspection slip response
+            slip_reference = f"INSP-{inspection.id}"
+            inspection_slip = {
+                'id': inspection.id,
+                'slip_reference': slip_reference,
+                'inspection_date': date_str,
+                'inspection_time': time,
+                'status': inspection.status,
+                'order_id': order.id,
+                'customer': {
+                    'id': customer.id,
+                    'name': request.user.name or request.user.email,
+                    'email': request.user.email,
+                },
+                'vehicle': {
+                    'id': listing.vehicle.id,
+                    'name': listing.vehicle.name,
+                    'make': listing.vehicle.make,
+                    'model': listing.vehicle.model,
+                    'year': listing.vehicle.year,
+                },
+                'listing': {
+                    'id': listing.id,
+                    'uuid': str(listing.uuid),
+                    'title': listing.title,
+                },
+                'dealer': {
+                    'id': listing.vehicle.dealer.id,
+                    'name': listing.vehicle.dealer.business_name or listing.vehicle.dealer.user.name,
+                    'location': listing.vehicle.dealer.location.address if hasattr(listing.vehicle.dealer, 'location') else 'To be determined',
+                    'contact_person': listing.vehicle.dealer.contact_name if hasattr(listing.vehicle.dealer, 'contact_name') else 'Dealership Representative',
+                    'contact_phone': listing.vehicle.dealer.phone_number if hasattr(listing.vehicle.dealer, 'phone_number') else 'N/A',
+                },
+                'created_at': inspection.date_created.isoformat() if hasattr(inspection, 'date_created') else None,
+            }
+            
+            return Response({
+                'success': True,
+                'message': 'Inspection Scheduled',
+                'slip_reference': slip_reference,
+                'inspection_slip': inspection_slip
+            }, status=status.HTTP_200_OK)
         except KeyError as error:
             import logging
             logger = logging.getLogger(__name__)

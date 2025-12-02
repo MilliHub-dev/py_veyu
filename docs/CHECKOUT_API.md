@@ -256,7 +256,7 @@ Content-Type: application/json
 - `POST /api/v1/inspections/{id}/pay/` - Pay for inspection
 - `POST /api/v1/inspections/{id}/verify-payment/` - Verify inspection payment
 - `GET /api/v1/listings/buy/{uuid}/` - Get listing details
-- `POST /api/v1/listings/checkout/inspection/` - Book inspection
+- `POST /api/v1/listings/checkout/inspection/` - Book inspection (see below)
 
 ### Notes
 
@@ -268,3 +268,202 @@ Content-Type: application/json
 6. **Inspection payment is REQUIRED for sale listings before order creation**
 7. Inspection payments use Paystack only (no wallet option)
 8. Revenue split is automatic: 60% dealer, 40% platform
+
+
+## Endpoint: Book Inspection
+
+Schedule a vehicle inspection for a listing.
+
+### Request
+
+```
+POST /api/v1/listings/checkout/inspection/
+```
+
+**Headers:**
+```
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "listing_id": "c87678f6-c930-11f0-a5b2-cdce16ffe435",
+  "date": "2024-12-15",
+  "time": "10:00"
+}
+```
+
+**Alternative Field Names (Accepted):**
+- `date` OR `inspection_date` OR `scheduled_date`
+- `time` OR `inspection_time` OR `scheduled_time`
+
+**Parameters:**
+- `listing_id` (UUID, required) - The UUID of the listing
+- `date` (string, required) - Inspection date in YYYY-MM-DD format
+- `time` (string, required) - Inspection time in HH:MM format (24-hour)
+
+### Response
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Inspection Scheduled",
+  "slip_reference": "INSP-123456",
+  "inspection_slip": {
+    "id": 123456,
+    "slip_reference": "INSP-123456",
+    "inspection_date": "2024-12-15",
+    "inspection_time": "10:00",
+    "status": "scheduled",
+    "order_id": 789,
+    "customer": {
+      "id": 101,
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "vehicle": {
+      "id": 456,
+      "name": "Toyota Camry 2020",
+      "make": "Toyota",
+      "model": "Camry",
+      "year": 2020
+    },
+    "listing": {
+      "id": 789,
+      "uuid": "c87678f6-c930-11f0-a5b2-cdce16ffe435",
+      "title": "2020 Toyota Camry - Excellent Condition"
+    },
+    "dealer": {
+      "id": 202,
+      "name": "AutoHub Motors",
+      "location": "123 Main Street, Lagos",
+      "contact_person": "Jane Smith",
+      "contact_phone": "+234 801 234 5678"
+    },
+    "created_at": "2024-12-02T10:30:00Z"
+  }
+}
+```
+
+**Error Response - Missing Required Field (400 Bad Request):**
+
+```json
+{
+  "error": "listing_id is required"
+}
+```
+
+```json
+{
+  "error": "date, inspection_date, or scheduled_date is required",
+  "received_fields": ["listing_id", "time"]
+}
+```
+
+**Error Response - No Order Found (404 Not Found):**
+
+```json
+{
+  "error": "No order found for this listing. Please create an order first."
+}
+```
+
+**Error Response - Server Error (500 Internal Server Error):**
+
+```json
+{
+  "error": true,
+  "message": "Error message details"
+}
+```
+
+### Workflow
+
+1. Customer creates an order for a listing
+2. Customer books an inspection using this endpoint
+3. Order status changes to `awaiting-inspection`
+4. Customer receives email notification with inspection details
+5. Inspection slip reference (`INSP-XXXXXX`) is generated and returned
+6. Customer can use the slip reference to track the inspection
+
+### Email Notification
+
+When an inspection is successfully scheduled, the customer receives an email with:
+- Inspection reference number (e.g., `INSP-123456`)
+- Scheduled date and time
+- Vehicle details
+- Dealership location and contact information
+- Inspection checklist
+- What to bring to the inspection
+
+### Example Usage
+
+#### cURL
+```bash
+curl -X POST "https://veyu.cc/api/v1/listings/checkout/inspection/" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "listing_id": "c87678f6-c930-11f0-a5b2-cdce16ffe435",
+    "date": "2024-12-15",
+    "time": "10:00"
+  }'
+```
+
+#### JavaScript (Fetch)
+```javascript
+const response = await fetch(
+  'https://veyu.cc/api/v1/listings/checkout/inspection/',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${jwtToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      listing_id: 'c87678f6-c930-11f0-a5b2-cdce16ffe435',
+      date: '2024-12-15',
+      time: '10:00'
+    })
+  }
+);
+
+const data = await response.json();
+console.log('Inspection Reference:', data.slip_reference);
+console.log('Inspection Details:', data.inspection_slip);
+```
+
+#### Python (Requests)
+```python
+import requests
+
+url = "https://veyu.cc/api/v1/listings/checkout/inspection/"
+headers = {
+    "Authorization": f"Bearer {jwt_token}",
+    "Content-Type": "application/json"
+}
+payload = {
+    "listing_id": "c87678f6-c930-11f0-a5b2-cdce16ffe435",
+    "date": "2024-12-15",
+    "time": "10:00"
+}
+
+response = requests.post(url, headers=headers, json=payload)
+data = response.json()
+
+print(f"Inspection Reference: {data['slip_reference']}")
+print(f"Scheduled for: {data['inspection_slip']['inspection_date']} at {data['inspection_slip']['inspection_time']}")
+```
+
+### Notes
+
+1. An order must exist before booking an inspection
+2. The inspection reference format is `INSP-{inspection_id}`
+3. The endpoint accepts multiple field name variations for flexibility
+4. Email notifications are sent automatically upon successful booking
+5. The order status is automatically updated to `awaiting-inspection`
+6. All timestamps are in ISO 8601 format (UTC)
