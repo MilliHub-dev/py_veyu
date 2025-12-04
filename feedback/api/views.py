@@ -79,6 +79,9 @@ class SupportTicketViewSet(ModelViewSet):
         # Ensure user has a customer profile (create one if needed for dealers/other users)
         from accounts.models import Customer
         from django.db import IntegrityError
+        import logging
+        
+        logger = logging.getLogger(__name__)
         
         if not hasattr(request.user, 'customer'):
             # Create a customer profile for non-customer users (dealers, mechanics, etc.)
@@ -95,11 +98,20 @@ class SupportTicketViewSet(ModelViewSet):
                         'phone_number': phone_number,
                     }
                 )
-            except IntegrityError:
+                if created:
+                    logger.info(f"Created customer profile for user {request.user.email}")
+            except IntegrityError as e:
+                logger.warning(f"IntegrityError creating customer for {request.user.email}: {str(e)}")
                 # If phone number is already taken, create without phone number
                 customer, created = Customer.objects.get_or_create(
                     user=request.user,
                     defaults={'phone_number': None}
+                )
+            except Exception as e:
+                logger.error(f"Error creating customer profile for {request.user.email}: {str(e)}")
+                return Response(
+                    {'error': 'Failed to create customer profile', 'detail': str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         else:
             customer = request.user.customer
