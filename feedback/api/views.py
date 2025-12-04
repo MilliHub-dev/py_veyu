@@ -78,14 +78,29 @@ class SupportTicketViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         # Ensure user has a customer profile (create one if needed for dealers/other users)
         from accounts.models import Customer
+        from django.db import IntegrityError
         
         if not hasattr(request.user, 'customer'):
             # Create a customer profile for non-customer users (dealers, mechanics, etc.)
-            customer = Customer.objects.create(
-                user=request.user,
-                phone_number=getattr(request.user, 'phone_number', ''),
-                address=getattr(request.user, 'address', '')
-            )
+            try:
+                # Get phone number from dealership profile if exists, otherwise None
+                phone_number = None
+                if hasattr(request.user, 'dealership_profile'):
+                    phone_number = request.user.dealership_profile.phone_number
+                
+                # Use get_or_create to avoid duplicate customer profiles
+                customer, created = Customer.objects.get_or_create(
+                    user=request.user,
+                    defaults={
+                        'phone_number': phone_number,
+                    }
+                )
+            except IntegrityError:
+                # If phone number is already taken, create without phone number
+                customer, created = Customer.objects.get_or_create(
+                    user=request.user,
+                    defaults={'phone_number': None}
+                )
         else:
             customer = request.user.customer
         
