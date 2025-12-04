@@ -41,6 +41,7 @@ class LogFileService:
     ALLOWED_LOG_FILES = [
         'api.log',
         'auth.log', 
+        'cloudinary.log',
         'database.log',
         'django.log',
         'email.log',
@@ -65,7 +66,8 @@ class LogFileService:
         
         if not self.logs_directory.exists():
             return log_files
-            
+        
+        # First, check whitelisted files
         for filename in self.ALLOWED_LOG_FILES:
             file_path = self.logs_directory / filename
             if file_path.exists() and file_path.is_file():
@@ -76,6 +78,26 @@ class LogFileService:
                 except (OSError, PermissionError):
                     # Skip files that can't be accessed
                     continue
+        
+        # Also scan for any .log files in the directory (for dynamic discovery)
+        try:
+            for file_path in self.logs_directory.glob('*.log'):
+                if file_path.is_file() and file_path.name not in self.ALLOWED_LOG_FILES:
+                    # Add discovered log files to the whitelist dynamically
+                    try:
+                        file_info = LogFileInfo(
+                            filename=file_path.name,
+                            full_path=str(file_path),
+                            size=file_path.stat().st_size,
+                            last_modified=datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.get_current_timezone()),
+                            line_count=self._count_lines(file_path),
+                            is_accessible=True
+                        )
+                        log_files.append(file_info)
+                    except (OSError, PermissionError):
+                        continue
+        except (OSError, PermissionError):
+            pass
                     
         return sorted(log_files, key=lambda x: x.last_modified, reverse=True)
     
@@ -187,19 +209,26 @@ class LogFileService:
         Returns:
             bool: True if file access is allowed, False otherwise
         """
-        # Check against whitelist
-        if filename not in self.ALLOWED_LOG_FILES:
-            self._log_security_event(f"Attempted access to non-whitelisted file: {filename}")
-            return False
-            
         # Prevent path traversal attacks
         if '..' in filename or '/' in filename or '\\' in filename:
             self._log_security_event(f"Path traversal attempt detected: {filename}")
+            return False
+        
+        # Only allow .log files
+        if not filename.endswith('.log'):
+            self._log_security_event(f"Attempted access to non-log file: {filename}")
             return False
             
         # Check if file exists and is readable
         file_path = self.logs_directory / filename
         if not file_path.exists() or not file_path.is_file():
+            return False
+        
+        # Ensure file is within the logs directory (additional security check)
+        try:
+            file_path.resolve().relative_to(self.logs_directory.resolve())
+        except ValueError:
+            self._log_security_event(f"File outside logs directory: {filename}")
             return False
             
         try:
@@ -308,7 +337,8 @@ class LogParser:
         format_mapping = {
             'django.log': 'django',
             'api.log': 'django',
-            'auth.log': 'django', 
+            'auth.log': 'django',
+            'cloudinary.log': 'django',
             'database.log': 'django',
             'email.log': 'django',
             'errors.log': 'django',
