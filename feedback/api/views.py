@@ -39,10 +39,12 @@ class SupportTicketViewSet(ModelViewSet):
                 queryset = queryset.filter(correspondents=user)
             
         else:
-            # Customers can only see their own tickets
+            # All authenticated users can see their own tickets
             if hasattr(user, 'customer'):
                 queryset = SupportTicket.objects.filter(customer=user.customer)
             else:
+                # For users without customer profile yet, show empty queryset
+                # (they'll get one created when they create their first ticket)
                 queryset = SupportTicket.objects.none()
         
         # Filter by status
@@ -74,12 +76,18 @@ class SupportTicketViewSet(ModelViewSet):
         return SupportTicketSerializer
     
     def create(self, request, *args, **kwargs):
-        # Only customers can create tickets
+        # Ensure user has a customer profile (create one if needed for dealers/other users)
+        from accounts.models import Customer
+        
         if not hasattr(request.user, 'customer'):
-            return Response(
-                {'error': 'Only customers can create support tickets'},
-                status=status.HTTP_403_FORBIDDEN
+            # Create a customer profile for non-customer users (dealers, mechanics, etc.)
+            customer = Customer.objects.create(
+                user=request.user,
+                phone_number=getattr(request.user, 'phone_number', ''),
+                address=getattr(request.user, 'address', '')
             )
+        else:
+            customer = request.user.customer
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
