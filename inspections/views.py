@@ -835,16 +835,26 @@ class InspectionSlipRetrievalView(APIView):
         Get inspection slip details
         """
         try:
-            # Try to find by slip number
+            # Try to find by slip number or by ID if format is INSP-{id}
+            inspection = None
             try:
                 inspection = VehicleInspection.objects.get(inspection_number=slip_number)
             except VehicleInspection.DoesNotExist:
-                logger.error(f"Error retrieving inspection slip {slip_number}: No VehicleInspection matches the given query.")
-                return Response({
-                    'success': False,
-                    'error': 'Inspection slip not found',
-                    'message': f'No inspection found with slip number "{slip_number}". Please verify the slip number and try again.'
-                }, status=status.HTTP_404_NOT_FOUND)
+                # If slip_number is in format INSP-{id}, try to find by ID
+                if slip_number.startswith('INSP-'):
+                    try:
+                        inspection_id = int(slip_number.split('-')[1])
+                        inspection = VehicleInspection.objects.get(id=inspection_id)
+                    except (ValueError, IndexError, VehicleInspection.DoesNotExist):
+                        pass
+                
+                if not inspection:
+                    logger.error(f"Error retrieving inspection slip {slip_number}: No VehicleInspection matches the given query.")
+                    return Response({
+                        'success': False,
+                        'error': 'Inspection slip not found',
+                        'message': f'No inspection found with slip number "{slip_number}". Please verify the slip number and try again.'
+                    }, status=status.HTTP_404_NOT_FOUND)
             
             # Check permissions
             user = request.user
@@ -868,6 +878,7 @@ class InspectionSlipRetrievalView(APIView):
                 'data': {
                     'inspection_id': inspection.id,
                     'inspection_number': inspection.inspection_number,
+                    'slip_reference': inspection.inspection_number or f'INSP-{inspection.id}',  # Fallback to ID-based reference
                     'inspection_type': inspection.get_inspection_type_display(),
                     'payment_status': inspection.payment_status,
                     'inspection_status': inspection.get_status_display(),
