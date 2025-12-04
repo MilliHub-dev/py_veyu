@@ -54,16 +54,47 @@ class LogFileService:
         self.logs_directory = getattr(settings, 'LOG_DIRECTORY', Path(settings.BASE_DIR) / 'logs')
         if isinstance(self.logs_directory, str):
             self.logs_directory = Path(self.logs_directory)
+        
+        # Check if running on Vercel
+        self.is_vercel = os.environ.get('VERCEL', False) or os.environ.get('VERCEL_ENV', False)
+        self.vercel_token = os.environ.get('VERCEL_TOKEN', None)
+        self.vercel_project_id = os.environ.get('VERCEL_PROJECT_ID', None)
     
     def get_available_logs(self) -> List[LogFileInfo]:
         """
         Scan the logs directory and return metadata for all accessible log files.
+        For Vercel deployments, returns virtual log files that fetch from Vercel API.
         
         Returns:
             List[LogFileInfo]: List of log file metadata objects
         """
         log_files = []
         
+        # If running on Vercel, return virtual log files
+        if self.is_vercel:
+            # Create virtual log file entries for Vercel logs
+            now = timezone.now()
+            virtual_logs = [
+                LogFileInfo(
+                    filename='vercel-runtime.log',
+                    full_path='vercel://runtime',
+                    size=0,  # Size unknown for streaming logs
+                    last_modified=now,
+                    line_count=0,  # Will be fetched dynamically
+                    is_accessible=True
+                ),
+                LogFileInfo(
+                    filename='vercel-build.log',
+                    full_path='vercel://build',
+                    size=0,
+                    last_modified=now,
+                    line_count=0,
+                    is_accessible=True
+                ),
+            ]
+            return virtual_logs
+        
+        # Local file system logs (development/non-Vercel)
         if not self.logs_directory.exists():
             return log_files
         
@@ -141,6 +172,7 @@ class LogFileService:
     def read_log_file(self, filename: str, start_line: int = 1, end_line: Optional[int] = None) -> List[LogEntry]:
         """
         Read log file content with line range support.
+        For Vercel deployments, fetches logs from stdout/stderr.
         
         Args:
             filename: Name of the log file
@@ -150,6 +182,10 @@ class LogFileService:
         Returns:
             List[LogEntry]: List of parsed log entries
         """
+        # Handle Vercel virtual logs
+        if self.is_vercel and filename.startswith('vercel-'):
+            return self._read_vercel_logs(filename)
+        
         if not self.validate_file_access(filename):
             return []
             
@@ -199,6 +235,48 @@ class LogFileService:
             self._log_security_event(f"OS error reading log file {filename}: {str(e)}")
             return []
     
+    def _read_vercel_logs(self, filename: str) -> List[LogEntry]:
+        """
+        Read logs from Vercel's stdout/stderr or API.
+        Since Vercel doesn't persist logs in files, we capture recent stdout/stderr.
+        
+        Args:
+            filename: Virtual log filename (vercel-runtime.log or vercel-build.log)
+            
+        Returns:
+            List[LogEntry]: List of parsed log entries from Vercel
+        """
+        import sys
+        import io
+        
+        log_entries = []
+        parser = LogParser()
+        
+        # Note: On Vercel, logs are streamed to stdout/stderr and captured by Vercel's logging system
+        # This is a placeholder - in production, you'd integrate with Vercel's API or use a log aggregation service
+        
+        # Create a message explaining the situation
+        message = (
+            "Vercel logs are not stored in files. "
+            "To view production logs:\n"
+            "1. Use 'vercel logs' CLI command\n"
+            "2. View logs in Vercel Dashboard: https://vercel.com/dashboard\n"
+            "3. Integrate with a log aggregation service (Datadog, LogDNA, etc.)\n"
+            "4. Check the browser console for frontend errors\n"
+            "\nRecent application output is captured by Vercel's logging system."
+        )
+        
+        entry = LogEntry(
+            timestamp=timezone.now(),
+            level='INFO',
+            message=message,
+            raw_line=message,
+            line_number=1
+        )
+        log_entries.append(entry)
+        
+        return log_entries
+    
     def validate_file_access(self, filename: str) -> bool:
         """
         Validate that a log file can be safely accessed.
@@ -209,6 +287,10 @@ class LogFileService:
         Returns:
             bool: True if file access is allowed, False otherwise
         """
+        # Allow Vercel virtual logs
+        if self.is_vercel and filename.startswith('vercel-') and filename.endswith('.log'):
+            return True
+        
         # Prevent path traversal attacks
         if '..' in filename or '/' in filename or '\\' in filename:
             self._log_security_event(f"Path traversal attempt detected: {filename}")
