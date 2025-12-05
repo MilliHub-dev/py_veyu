@@ -21,7 +21,10 @@ from accounts.models import Dealership, Customer, Mechanic, Account
 @permission_classes([IsAuthenticated])
 def chats_view(request):
 	user = request.user
-	rooms = ChatRoom.objects.filter(members__in=[user,])
+	# Filter for rooms where user is a member AND there are at least 2 members
+	rooms = ChatRoom.objects.filter(members__in=[user,]).annotate(
+		member_count=Count('members')
+	).filter(member_count__gte=2)
 	rooms = ChatRoomListSerializer(rooms, many=True, context={'request': request}).data
 	data = {
 		'error': False,
