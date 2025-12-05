@@ -68,7 +68,7 @@ class ChatMemberSerializer(ModelSerializer):
 
 
 class ChatRoomSerializer(ModelSerializer):
-	messages = ChatMessageSerializer(many=True)
+	messages = ChatMessageSerializer(source='room_messages', many=True)
 	members = ChatMemberSerializer(many=True)
 
 	class Meta:
@@ -85,7 +85,8 @@ class ChatRoomListSerializer(ModelSerializer):
 		fields = ['uuid', 'id', 'last_message', 'recipient']
 
 	def get_last_message(self, obj):
-		message = obj.messages.all().order_by('-id').first()
+		# Use room_messages (reverse relation) instead of messages (M2M field)
+		message = obj.room_messages.order_by('-date_created').first()
 		if message:
 			return {
 				'message': message.text,
@@ -98,10 +99,18 @@ class ChatRoomListSerializer(ModelSerializer):
 		if not request:
 			raise Exception("request context missing for <serializer: ChatRoomListSerializer>")
 
-		user = request.user; image = None
-		other_person = obj.members.all().exclude(email__iexact=user.email).first()
+		user = request.user
+		other_person = obj.members.exclude(email__iexact=user.email).first()
+		
+		# Handle case where there's no other person (shouldn't happen, but defensive)
+		if not other_person:
+			return {
+				'name': 'Unknown',
+				'image': None
+			}
+		
 		data = {
-			'name': user.name, 
+			'name': other_person.name, 
 			'image': None
 		}
 
