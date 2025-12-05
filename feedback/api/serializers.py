@@ -150,8 +150,13 @@ class SupportTicketCreateSerializer(ModelSerializer):
         tag_ids = validated_data.pop('tag_ids', [])
         category_id = validated_data.pop('category_id', None)
         
+        # Get customer from context (should be set by view)
+        customer = self.context.get('customer')
+        if not customer:
+            raise ValueError("Customer must be provided in serializer context")
+        
         ticket = SupportTicket.objects.create(
-            customer=self.context['request'].user.customer,
+            customer=customer,
             status='open',
             category=category_id,
             **validated_data
