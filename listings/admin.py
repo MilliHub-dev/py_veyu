@@ -10,6 +10,7 @@ from .models import (
     Boat,
     Plane,
     Bike,
+    UAV,
     VehicleImage,
     TestDriveRequest,
     TradeInRequest,
@@ -136,8 +137,26 @@ class BikeAdmin(VehicleAdmin):
     list_filter = VehicleAdmin.list_filter + ['bike_type']
 
 
-
-
+class UAVAdmin(VehicleAdmin):
+    list_display = ['name', 'brand', 'uav_type', 'purpose', 'max_flight_time', 'available']
+    list_filter = VehicleAdmin.list_filter + ['uav_type', 'purpose']
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('dealer', 'name', 'brand', 'model', 'condition', 'color', 'available')
+        }),
+        ('UAV Specifications', {
+            'fields': ('registration_number', 'uav_type', 'purpose', 'rotor_count', 'weight')
+        }),
+        ('Performance', {
+            'fields': ('max_flight_time', 'max_range', 'max_altitude', 'max_speed', 'payload_capacity')
+        }),
+        ('Camera & Features', {
+            'fields': ('camera_resolution', 'has_obstacle_avoidance', 'has_gps', 'has_return_to_home')
+        }),
+        ('Additional', {
+            'fields': ('features', 'tags', 'video')
+        }),
+    )
 
 
 class BoostPricingAdmin(admin.ModelAdmin):
@@ -207,6 +226,7 @@ veyu_admin.register(Car, CarAdmin)
 veyu_admin.register(Boat, BoatAdmin)
 veyu_admin.register(Plane, PlaneAdmin)
 veyu_admin.register(Bike, BikeAdmin)
+veyu_admin.register(UAV, UAVAdmin)
 veyu_admin.register(OrderInspection)
 veyu_admin.register(BoostPricing, BoostPricingAdmin)
 veyu_admin.register(ListingBoost, ListingBoostAdmin)

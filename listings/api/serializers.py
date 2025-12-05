@@ -8,6 +8,7 @@ from ..models import (
     Boat,
     Plane,
     Bike,
+    UAV,
     OrderInspection,
     VehicleImage,
     TestDriveRequest,
@@ -164,6 +165,11 @@ class PlaneSerializer(VehicleSerializer):
 class BikeSerializer(VehicleSerializer):
     class Meta:
         model = Bike
+        fields = '__all__'
+
+class UAVSerializer(VehicleSerializer):
+    class Meta:
+        model = UAV
         fields = '__all__'
 
 class OrderInspectionSerializer(serializers.ModelSerializer):

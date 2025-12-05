@@ -54,6 +54,7 @@ from ..models import (
     Plane,
     Boat,
     Bike,
+    UAV,
     Listing,
     Order,
     # CarRental,
@@ -436,6 +437,7 @@ class CreateListingView(CreateAPIView):
             "For planes: registration_number, aircraft_type, engine_type, max_altitude, wing_span, range.\n"
             "For boats: hull_material, engine_count, propeller_type, length, beam_width, draft.\n"
             "For bikes: engine_capacity, bike_type, saddle_height.\n"
+            "For UAVs: registration_number, uav_type, purpose, max_flight_time, max_range, max_altitude, camera_resolution, payload_capacity, weight, rotor_count.\n"
             "For rental listings, payment_cycle is required."
         ),
         request_body=openapi.Schema(
@@ -445,7 +447,7 @@ class CreateListingView(CreateAPIView):
             ],
             properties={
                 'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['create-listing','upload-images','publish-listing'], example='create-listing'),
-                'vehicle_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['car','plane','boat','bike'], example='car', description='Type of vehicle'),
+                'vehicle_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['car','plane','boat','bike','uav'], example='car', description='Type of vehicle'),
                 'title': openapi.Schema(type=openapi.TYPE_STRING, example='2020 Toyota Camry XLE'),
                 'brand': openapi.Schema(type=openapi.TYPE_STRING, example='Toyota'),
                 'model': openapi.Schema(type=openapi.TYPE_STRING, example='Camry'),
@@ -471,6 +473,16 @@ class CreateListingView(CreateAPIView):
                 'engine_capacity': openapi.Schema(type=openapi.TYPE_INTEGER, description='For bikes (in cc)'),
                 'bike_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['cruiser','sport','touring','offroad'], description='For bikes'),
                 'saddle_height': openapi.Schema(type=openapi.TYPE_NUMBER, description='For bikes'),
+                'uav_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['quadcopter','hexacopter','octocopter','fixed-wing','hybrid'], description='For UAVs'),
+                'purpose': openapi.Schema(type=openapi.TYPE_STRING, enum=['recreational','photography','surveying','agriculture','delivery','inspection','racing','military'], description='For UAVs'),
+                'max_flight_time': openapi.Schema(type=openapi.TYPE_INTEGER, description='For UAVs (in minutes)'),
+                'camera_resolution': openapi.Schema(type=openapi.TYPE_STRING, description='For UAVs (e.g., 4K, 8K)'),
+                'payload_capacity': openapi.Schema(type=openapi.TYPE_NUMBER, description='For UAVs (in kg)'),
+                'weight': openapi.Schema(type=openapi.TYPE_NUMBER, description='For UAVs (in kg)'),
+                'rotor_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='For UAVs'),
+                'has_obstacle_avoidance': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='For UAVs'),
+                'has_gps': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='For UAVs'),
+                'has_return_to_home': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='For UAVs'),
                 'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental'], example='sale'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, example=5000000),
                 'color': openapi.Schema(type=openapi.TYPE_STRING, example='Black'),
@@ -536,6 +548,17 @@ class CreateListingView(CreateAPIView):
             if action == 'create-listing':
                 # Get vehicle type (default to 'car' for backward compatibility)
                 vehicle_type = data.get('vehicle_type', 'car').lower()
+                
+                # Log vehicle type for debugging
+                logger.info(f"Creating listing with vehicle_type='{vehicle_type}' for brand='{data.get('brand')}'")
+                
+                # Validate vehicle type
+                valid_types = ['car', 'plane', 'boat', 'bike', 'uav', 'drone']
+                if vehicle_type not in valid_types:
+                    return Response({
+                        'error': True,
+                        'message': f'Invalid vehicle_type: {vehicle_type}. Must be one of: {", ".join(valid_types)}'
+                    }, status=400)
                 
                 # Validate common required fields
                 required_fields = ['title', 'brand', 'model', 'condition',
@@ -608,10 +631,28 @@ class CreateListingView(CreateAPIView):
                         bike_type=data.get('bike_type'),
                         saddle_height=data.get('saddle_height'),
                     )
+                elif vehicle_type == 'uav' or vehicle_type == 'drone':
+                    vehicle = UAV(
+                        **common_fields,
+                        registration_number=data.get('registration_number'),
+                        uav_type=data.get('uav_type'),
+                        purpose=data.get('purpose'),
+                        max_flight_time=data.get('max_flight_time'),
+                        max_range=data.get('max_range'),
+                        max_altitude=data.get('max_altitude'),
+                        max_speed=data.get('max_speed'),
+                        camera_resolution=data.get('camera_resolution'),
+                        payload_capacity=data.get('payload_capacity'),
+                        weight=data.get('weight'),
+                        rotor_count=data.get('rotor_count'),
+                        has_obstacle_avoidance=data.get('has_obstacle_avoidance', False),
+                        has_gps=data.get('has_gps', True),
+                        has_return_to_home=data.get('has_return_to_home', True),
+                    )
                 else:
                     return Response({
                         'error': True,
-                        'message': f'Invalid vehicle_type: {vehicle_type}. Must be one of: car, plane, boat, bike'
+                        'message': f'Invalid vehicle_type: {vehicle_type}. Must be one of: car, plane, boat, bike, uav'
                     }, status=400)
                 if data['listing_type'] == 'sale':
                     vehicle.for_sale = True
@@ -641,6 +682,9 @@ class CreateListingView(CreateAPIView):
                 dealer.vehicles.add(vehicle,)
                 dealer.listings.add(listing,)
                 dealer.save()
+                
+                # Log successful creation with vehicle type
+                logger.info(f"Successfully created {vehicle_type} listing: {listing.title} (Vehicle ID: {vehicle.id}, Class: {vehicle.__class__.__name__})")
             elif action == 'upload-images':
                 listing = dealer.listings.get(uuid=data['listing'])
                 images = data.getlist('image')
@@ -830,10 +874,27 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                     vehicle.draft = data['vehicle'].get('draft')
                 
                 # Check if vehicle is a Bike
-                if hasattr(vehicle, 'engine_capacity'):
+                if hasattr(vehicle, 'engine_capacity') and hasattr(vehicle, 'bike_type'):
                     vehicle.engine_capacity = data['vehicle'].get('engine_capacity')
                     vehicle.bike_type = data['vehicle'].get('bike_type')
                     vehicle.saddle_height = data['vehicle'].get('saddle_height')
+                
+                # Check if vehicle is a UAV
+                if hasattr(vehicle, 'uav_type'):
+                    vehicle.registration_number = data['vehicle'].get('registration_number')
+                    vehicle.uav_type = data['vehicle'].get('uav_type')
+                    vehicle.purpose = data['vehicle'].get('purpose')
+                    vehicle.max_flight_time = data['vehicle'].get('max_flight_time')
+                    vehicle.max_range = data['vehicle'].get('max_range')
+                    vehicle.max_altitude = data['vehicle'].get('max_altitude')
+                    vehicle.max_speed = data['vehicle'].get('max_speed')
+                    vehicle.camera_resolution = data['vehicle'].get('camera_resolution')
+                    vehicle.payload_capacity = data['vehicle'].get('payload_capacity')
+                    vehicle.weight = data['vehicle'].get('weight')
+                    vehicle.rotor_count = data['vehicle'].get('rotor_count')
+                    vehicle.has_obstacle_avoidance = data['vehicle'].get('has_obstacle_avoidance', False)
+                    vehicle.has_gps = data['vehicle'].get('has_gps', True)
+                    vehicle.has_return_to_home = data['vehicle'].get('has_return_to_home', True)
 
                 if data['listing_type'] == 'sale':
                     vehicle.for_sale = True

@@ -212,6 +212,43 @@ class Bike(Vehicle):
     saddle_height = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)  # in inches or cm
 
 
+class UAV(Vehicle):
+    """Unmanned Aerial Vehicle (Drone)"""
+    UAV_TYPE_CHOICES = [
+        ('quadcopter', 'Quadcopter'),
+        ('hexacopter', 'Hexacopter'),
+        ('octocopter', 'Octocopter'),
+        ('fixed-wing', 'Fixed-Wing'),
+        ('hybrid', 'Hybrid VTOL'),
+    ]
+    
+    UAV_PURPOSE_CHOICES = [
+        ('recreational', 'Recreational'),
+        ('photography', 'Photography/Videography'),
+        ('surveying', 'Surveying/Mapping'),
+        ('agriculture', 'Agriculture'),
+        ('delivery', 'Delivery'),
+        ('inspection', 'Industrial Inspection'),
+        ('racing', 'Racing'),
+        ('military', 'Military/Defense'),
+    ]
+
+    registration_number = models.CharField(max_length=100, blank=True, null=True)
+    uav_type = models.CharField(max_length=50, choices=UAV_TYPE_CHOICES, blank=True, null=True)
+    purpose = models.CharField(max_length=50, choices=UAV_PURPOSE_CHOICES, blank=True, null=True)
+    max_flight_time = models.PositiveIntegerField(blank=True, null=True)  # in minutes
+    max_range = models.PositiveIntegerField(blank=True, null=True)  # in kilometers
+    max_altitude = models.PositiveIntegerField(blank=True, null=True)  # in meters
+    max_speed = models.PositiveIntegerField(blank=True, null=True)  # in km/h
+    camera_resolution = models.CharField(max_length=50, blank=True, null=True)  # e.g., "4K", "8K"
+    payload_capacity = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)  # in kg
+    weight = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)  # in kg
+    rotor_count = models.PositiveIntegerField(blank=True, null=True)
+    has_obstacle_avoidance = models.BooleanField(default=False)
+    has_gps = models.BooleanField(default=True)
+    has_return_to_home = models.BooleanField(default=True)
+
+
 def to_decimal(dig):
     """
     convert digit to decimal using decimal.Decimal

@@ -149,10 +149,32 @@ BikeSchema = openapi.Schema(
     }
 )
 
+UAVSchema = openapi.Schema(
+    title='UAV',
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'kind': openapi.Schema(type=openapi.TYPE_STRING, enum=['uav']),
+        'registration_number': openapi.Schema(type=openapi.TYPE_STRING),
+        'uav_type': openapi.Schema(type=openapi.TYPE_STRING, description='quadcopter|hexacopter|octocopter|fixed-wing|hybrid'),
+        'purpose': openapi.Schema(type=openapi.TYPE_STRING, description='recreational|photography|surveying|agriculture|delivery|inspection|racing|military'),
+        'max_flight_time': openapi.Schema(type=openapi.TYPE_INTEGER, description='in minutes'),
+        'max_range': openapi.Schema(type=openapi.TYPE_INTEGER, description='in kilometers'),
+        'max_altitude': openapi.Schema(type=openapi.TYPE_INTEGER, description='in meters'),
+        'max_speed': openapi.Schema(type=openapi.TYPE_INTEGER, description='in km/h'),
+        'camera_resolution': openapi.Schema(type=openapi.TYPE_STRING),
+        'payload_capacity': openapi.Schema(type=openapi.TYPE_NUMBER, description='in kg'),
+        'weight': openapi.Schema(type=openapi.TYPE_NUMBER, description='in kg'),
+        'rotor_count': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'has_obstacle_avoidance': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+        'has_gps': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+        'has_return_to_home': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+    }
+)
+
 VehicleOneOf = openapi.Schema(
     title='Vehicle',
     type=openapi.TYPE_OBJECT,
-    oneOf=[CarSchema, BoatSchema, PlaneSchema, BikeSchema],
+    oneOf=[CarSchema, BoatSchema, PlaneSchema, BikeSchema, UAVSchema],
 )
 
 ListingSchema = openapi.Schema(
@@ -259,6 +281,7 @@ class ListingSearchView(ListAPIView):
             openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
             openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
             openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+            openapi.Parameter('vehicle_type', openapi.IN_QUERY, description='Comma-separated vehicle types (car, boat, plane, bike, uav)', type=openapi.TYPE_STRING),
         ],
         responses={200: EnvelopeListSchema}
     )
@@ -400,6 +423,7 @@ class RentListingView(ListAPIView):
             openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
             openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
             openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+            openapi.Parameter('vehicle_type', openapi.IN_QUERY, description='Comma-separated vehicle types (car, boat, plane, bike, uav)', type=openapi.TYPE_STRING),
         ],
         responses={200: EnvelopeListSchema}
     )
@@ -453,6 +477,7 @@ class BuyListingView(ListAPIView):
             openapi.Parameter('transmission', openapi.IN_QUERY, description='Comma-separated transmission', type=openapi.TYPE_STRING),
             openapi.Parameter('fuel_system', openapi.IN_QUERY, description='Comma-separated fuel system', type=openapi.TYPE_STRING),
             openapi.Parameter('price', openapi.IN_QUERY, description='Price range min-max', type=openapi.TYPE_STRING),
+            openapi.Parameter('vehicle_type', openapi.IN_QUERY, description='Comma-separated vehicle types (car, boat, plane, bike, uav)', type=openapi.TYPE_STRING),
         ],
         responses={200: EnvelopeListSchema}
     )
@@ -1446,3 +1471,4 @@ class CancelOrderView(APIView):
                 'error': True,
                 'message': f'Failed to cancel order: {str(e)}'
             }, 500)
+
