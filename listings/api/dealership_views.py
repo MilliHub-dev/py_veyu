@@ -51,6 +51,9 @@ from ..service_mapping import DealershipServiceProcessor
 from ..models import (
     Vehicle,
     Car,
+    Plane,
+    Boat,
+    Bike,
     Listing,
     Order,
     # CarRental,
@@ -427,7 +430,11 @@ class CreateListingView(CreateAPIView):
             "- upload-images: Upload one or more images for a listing (multipart/form-data)\n"
             "- publish-listing: Publish an existing listing\n\n"
             "Required fields for create-listing:\n"
-            "title, brand, model, condition, transmission, fuel_system, drivetrain, seats, doors, vin, listing_type, price.\n"
+            "title, brand, model, condition, transmission, fuel_system, listing_type, price, vehicle_type.\n"
+            "For cars: drivetrain, seats, doors, vin are also required.\n"
+            "For planes: registration_number, aircraft_type are recommended.\n"
+            "For boats: hull_material, engine_count are recommended.\n"
+            "For bikes: engine_capacity, bike_type are recommended.\n"
             "For rental listings, payment_cycle is required."
         ),
         request_body=openapi.Schema(
@@ -437,16 +444,32 @@ class CreateListingView(CreateAPIView):
             ],
             properties={
                 'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['create-listing','upload-images','publish-listing'], example='create-listing'),
+                'vehicle_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['car','plane','boat','bike'], example='car', description='Type of vehicle'),
                 'title': openapi.Schema(type=openapi.TYPE_STRING, example='2020 Toyota Camry XLE'),
                 'brand': openapi.Schema(type=openapi.TYPE_STRING, example='Toyota'),
                 'model': openapi.Schema(type=openapi.TYPE_STRING, example='Camry'),
                 'condition': openapi.Schema(type=openapi.TYPE_STRING, enum=['new','used-foreign','used-local'], example='used-foreign'),
                 'transmission': openapi.Schema(type=openapi.TYPE_STRING, enum=['auto','manual'], example='auto'),
                 'fuel_system': openapi.Schema(type=openapi.TYPE_STRING, enum=['diesel','electric','petrol','hybrid'], example='petrol'),
-                'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD'], example='FWD'),
-                'seats': openapi.Schema(type=openapi.TYPE_INTEGER, example=5),
-                'doors': openapi.Schema(type=openapi.TYPE_INTEGER, example=4),
-                'vin': openapi.Schema(type=openapi.TYPE_STRING, example='1HGBH41JXMN109186'),
+                'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD'], example='FWD', description='Required for cars only'),
+                'seats': openapi.Schema(type=openapi.TYPE_INTEGER, example=5, description='Required for cars only'),
+                'doors': openapi.Schema(type=openapi.TYPE_INTEGER, example=4, description='Required for cars only'),
+                'vin': openapi.Schema(type=openapi.TYPE_STRING, example='1HGBH41JXMN109186', description='Required for cars only'),
+                'registration_number': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
+                'aircraft_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['jet','propeller','glider','helicopter'], description='For planes'),
+                'engine_type': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
+                'max_altitude': openapi.Schema(type=openapi.TYPE_INTEGER, description='For planes (in feet)'),
+                'wing_span': openapi.Schema(type=openapi.TYPE_NUMBER, description='For planes'),
+                'range': openapi.Schema(type=openapi.TYPE_INTEGER, description='For planes (in km)'),
+                'hull_material': openapi.Schema(type=openapi.TYPE_STRING, description='For boats'),
+                'engine_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='For boats'),
+                'propeller_type': openapi.Schema(type=openapi.TYPE_STRING, description='For boats'),
+                'length': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats (in feet/meters)'),
+                'beam_width': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats'),
+                'draft': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats'),
+                'engine_capacity': openapi.Schema(type=openapi.TYPE_INTEGER, description='For bikes (in cc)'),
+                'bike_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['cruiser','sport','touring','offroad'], description='For bikes'),
+                'saddle_height': openapi.Schema(type=openapi.TYPE_NUMBER, description='For bikes'),
                 'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental'], example='sale'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, example=5000000),
                 'color': openapi.Schema(type=openapi.TYPE_STRING, example='Black'),
@@ -510,10 +533,17 @@ class CreateListingView(CreateAPIView):
             listing = None
 
             if action == 'create-listing':
-                # Validate required fields
+                # Get vehicle type (default to 'car' for backward compatibility)
+                vehicle_type = data.get('vehicle_type', 'car').lower()
+                
+                # Validate common required fields
                 required_fields = ['title', 'brand', 'model', 'condition',
-                                   'transmission', 'fuel_system', 'drivetrain', 'seats', 'doors', 
-                                   'vin', 'listing_type', 'price']
+                                   'transmission', 'fuel_system', 'listing_type', 'price']
+                
+                # Add vehicle-type specific required fields
+                if vehicle_type == 'car':
+                    required_fields.extend(['drivetrain', 'seats', 'doors', 'vin'])
+                
                 missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
                 
                 if missing_fields:
@@ -529,22 +559,60 @@ class CreateListingView(CreateAPIView):
                         'message': 'payment_cycle is required for rental listings'
                     }, status=400)
                 
-                # Create Car instance (not Vehicle) since it has the additional fields
-                vehicle = Car(
-                    name = data['title'],
-                    dealer=dealer,
-                    color = data.get('color', 'None'),
-                    brand = data['brand'],
-                    model = data['model'],
-                    condition = data['condition'],
-                    mileage = data.get('mileage', 0),
-                    transmission = data['transmission'],
-                    fuel_system = data['fuel_system'],
-                    drivetrain = data['drivetrain'],
-                    seats = data['seats'],
-                    doors = data['doors'],
-                    vin = data['vin'],
-                )
+                # Common vehicle fields
+                common_fields = {
+                    'name': data['title'],
+                    'dealer': dealer,
+                    'color': data.get('color', 'None'),
+                    'brand': data['brand'],
+                    'model': data['model'],
+                    'condition': data['condition'],
+                    'mileage': data.get('mileage', 0),
+                    'transmission': data['transmission'],
+                    'fuel_system': data['fuel_system'],
+                }
+                
+                # Create vehicle based on type
+                if vehicle_type == 'car':
+                    vehicle = Car(
+                        **common_fields,
+                        drivetrain=data['drivetrain'],
+                        seats=data['seats'],
+                        doors=data['doors'],
+                        vin=data['vin'],
+                    )
+                elif vehicle_type == 'plane':
+                    vehicle = Plane(
+                        **common_fields,
+                        registration_number=data.get('registration_number'),
+                        engine_type=data.get('engine_type'),
+                        aircraft_type=data.get('aircraft_type'),
+                        max_altitude=data.get('max_altitude'),
+                        wing_span=data.get('wing_span'),
+                        range=data.get('range'),
+                    )
+                elif vehicle_type == 'boat':
+                    vehicle = Boat(
+                        **common_fields,
+                        hull_material=data.get('hull_material'),
+                        engine_count=data.get('engine_count'),
+                        propeller_type=data.get('propeller_type'),
+                        length=data.get('length'),
+                        beam_width=data.get('beam_width'),
+                        draft=data.get('draft'),
+                    )
+                elif vehicle_type == 'bike':
+                    vehicle = Bike(
+                        **common_fields,
+                        engine_capacity=data.get('engine_capacity'),
+                        bike_type=data.get('bike_type'),
+                        saddle_height=data.get('saddle_height'),
+                    )
+                else:
+                    return Response({
+                        'error': True,
+                        'message': f'Invalid vehicle_type: {vehicle_type}. Must be one of: car, plane, boat, bike'
+                    }, status=400)
                 if data['listing_type'] == 'sale':
                     vehicle.for_sale = True
                 elif data['listing_type'] == 'rental':
@@ -677,10 +745,25 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                         'fuel_system': openapi.Schema(type=openapi.TYPE_STRING, enum=['diesel','electric','petrol','hybrid']),
                         'color': openapi.Schema(type=openapi.TYPE_STRING),
                         'mileage': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD']),
-                        'seats': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'doors': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'vin': openapi.Schema(type=openapi.TYPE_STRING),
+                        'drivetrain': openapi.Schema(type=openapi.TYPE_STRING, enum=['4WD','AWD','FWD','RWD'], description='For cars only'),
+                        'seats': openapi.Schema(type=openapi.TYPE_INTEGER, description='For cars only'),
+                        'doors': openapi.Schema(type=openapi.TYPE_INTEGER, description='For cars only'),
+                        'vin': openapi.Schema(type=openapi.TYPE_STRING, description='For cars only'),
+                        'registration_number': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
+                        'aircraft_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['jet','propeller','glider','helicopter'], description='For planes'),
+                        'engine_type': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
+                        'max_altitude': openapi.Schema(type=openapi.TYPE_INTEGER, description='For planes'),
+                        'wing_span': openapi.Schema(type=openapi.TYPE_NUMBER, description='For planes'),
+                        'range': openapi.Schema(type=openapi.TYPE_INTEGER, description='For planes'),
+                        'hull_material': openapi.Schema(type=openapi.TYPE_STRING, description='For boats'),
+                        'engine_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='For boats'),
+                        'propeller_type': openapi.Schema(type=openapi.TYPE_STRING, description='For boats'),
+                        'length': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats'),
+                        'beam_width': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats'),
+                        'draft': openapi.Schema(type=openapi.TYPE_NUMBER, description='For boats'),
+                        'engine_capacity': openapi.Schema(type=openapi.TYPE_INTEGER, description='For bikes'),
+                        'bike_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['cruiser','sport','touring','offroad'], description='For bikes'),
+                        'saddle_height': openapi.Schema(type=openapi.TYPE_NUMBER, description='For bikes'),
                         'features': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
                     }
                 ),
@@ -710,6 +793,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 listing.price=data['price']
                 listing.notes=data['notes']
 
+                # Update common vehicle fields
                 vehicle.name = data['title']
                 vehicle.model = data['vehicle']['model']
                 vehicle.color = data['vehicle'].get('color', 'None')
@@ -718,10 +802,38 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 vehicle.transmission = data['vehicle']['transmission']
                 vehicle.mileage = data['vehicle']['mileage']
                 vehicle.fuel_system = data['vehicle']['fuel_system']
-                vehicle.drivetrain = data['vehicle']['drivetrain']
-                vehicle.seats = data['vehicle']['seats']
-                vehicle.doors = data['vehicle']['doors']
-                vehicle.vin = data['vehicle']['vin']
+                
+                # Update vehicle-type specific fields
+                # Check if vehicle is a Car (has drivetrain attribute)
+                if hasattr(vehicle, 'drivetrain'):
+                    vehicle.drivetrain = data['vehicle'].get('drivetrain')
+                    vehicle.seats = data['vehicle'].get('seats')
+                    vehicle.doors = data['vehicle'].get('doors')
+                    vehicle.vin = data['vehicle'].get('vin')
+                
+                # Check if vehicle is a Plane
+                if hasattr(vehicle, 'registration_number'):
+                    vehicle.registration_number = data['vehicle'].get('registration_number')
+                    vehicle.engine_type = data['vehicle'].get('engine_type')
+                    vehicle.aircraft_type = data['vehicle'].get('aircraft_type')
+                    vehicle.max_altitude = data['vehicle'].get('max_altitude')
+                    vehicle.wing_span = data['vehicle'].get('wing_span')
+                    vehicle.range = data['vehicle'].get('range')
+                
+                # Check if vehicle is a Boat
+                if hasattr(vehicle, 'hull_material'):
+                    vehicle.hull_material = data['vehicle'].get('hull_material')
+                    vehicle.engine_count = data['vehicle'].get('engine_count')
+                    vehicle.propeller_type = data['vehicle'].get('propeller_type')
+                    vehicle.length = data['vehicle'].get('length')
+                    vehicle.beam_width = data['vehicle'].get('beam_width')
+                    vehicle.draft = data['vehicle'].get('draft')
+                
+                # Check if vehicle is a Bike
+                if hasattr(vehicle, 'engine_capacity'):
+                    vehicle.engine_capacity = data['vehicle'].get('engine_capacity')
+                    vehicle.bike_type = data['vehicle'].get('bike_type')
+                    vehicle.saddle_height = data['vehicle'].get('saddle_height')
 
                 if data['listing_type'] == 'sale':
                     vehicle.for_sale = True
