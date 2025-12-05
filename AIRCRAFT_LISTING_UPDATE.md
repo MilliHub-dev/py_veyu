@@ -1,7 +1,13 @@
 # Aircraft Listing Update - Drivetrain & VIN Optional
 
 ## Summary
-Updated the listing creation and editing endpoints to make `drivetrain` and `vin` fields optional for aircraft (planes) and other non-car vehicles.
+Updated the listing creation and editing endpoints to make `drivetrain`, `vin`, `seats`, and `doors` fields **optional for ALL vehicles**, including cars. This allows aircraft, boats, and bikes to be created without car-specific fields.
+
+## Key Changes
+- **Minimal required fields**: `title`, `brand`, `model`, `condition`, `listing_type`, `price`
+- **All other fields are now optional**, including `transmission`, `fuel_system`, `drivetrain`, `vin`, `seats`, `doors`
+- Frontend can now create aircraft listings without sending car-specific fields
+- Backward compatible: existing requests with all fields will continue to work
 
 ## Changes Made
 
@@ -10,13 +16,14 @@ Updated the listing creation and editing endpoints to make `drivetrain` and `vin
 
 ### 2. Create Listing Endpoint
 **Updated validation logic:**
-- Added `vehicle_type` field (values: `car`, `plane`, `boat`, `bike`)
-- Made `drivetrain`, `seats`, `doors`, and `vin` required **only for cars**
-- Common required fields for all vehicles: `title`, `brand`, `model`, `condition`, `transmission`, `fuel_system`, `listing_type`, `price`
+- Added `vehicle_type` field (values: `car`, `plane`, `boat`, `bike`) - defaults to `'car'`
+- Made `drivetrain`, `seats`, `doors`, and `vin` **OPTIONAL for all vehicles** (including cars)
+- Minimal required fields for all vehicles: `title`, `brand`, `model`, `condition`, `listing_type`, `price`
+- Optional fields: `transmission`, `fuel_system`, `color`, `mileage`, and all vehicle-type specific fields
 
 **Vehicle creation logic:**
 - Now creates the appropriate vehicle type based on `vehicle_type` parameter
-- **Car**: Requires `drivetrain`, `seats`, `doors`, `vin`
+- **Car**: Optional fields include `drivetrain`, `seats` (defaults to 5), `doors` (defaults to 4), `vin`
 - **Plane**: Optional fields include `registration_number`, `aircraft_type`, `engine_type`, `max_altitude`, `wing_span`, `range`
 - **Boat**: Optional fields include `hull_material`, `engine_count`, `propeller_type`, `length`, `beam_width`, `draft`
 - **Bike**: Optional fields include `engine_capacity`, `bike_type`, `saddle_height`
@@ -39,12 +46,28 @@ Updated the listing creation and editing endpoints to make `drivetrain` and `vin
 
 ## Backward Compatibility
 - Default `vehicle_type` is set to `'car'` for backward compatibility
-- Existing car listings will continue to work without changes
-- All car-specific validations remain in place for car listings
+- **IMPORTANT**: `drivetrain`, `vin`, `seats`, and `doors` are now OPTIONAL for all vehicles
+- Existing frontend code that sends these fields will continue to work
+- Frontend code that doesn't send these fields will also work (aircraft, boats, bikes)
+- Default values: `seats=5`, `doors=4` for cars when not provided
 
 ## Usage Examples
 
-### Creating an Aircraft Listing
+### Creating an Aircraft Listing (Minimal Required Fields)
+```json
+{
+  "action": "create-listing",
+  "vehicle_type": "plane",
+  "title": "Cessna 172 Skyhawk",
+  "brand": "Cessna",
+  "model": "172 Skyhawk",
+  "condition": "used-foreign",
+  "listing_type": "sale",
+  "price": 150000000
+}
+```
+
+### Creating an Aircraft Listing (With Optional Fields)
 ```json
 {
   "action": "create-listing",
@@ -66,7 +89,20 @@ Updated the listing creation and editing endpoints to make `drivetrain` and `vin
 }
 ```
 
-### Creating a Car Listing (Still Requires All Fields)
+### Creating a Car Listing (All Fields Optional Except Required Ones)
+```json
+{
+  "action": "create-listing",
+  "title": "2020 Toyota Camry",
+  "brand": "Toyota",
+  "model": "Camry",
+  "condition": "used-foreign",
+  "listing_type": "sale",
+  "price": 5000000
+}
+```
+
+### Creating a Car Listing (With All Optional Fields)
 ```json
 {
   "action": "create-listing",

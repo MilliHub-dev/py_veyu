@@ -430,11 +430,12 @@ class CreateListingView(CreateAPIView):
             "- upload-images: Upload one or more images for a listing (multipart/form-data)\n"
             "- publish-listing: Publish an existing listing\n\n"
             "Required fields for create-listing:\n"
-            "title, brand, model, condition, transmission, fuel_system, listing_type, price, vehicle_type.\n"
-            "For cars: drivetrain, seats, doors, vin are also required.\n"
-            "For planes: registration_number, aircraft_type are recommended.\n"
-            "For boats: hull_material, engine_count are recommended.\n"
-            "For bikes: engine_capacity, bike_type are recommended.\n"
+            "title, brand, model, condition, listing_type, price.\n"
+            "Optional but recommended: transmission, fuel_system, vehicle_type (defaults to 'car').\n"
+            "For cars: drivetrain, seats, doors, vin are optional.\n"
+            "For planes: registration_number, aircraft_type, engine_type, max_altitude, wing_span, range.\n"
+            "For boats: hull_material, engine_count, propeller_type, length, beam_width, draft.\n"
+            "For bikes: engine_capacity, bike_type, saddle_height.\n"
             "For rental listings, payment_cycle is required."
         ),
         request_body=openapi.Schema(
@@ -538,11 +539,10 @@ class CreateListingView(CreateAPIView):
                 
                 # Validate common required fields
                 required_fields = ['title', 'brand', 'model', 'condition',
-                                   'transmission', 'fuel_system', 'listing_type', 'price']
+                                   'listing_type', 'price']
                 
-                # Add vehicle-type specific required fields
-                if vehicle_type == 'car':
-                    required_fields.extend(['drivetrain', 'seats', 'doors', 'vin'])
+                # transmission and fuel_system are optional for some vehicle types
+                # drivetrain, seats, doors, vin are optional (car-specific but not required)
                 
                 missing_fields = [field for field in required_fields if field not in data or not data.get(field)]
                 
@@ -568,18 +568,18 @@ class CreateListingView(CreateAPIView):
                     'model': data['model'],
                     'condition': data['condition'],
                     'mileage': data.get('mileage', 0),
-                    'transmission': data['transmission'],
-                    'fuel_system': data['fuel_system'],
+                    'transmission': data.get('transmission'),
+                    'fuel_system': data.get('fuel_system'),
                 }
                 
                 # Create vehicle based on type
                 if vehicle_type == 'car':
                     vehicle = Car(
                         **common_fields,
-                        drivetrain=data['drivetrain'],
-                        seats=data['seats'],
-                        doors=data['doors'],
-                        vin=data['vin'],
+                        drivetrain=data.get('drivetrain'),
+                        seats=data.get('seats', 5),
+                        doors=data.get('doors', 4),
+                        vin=data.get('vin'),
                     )
                 elif vehicle_type == 'plane':
                     vehicle = Plane(
