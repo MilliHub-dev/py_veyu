@@ -6,7 +6,7 @@
       "use": "@vercel/python"
     },
     {
-      "src": "build.py",
+      "src": "api/health.py",
       "use": "@vercel/python"
     }
   ],
@@ -23,5 +23,13 @@
       "src": "/(.*)",
       "dest": "/api/vercel_app"
     }
-  ]
+  ],
+  "functions": {
+    "api/vercel_app.py": {
+      "maxDuration": 30
+    },
+    "api/health.py": {
+      "maxDuration": 10
+    }
+  }
 }

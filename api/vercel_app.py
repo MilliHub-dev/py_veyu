@@ -33,72 +33,35 @@ try:
     # Setup Django
     django.setup()
     
-    # Optimize database connections for serverless
-    from django.db import connections
-    
-    def close_old_connections():
-        """Close database connections to prevent connection pooling issues in serverless"""
-        for conn in connections.all():
-            conn.close()
-    
     # Get WSGI application
-    application = get_wsgi_application()
-    
-    # Wrap application with connection cleanup
-    def serverless_application(environ, start_response):
-        """WSGI application wrapper with serverless optimizations"""
-        try:
-            # Log request info
-            method = environ.get('REQUEST_METHOD', 'UNKNOWN')
-            path = environ.get('PATH_INFO', '/')
-            logger.info(f"Processing {method} request to {path}")
-            
-            # Process request
-            response = application(environ, start_response)
-            
-            # Clean up connections after request
-            close_old_connections()
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}", exc_info=True)
-            
-            # Clean up connections on error
-            close_old_connections()
-            
-            # Return 500 error response
-            status = '500 Internal Server Error'
-            headers = [('Content-Type', 'text/plain')]
-            start_response(status, headers)
-            return [b'Internal Server Error']
+    django_app = get_wsgi_application()
     
     logger.info("Django WSGI application initialized successfully for Vercel")
     
-    # Export the application for Vercel
-    # Vercel's Python runtime expects a WSGI application named 'app' or 'application'
-    app = serverless_application
-    
-except ImportError as e:
-    logger.error(f"Failed to import Django: {e}", exc_info=True)
-    
-    # Create a fallback error handler
-    def error_app(environ, start_response):
-        status = '500 Internal Server Error'
-        headers = [('Content-Type', 'text/plain')]
-        start_response(status, headers)
-        return [f'Import Error: {str(e)}'.encode()]
-    
-    app = error_app
+    # Export for Vercel - this is the main entry point
+    def app(environ, start_response):
+        """Main WSGI application for Vercel"""
+        try:
+            # Log request details for debugging
+            method = environ.get('REQUEST_METHOD', 'UNKNOWN')
+            path = environ.get('PATH_INFO', '/')
+            query = environ.get('QUERY_STRING', '')
+            logger.info(f"Vercel request: {method} {path}?{query}")
+            
+            return django_app(environ, start_response)
+        except Exception as e:
+            logger.error(f"Error in WSGI app: {str(e)}", exc_info=True)
+            status = '500 Internal Server Error'
+            headers = [('Content-Type', 'application/json')]
+            start_response(status, headers)
+            return [f'{{"error": "Application Error", "message": "{str(e)}"}}'.encode()]
     
 except Exception as e:
-    logger.error(f"Failed to initialize Django application: {e}", exc_info=True)
+    logger.error(f"Failed to initialize Django: {e}", exc_info=True)
     
-    # Create a fallback error handler
-    def error_app(environ, start_response):
+    # Fallback error handler
+    def app(environ, start_response):
         status = '500 Internal Server Error'
         headers = [('Content-Type', 'text/plain')]
         start_response(status, headers)
-        return [f'Initialization Error: {str(e)}'.encode()]
-    
-    app = error_app
+        return [f'Django Initialization Error: {str(e)}'.encode()]
