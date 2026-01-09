@@ -4,32 +4,12 @@
     {
       "src": "api/vercel_app.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "api/health.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/health",
-      "dest": "/api/health"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "/staticfiles/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "/api/vercel_app"
     }
-  ],
-  "functions": {
-    "api/vercel_app.py": {
-      "maxDuration": 30
-    },
-    "api/health.py": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }
