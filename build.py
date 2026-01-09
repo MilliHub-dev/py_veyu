@@ -89,10 +89,31 @@ def main():
     # Run database migrations
     log("🗄️  Running database migrations...")
     
+    # First, try to fix any migration inconsistencies
+    log("🔧 Checking for migration inconsistencies...")
     result = run_command(
         'python3 manage.py migrate --noinput --verbosity=1',
         check=False
     )
+    
+    if result.returncode != 0 and "InconsistentMigrationHistory" in result.stderr:
+        log("⚠️  Detected migration history inconsistency")
+        log("🔧 Attempting to fix migration dependencies...")
+        
+        # Try to fake the problematic migration first
+        fake_result = run_command(
+            'python3 manage.py migrate feedback 0001 --fake',
+            check=False
+        )
+        
+        if fake_result.returncode == 0:
+            log("✅ Faked problematic migration")
+            
+            # Now try to migrate normally
+            result = run_command(
+                'python3 manage.py migrate --noinput --verbosity=1',
+                check=False
+            )
     
     if result.returncode == 0:
         log("✅ Database migrations completed successfully")

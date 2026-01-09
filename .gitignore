@@ -1,38 +1,98 @@
-.vscode/
+# Python
+*.py[cod]
+*$py.class
+*.so
+__pycache__/
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Virtual Environments
 venv/
-venv312/
-penv/
-*env/
-venv_win/
-motaa_venv/
-media/
-*/migrations/
-*/**/migrations/
-*/__pycache__/
-*/**/__pycache__/
+venv310/
+ENV/
+env/
+.venv
 
-server.sh
-digital_ocean_setup
-
-customer_api_consumer.pyr
-*consumer.pyr
-
+# Django
+*.log
+*.pot
+*.pyc
 db.sqlite3
-*.sqlite3
 db.sqlite3-journal
-backup.sql
-*.sql
-doc.md
+olddb.sqlite3
+/static/
+/staticfiles/
+/media/
+/uploads/
+
+# Environment Variables
+.env
 .env.local
+.env.*.local
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
-git-token
-git_access_token
-*.pem
-veyu-ssh-key.pem
-# uploads/
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
 
-.kiro
-.kiro.lock
-.logs
+# Logs
+logs/
+*.log
+email_debug.log
 
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Email debugging
+sent_emails/
+
+# Database dumps
+*.sql
+data-dump.sql
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Deployment
+vercel_app.py
+*.bat
+*.sh
+
+# Artifacts
+artifacts/

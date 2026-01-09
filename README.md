@@ -18,7 +18,7 @@
    ```
 
 Ask if you need any further details added contact us @millihub
-.\venv\Scripts\Activate
+.\venv310\Scripts\Activate
 python manage.py runserver
 
 trigger the server by running the following command:

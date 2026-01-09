@@ -1,0 +1,49 @@
+# Virtual environments
+venv/
+venv310/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database
+*.sqlite3
+*.db
+
+# Environment files (these should be set in Vercel dashboard)
+.env.local
+.env.development
+.env.production
+
+# Uploads (should be handled by cloud storage)
+uploads/
+
+# Documentation that's not needed for deployment
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts that will be regenerated
+staticfiles/

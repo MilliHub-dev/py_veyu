@@ -59,6 +59,7 @@ urllib3==2.2.3
 # Date & Time
 python-dateutil==2.9.0.post0
 pytz==2024.2
+daphne>=4.0
 
 # Data Validation
 pydantic==1.10.18
