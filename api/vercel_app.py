@@ -1,67 +1,74 @@
-"""
-Vercel WSGI Entry Point for Django Application
-Simplified version with better error handling
-"""
-
+from http.server import BaseHTTPRequestHandler
 import os
 import sys
-import logging
 from pathlib import Path
+import json
 
-# Add the project directory to Python path
+# Add project root to Python path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-# Set Django settings module
+# Set Django settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.vercel_settings')
 
-# Configure basic logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def app(environ, start_response):
-    """Main WSGI application for Vercel"""
-    
-    # Get request info
-    method = environ.get('REQUEST_METHOD', 'GET')
-    path = environ.get('PATH_INFO', '/')
-    
-    logger.info(f"Request: {method} {path}")
-    
-    # Handle health check directly
-    if path == '/health':
-        status = '200 OK'
-        headers = [('Content-Type', 'application/json')]
-        start_response(status, headers)
-        return [b'{"status": "healthy", "service": "veyu-api"}']
-    
-    # Handle root path directly
-    if path == '/' or path == '':
-        status = '200 OK'
-        headers = [('Content-Type', 'application/json')]
-        start_response(status, headers)
-        return [b'{"message": "Veyu API is running", "docs": "/api/docs/"}']
-    
-    try:
-        # Initialize Django only when needed
-        import django
-        from django.core.wsgi import get_wsgi_application
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Handle GET requests"""
         
-        # Setup Django
-        django.setup()
+        # Health check
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'status': 'ok'}).encode())
+            return
         
-        # Get Django WSGI app
-        django_app = get_wsgi_application()
+        # Root path
+        if self.path == '/' or self.path == '':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'message': 'Veyu API is running',
+                'docs': '/api/docs/'
+            }).encode())
+            return
         
-        # Process with Django
-        return django_app(environ, start_response)
-        
-    except Exception as e:
-        logger.error(f"Django error: {str(e)}")
-        
-        # Return error response
-        status = '500 Internal Server Error'
-        headers = [('Content-Type', 'application/json')]
-        start_response(status, headers)
-        error_msg = f'{{"error": "Server Error", "message": "{str(e)}"}}'
-        return [error_msg.encode()]
+        try:
+            # Initialize Django
+            import django
+            django.setup()
+            
+            from django.test import RequestFactory
+            from django.core.handlers.wsgi import WSGIHandler
+            
+            # Create Django request
+            factory = RequestFactory()
+            request = factory.get(self.path)
+            
+            # Process with Django
+            wsgi_handler = WSGIHandler()
+            response = wsgi_handler.get_response(request)
+            
+            self.send_response(response.status_code)
+            for header, value in response.items():
+                self.send_header(header, value)
+            self.end_headers()
+            
+            if hasattr(response, 'content'):
+                self.wfile.write(response.content)
+            else:
+                self.wfile.write(b'')
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'error': 'Server Error',
+                'message': str(e)
+            }).encode())
+    
+    def do_POST(self):
+        """Handle POST requests"""
+        self.do_GET()  # For now, handle POST same as GET
