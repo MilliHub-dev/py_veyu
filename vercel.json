@@ -1,15 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/vercel_app.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/vercel_app.py": {
+      "maxDuration": 30
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/vercel_app"
+      "source": "/(.*)",
+      "destination": "/api/vercel_app"
     }
   ]
 }
