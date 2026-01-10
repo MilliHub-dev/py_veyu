@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Vercel Build Script for Django Static Files
-Handles dependency installation, static file collection, and environment validation
+Vercel Build Script for Django Static Site Generation
+Generates static HTML files from Django views for deployment
 """
 
 import os
@@ -40,6 +40,58 @@ def run_command(command, check=True):
             sys.exit(1)
         return e
 
+def generate_static_site():
+    """Generate static HTML files from Django"""
+    
+    log("🏗️  Generating static Django site...")
+    
+    # Set Django settings for static generation
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.settings')
+    
+    # Import Django after setting environment
+    import django
+    from django.conf import settings
+    from django.test import Client
+    from django.urls import reverse
+    
+    django.setup()
+    
+    # Create output directory
+    output_dir = Path('dist')
+    output_dir.mkdir(exist_ok=True)
+    
+    # Create a test client
+    client = Client()
+    
+    # Generate static pages
+    pages_to_generate = [
+        ('/', 'index.html'),
+        ('/api/docs/', 'api-docs.html'),
+    ]
+    
+    for url, filename in pages_to_generate:
+        try:
+            log(f"📄 Generating {filename} from {url}")
+            response = client.get(url)
+            
+            if response.status_code == 200:
+                output_file = output_dir / filename
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(response.content.decode('utf-8'))
+                log(f"✅ Generated {filename}")
+            else:
+                log(f"⚠️  Skipped {filename} (status: {response.status_code})")
+                
+        except Exception as e:
+            log(f"❌ Failed to generate {filename}: {e}")
+    
+    # Copy static files to dist
+    log("📁 Copying static files...")
+    if Path('staticfiles').exists():
+        run_command('cp -r staticfiles/* dist/', check=False)
+    
+    log("✅ Static site generation complete!")
+
 def main():
     log("🚀 Starting Vercel build process...")
     
@@ -67,12 +119,13 @@ def main():
         sys.exit(1)
     
     # Set Django settings module
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.vercel_settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'veyu.settings')
     
     # Create necessary directories
     log("📁 Creating required directories...")
     directories = [
         'staticfiles',
+        'dist',
         'logs',
         'uploads/docs',
         'uploads/profiles',
@@ -89,38 +142,16 @@ def main():
     # Run database migrations
     log("🗄️  Running database migrations...")
     
-    # First, try to fix any migration inconsistencies
-    log("🔧 Checking for migration inconsistencies...")
     result = run_command(
         'python3 manage.py migrate --noinput --verbosity=1',
         check=False
     )
-    
-    if result.returncode != 0 and "InconsistentMigrationHistory" in result.stderr:
-        log("⚠️  Detected migration history inconsistency")
-        log("🔧 Attempting to fix migration dependencies...")
-        
-        # Try to fake the problematic migration first
-        fake_result = run_command(
-            'python3 manage.py migrate feedback 0001 --fake',
-            check=False
-        )
-        
-        if fake_result.returncode == 0:
-            log("✅ Faked problematic migration")
-            
-            # Now try to migrate normally
-            result = run_command(
-                'python3 manage.py migrate --noinput --verbosity=1',
-                check=False
-            )
     
     if result.returncode == 0:
         log("✅ Database migrations completed successfully")
     else:
         log("⚠️  Migration warning (may be expected if database is already up to date)")
         log(result.stderr)
-        # Don't fail the build on migration errors as they might be non-critical
     
     # Collect static files
     log("🎨 Collecting static files...")
@@ -141,6 +172,27 @@ def main():
         log(result.stderr)
         sys.exit(1)
     
+    # Generate static site
+    try:
+        generate_static_site()
+    except Exception as e:
+        log(f"❌ Static site generation failed: {e}")
+        # Create a simple index.html as fallback
+        with open('dist/index.html', 'w') as f:
+            f.write('''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Veyu API</title>
+</head>
+<body>
+    <h1>Veyu API</h1>
+    <p>API is running. Visit <a href="/api/docs/">/api/docs/</a> for documentation.</p>
+</body>
+</html>
+            ''')
+        log("✅ Created fallback index.html")
+    
     # Optimize static files
     log("⚡ Optimizing static files...")
     
@@ -156,8 +208,7 @@ def main():
     
     critical_files = [
         'manage.py',
-        'vercel_app.py',
-        'veyu/vercel_settings.py',
+        'dist/index.html',
         'staticfiles'
     ]
     

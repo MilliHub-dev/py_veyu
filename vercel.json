@@ -1,13 +1,7 @@
 {
-  "functions": {
-    "api/vercel_app.py": {
-      "maxDuration": 30
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/vercel_app"
-    }
-  ]
+  "buildCommand": "python build.py",
+  "outputDirectory": "dist",
+  "installCommand": "pip install -r requirements.txt",
+  "framework": null,
+  "public": false
 }
