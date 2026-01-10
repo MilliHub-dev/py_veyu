@@ -185,12 +185,22 @@ class SignUpView(generics.CreateAPIView):
                     expires_at=timezone.now() + timedelta(minutes=10)
                 )
                 verification_code = otp.code
+                
+                # Log OTP creation for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"📧 OTP created for user {user.email}: {verification_code}")
 
                 # Send only verification email asynchronously (non-blocking)
-                send_verification_email_async(user, verification_code)
+                try:
+                    send_verification_email_async(user, verification_code)
+                    logger.info(f"📧 Verification email queued for {user.email}")
+                    verification_sent = True
+                except Exception as e:
+                    logger.error(f"❌ Failed to queue verification email for {user.email}: {e}")
+                    verification_sent = False
                 
                 # Emails are sent in background, so we assume success for response
-                verification_sent = True
                 welcome_sent = True  # Set to True for backward compatibility, but no welcome email sent
                 
                 # Create OTP for phone verification if phone number exists (but don't send duplicate email)

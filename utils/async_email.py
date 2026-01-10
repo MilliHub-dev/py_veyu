@@ -40,6 +40,10 @@ def send_verification_email_async(user, verification_code: str):
     def _send_verification():
         from utils.brevo_api import send_template_email_via_api
         from django.conf import settings
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"📧 Starting verification email send for {user.email} with code {verification_code}")
         
         context = {
             "name": user.first_name or user.email,
@@ -53,12 +57,15 @@ def send_verification_email_async(user, verification_code: str):
             "app_name": "Veyu"
         }
         
-        return send_template_email_via_api(
+        result = send_template_email_via_api(
             subject="Verify Your Email - Veyu",
             recipients=[user.email],
             template_name='verification_email.html',
             context=context
         )
+        
+        logger.info(f"📧 Verification email send result for {user.email}: {result}")
+        return result
     
     send_email_async(_send_verification)
 
