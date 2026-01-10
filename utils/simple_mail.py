@@ -46,8 +46,12 @@ def send_simple_email(
         
         from_email = from_email or settings.DEFAULT_FROM_EMAIL
         
-        # Create connection with custom timeout if provided, or default to 30s
-        timeout = timeout or getattr(settings, 'EMAIL_TIMEOUT', 30)
+        # Create connection with custom timeout if provided, or default to 60s
+        timeout = timeout or getattr(settings, 'EMAIL_TIMEOUT', 60)
+        
+        # Log timeout for debugging
+        # logger.info(f"Using SMTP timeout: {timeout}s")
+        
         from django.core.mail import get_connection
         connection = get_connection(timeout=timeout)
         

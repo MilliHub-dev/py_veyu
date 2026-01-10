@@ -453,7 +453,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # Brevo SMTP Settings (simple and direct)
 EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
+EMAIL_PORT = 2525  # Changed to 2525 to avoid port 587 blocking
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_TIMEOUT = 60  # Increased to 60 seconds for server environments
