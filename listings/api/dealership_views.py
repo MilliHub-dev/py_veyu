@@ -970,13 +970,24 @@ class OrderListView(ListAPIView):
         tags=['Orders']
     )
     def get(self, request):
-        dealer = Dealership.objects.get(user=request.user)
-        orders = dealer.orders.all()
-        data = {
-            'error': False,
-            'data': OrderSerializer(orders, many=True, context={'request': request}).data
-        }
-        return Response(data, status=200)
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Response({'error': False, 'data': []}, status=200)
+        
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': True, 'message': 'Authentication required'}, status=401)
+            
+        try:
+            dealer = Dealership.objects.get(user=request.user)
+            orders = dealer.orders.all()
+            data = {
+                'error': False,
+                'data': OrderSerializer(orders, many=True, context={'request': request}).data
+            }
+            return Response(data, status=200)
+        except Dealership.DoesNotExist:
+            return Response({'error': True, 'message': 'Dealer profile not found'}, status=404)
 
     def post(self, request):
         return Response()

@@ -67,15 +67,26 @@ class MechanicOverview(ListAPIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     def get(self, request, *args, **kwargs):
-        mechanic = request.user.mechanic
-        serializer = self.serializer_class(mechanic, context={'request': request})
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Response({'error': False, 'message': '', 'data': {}}, status=200)
+        
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': True, 'message': 'Authentication required'}, status=401)
+            
+        try:
+            mechanic = request.user.mechanic
+            serializer = self.serializer_class(mechanic, context={'request': request})
 
-        data = {
-            'error': False,
-            'message': '',
-            'data': serializer.data
-        }
-        return Response(data, 200)
+            data = {
+                'error': False,
+                'message': '',
+                'data': serializer.data
+            }
+            return Response(data, 200)
+        except AttributeError:
+            return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
 
 
 class MechanicDashboardView(ListAPIView):
@@ -85,39 +96,61 @@ class MechanicDashboardView(ListAPIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     def get(self, request, *args, **kwargs):
-        mechanic = request.user.mechanic
-        booking_history = ServiceBooking.objects.filter(
-            Q(mechanic=mechanic) &
-            Q(booking_status='accepted') |
-            Q(booking_status='working') |
-            Q(booking_status='canceled') |
-            Q(booking_status='expired') |
-            Q(booking_status='completed') |
-            Q(booking_status='declined') 
-        ).order_by('started_on').order_by('booking_status')
-        pending_requests = ServiceBooking.objects.filter(
-            Q(mechanic=mechanic) &
-            Q(booking_status='pending') |
-            Q(booking_status='requested')
-        )
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Response({
+                'error': False,
+                'message': 'Got Data',
+                'data': {
+                    'total_revenue': 0,
+                    'total_bookings': 0,
+                    'total_hires': 0,
+                    'current_job': None,
+                    'booking_history': [],
+                    'pending_requests': [],
+                }
+            }, status=200)
         
-        current_job = mechanic.current_job
-        hires = booking_history.exclude(booking_status__in=['canceled', 'expired', 'declined',]).count()
-        revenue = 0
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': True, 'message': 'Authentication required'}, status=401)
+            
+        try:
+            mechanic = request.user.mechanic
+            booking_history = ServiceBooking.objects.filter(
+                Q(mechanic=mechanic) &
+                Q(booking_status='accepted') |
+                Q(booking_status='working') |
+                Q(booking_status='canceled') |
+                Q(booking_status='expired') |
+                Q(booking_status='completed') |
+                Q(booking_status='declined') 
+            ).order_by('started_on').order_by('booking_status')
+            pending_requests = ServiceBooking.objects.filter(
+                Q(mechanic=mechanic) &
+                Q(booking_status='pending') |
+                Q(booking_status='requested')
+            )
+            
+            current_job = mechanic.current_job
+            hires = booking_history.exclude(booking_status__in=['canceled', 'expired', 'declined',]).count()
+            revenue = 0
 
-        data = {
-            'error': False,
-            'message': 'Got Data',
-            'data': {
-                'total_revenue': revenue,
-                'total_bookings': booking_history.count(),
-                'total_hires': hires,
-                'current_job': ViewBookingSerializer(current_job, context={'request': request}).data,
-                'booking_history': ViewBookingSerializer(booking_history, many=True, context={'request': request}).data,
-                'pending_requests': ViewBookingSerializer(pending_requests, many=True, context={'request': request}).data,
+            data = {
+                'error': False,
+                'message': 'Got Data',
+                'data': {
+                    'total_revenue': revenue,
+                    'total_bookings': booking_history.count(),
+                    'total_hires': hires,
+                    'current_job': ViewBookingSerializer(current_job, context={'request': request}).data,
+                    'booking_history': ViewBookingSerializer(booking_history, many=True, context={'request': request}).data,
+                    'pending_requests': ViewBookingSerializer(pending_requests, many=True, context={'request': request}).data,
+                }
             }
-        }
-        return Response(data, 200)
+            return Response(data, 200)
+        except AttributeError:
+            return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
 
 
 class MechanicAnalyticsView(APIView):
@@ -373,15 +406,30 @@ class MechanicServicesView(ListAPIView):
     serializer_class = MechanicServiceSerializer
 
     def get(self, request, *args, **kwargs):
-        # mech = Mechanic.me(kwargs['mech_id'])
-        mech = Mechanic.objects.get(user=request.user)
-        services = mech.services.all()
-        data = {
-            'error': False,
-            'message': 'Successfully got %s\' services' % mech.business_name,
-            'data': MechanicServiceSerializer(services, many=True).data
-        }
-        return Response(data, 200)
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Response({
+                'error': False,
+                'message': 'Successfully got services',
+                'data': []
+            }, status=200)
+        
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': True, 'message': 'Authentication required'}, status=401)
+            
+        try:
+            # mech = Mechanic.me(kwargs['mech_id'])
+            mech = Mechanic.objects.get(user=request.user)
+            services = mech.services.all()
+            data = {
+                'error': False,
+                'message': 'Successfully got %s\' services' % mech.business_name,
+                'data': MechanicServiceSerializer(services, many=True).data
+            }
+            return Response(data, 200)
+        except Mechanic.DoesNotExist:
+            return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
 
     def post(self, request, *args, **kwargs):
         mech = Mechanic.me(kwargs['mech_id']); data = request.data

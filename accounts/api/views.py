@@ -2114,6 +2114,14 @@ class LocationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return only locations belonging to the authenticated user"""
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Location.objects.none()
+        
+        # Check if user is authenticated
+        if not self.request.user.is_authenticated:
+            return Location.objects.none()
+            
         return Location.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):

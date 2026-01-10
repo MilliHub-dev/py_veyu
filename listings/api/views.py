@@ -1381,6 +1381,23 @@ class UserOrdersView(ListAPIView):
         tags=["Orders"],
     )
     def get(self, request):
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return Response({
+                'error': False,
+                'message': 'Orders retrieved successfully',
+                'data': [],
+                'pagination': {
+                    'count': 0,
+                    'next': None,
+                    'previous': None
+                }
+            }, status=200)
+        
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': True, 'message': 'Authentication required'}, status=401)
+            
         user = request.user
         
         # Get orders for the user based on their role

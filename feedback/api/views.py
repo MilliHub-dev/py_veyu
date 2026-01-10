@@ -28,6 +28,14 @@ class SupportTicketViewSet(ModelViewSet):
     pagination_class = TicketPagination
     
     def get_queryset(self):
+        # Handle schema generation when user is AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
+            return SupportTicket.objects.none()
+        
+        # Check if user is authenticated
+        if not self.request.user.is_authenticated:
+            return SupportTicket.objects.none()
+            
         user = self.request.user
         
         if user.is_staff:
