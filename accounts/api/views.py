@@ -156,7 +156,7 @@ class SignUpView(generics.CreateAPIView):
         try:
             data = request.data
             print("Signup data:", data)
-            action = data['action'] or 'create-account'
+            action = data.get('action', 'create-account')  # Use .get() to avoid KeyError
 
             if action == 'create-account':
                 user_type = data['user_type']
@@ -279,11 +279,23 @@ class SignUpView(generics.CreateAPIView):
                 else:
                     return Response({'error' : False, 'message': "Invalid or missing user_type param"})
         except Exception as error:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Signup error: {str(error)}", exc_info=True)
+            
             message = str(error)
-            # raise error
-            if message == 'UNIQUE constraint failed: accounts_customer.phone_number':
+            # Handle specific known errors
+            if 'UNIQUE constraint failed: accounts_customer.phone_number' in message:
                 message = "User with this phone number already exists"
-            return Response({'error' : True, 'message': message}, 500)
+            elif 'UNIQUE constraint failed' in message and 'email' in message:
+                message = "User with this email already exists"
+            elif 'KeyError' in str(type(error)):
+                message = f"Missing required field: {str(error)}"
+            else:
+                # For debugging in development
+                message = f"Signup failed: {str(error)}"
+            
+            return Response({'error': True, 'message': message}, status=500)
 
 
 class LoginView(views.APIView):

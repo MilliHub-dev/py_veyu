@@ -83,6 +83,11 @@ if not DEBUG:
 # CORS settings for Railway deployment
 CORS_ALLOWED_ORIGINS = [
     "https://veyu.up.railway.app",
+    "https://dev.veyu.cc",
+    "https://veyu.cc",
+    "https://www.veyu.cc",
+    "http://localhost:5173",  # For local development
+    "http://localhost:3000",  # For local development
 ]
 
 if CUSTOM_DOMAIN:
@@ -170,6 +175,11 @@ else:
 # Email configuration for Railway
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', EMAIL_HOST_USER)
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', EMAIL_HOST_PASSWORD)
+
+# Email timeout settings for Railway
+EMAIL_TIMEOUT = 30  # 30 seconds timeout
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
 
 # Cloudinary configuration for Railway
 CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')
