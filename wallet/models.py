@@ -29,50 +29,49 @@ class Wallet(DbModel):
 
     def apply_transaction(self, trans):
         if trans.type in ['payment', 'charge', 'transfer_out', 'withdraw']:
-            self.ledger_balance -= trans.amount7
+            self.ledger_balance -= trans.amount
         elif trans.type in ['transfer_in', 'deposit']:
             self.ledger_balance += trans.amount
-        self.transactions.add(trans,)
+        self.transactions.add(trans)
         self.save()
-        return f'{amount} deposited to {self.user} wallet'
+        return f'{trans.amount} processed for {self.user} wallet'
 
 
     def transfer(self, amount, recipient_wallet, narration=None):
         # for use between wallets
         # e.g paying for a car rental from your wallet
         if self.balance >= amount:
-            sender_transaction =  Transaction.objects.create(
-                sender=self.user.name,
-                sender_wallet=self,
-                recipient=recipient_wallet.user.name,
-                recipient_wallet=recipient_wallet,
-                type='transfer_out',
-                status='pending',
-                source='wallet',
-                amount=amount,
-            )
+            with transaction.atomic():
+                sender_transaction =  Transaction.objects.create(
+                    sender=self.user.name,
+                    sender_wallet=self,
+                    recipient=recipient_wallet.user.name,
+                    recipient_wallet=recipient_wallet,
+                    type='transfer_out',
+                    status='completed',
+                    source='wallet',
+                    amount=amount,
+                    narration=narration or f"Transfer to {recipient_wallet.user.name}"
+                )
 
-            recipient_transaction =  Transaction.objects.create(
-                sender=self.user.name,
-                sender_wallet=self,
-                recipient=recipient_wallet.user.name,
-                recipient_wallet=recipient_wallet,
-                type='transfer_in',
-                status='pending',
-                source='wallet',
-                amount=amount,
-            )
-            try:
-                self.balance = F('balance') - amount
-                recipient_wallet.deposit(amount, type='Transfer from')
-                self.save()
-                recipient_wallet.save()
-                new_transaction.status = 'Completed'
-                new_transaction.save()
-                return True
-            except Exception as e:
-                    new_transaction.status = 'Failed'
-                    new_transaction.save()
+                recipient_transaction =  Transaction.objects.create(
+                    sender=self.user.name,
+                    sender_wallet=self,
+                    recipient=recipient_wallet.user.name,
+                    recipient_wallet=recipient_wallet,
+                    type='transfer_in',
+                    status='completed',
+                    source='wallet',
+                    amount=amount,
+                    narration=narration or f"Transfer from {self.user.name}"
+                )
+                
+                try:
+                    self.apply_transaction(sender_transaction)
+                    recipient_wallet.apply_transaction(recipient_transaction)
+                    return True
+                except Exception as e:
+                    # Because of atomic block, DB changes will be rolled back automatically
                     raise ValidationError(f"Failed to complete transaction: {str(e)}")
         else:
             raise ValidationError("Insufficient funds to complete this transaction.")
@@ -81,15 +80,17 @@ class Wallet(DbModel):
 
     def withdraw(self, amount, payout_info, narration=None):
         if not narration:
-            narration = f"Withdrwal to {payout_info.account_number}"
+            narration = f"Withdrawal to {payout_info.account_number}"
         Transaction.objects.create(
-            sender='Me',
-            wallet=self,
-            type='transfer_out',
+            sender=self.user.name or 'User',
+            sender_wallet=self,
+            type='withdraw',
             amount=amount,
-            status=transaction_status,
-            recipient=account_details,
-            narration=narration
+            status='pending',
+            recipient=payout_info.account_number,
+            narration=narration,
+            payout_info=payout_info,
+            source='wallet'
         )
 
     

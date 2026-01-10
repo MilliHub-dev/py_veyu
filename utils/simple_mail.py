@@ -30,7 +30,7 @@ def send_simple_email(
         message: Plain text message
         html_message: HTML message (optional)
         from_email: From email address (optional, uses DEFAULT_FROM_EMAIL)
-        timeout: SMTP timeout in seconds (optional, uses EMAIL_TIMEOUT from settings)
+        timeout: SMTP timeout in seconds (optional, defaults to 30s)
     
     Returns:
         bool: True if email was sent successfully, False otherwise
@@ -46,11 +46,10 @@ def send_simple_email(
         
         from_email = from_email or settings.DEFAULT_FROM_EMAIL
         
-        # Create connection with custom timeout if provided
+        # Create connection with custom timeout if provided, or default to 30s
+        timeout = timeout or getattr(settings, 'EMAIL_TIMEOUT', 30)
         from django.core.mail import get_connection
-        connection = None
-        if timeout:
-            connection = get_connection(timeout=timeout)
+        connection = get_connection(timeout=timeout)
         
         # Use Django's simple send_mail function
         result = send_mail(
@@ -140,7 +139,8 @@ def send_template_email(
             recipients=recipients,
             message=plain_message,
             html_message=html_message,
-            from_email=from_email
+            from_email=from_email,
+            timeout=timeout
         )
         
     except Exception as e:

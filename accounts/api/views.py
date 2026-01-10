@@ -512,6 +512,33 @@ class UpdateProfileView(views.APIView):
         return get_object_or_404(user_model, user=user)
 
     @swagger_auto_schema(
+        operation_summary="Get User Profile",
+        operation_description="Get the authenticated user's profile information.",
+        responses={
+            200: UserProfileSerializer,
+            404: "Profile not found"
+        },
+        tags=['User Profile']
+    )
+    def get(self, request: Request):
+        profile = self.get_user_profile(request)
+        if not profile:
+            return Response({
+                'error': True,
+                'message': f'Profile not found'
+            }, status=404)
+            
+        from accounts.api.serializers import get_user_serializer
+        serializer_class = get_user_serializer(request.user.user_type)
+        serializer = serializer_class(profile, context={'request': request})
+        
+        return Response({
+            'error': False,
+            'message': 'Profile retrieved successfully',
+            'data': serializer.data
+        })
+
+    @swagger_auto_schema(
         operation_summary="Update User Profile",
         operation_description=(
             "Update the authenticated user's profile information.\n\n"
