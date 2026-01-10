@@ -45,6 +45,9 @@ ALLOWED_HOSTS = [
     '.railway.app',
     '.up.railway.app', 
     'veyu.up.railway.app',
+    'dev.veyu.cc',
+    'veyu.cc',
+    'www.veyu.cc',
     'localhost',
     '127.0.0.1',
 ]
