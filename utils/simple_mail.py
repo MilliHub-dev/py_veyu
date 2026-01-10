@@ -139,8 +139,7 @@ def send_template_email(
             recipients=recipients,
             message=plain_message,
             html_message=html_message,
-            from_email=from_email,
-            timeout=timeout
+            from_email=from_email
         )
         
     except Exception as e:
