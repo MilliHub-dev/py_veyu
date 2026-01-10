@@ -17,24 +17,74 @@ logger = logging.getLogger(__name__)
 @csrf_exempt
 @require_http_methods(["GET"])
 def health_check(request):
-    """Simple health check endpoint for Railway"""
+    """Comprehensive health check endpoint for Railway"""
+    health_status = {
+        'status': 'healthy',
+        'service': 'veyu-api',
+        'version': '1.0.0',
+        'timestamp': None,
+        'checks': {}
+    }
+    
+    overall_healthy = True
+    
     try:
-        # Test database connection
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
+        from datetime import datetime
+        health_status['timestamp'] = datetime.utcnow().isoformat()
         
-        return JsonResponse({
-            'status': 'healthy',
-            'service': 'veyu-api',
-            'database': 'connected',
-            'version': '1.0.0'
-        })
+        # Test database connection
+        try:
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            health_status['checks']['database'] = 'connected'
+        except Exception as e:
+            health_status['checks']['database'] = f'error: {str(e)}'
+            overall_healthy = False
+        
+        # Test Django settings
+        try:
+            from django.conf import settings
+            health_status['checks']['django'] = 'configured'
+            health_status['debug'] = settings.DEBUG
+        except Exception as e:
+            health_status['checks']['django'] = f'error: {str(e)}'
+            overall_healthy = False
+        
+        # Test static files
+        try:
+            from django.contrib.staticfiles.storage import staticfiles_storage
+            health_status['checks']['static_files'] = 'configured'
+        except Exception as e:
+            health_status['checks']['static_files'] = f'error: {str(e)}'
+            # Don't mark as unhealthy for static files
+        
+        # Test cache (if Redis is available)
+        try:
+            from django.core.cache import cache
+            cache.set('health_check', 'ok', 30)
+            if cache.get('health_check') == 'ok':
+                health_status['checks']['cache'] = 'connected'
+            else:
+                health_status['checks']['cache'] = 'not_responding'
+        except Exception as e:
+            health_status['checks']['cache'] = f'unavailable: {str(e)}'
+            # Don't mark as unhealthy for cache
+        
+        # Update overall status
+        if not overall_healthy:
+            health_status['status'] = 'unhealthy'
+        
+        status_code = 200 if overall_healthy else 503
+        
+        return JsonResponse(health_status, status=status_code)
+        
     except Exception as e:
+        # Fallback response if everything fails
         return JsonResponse({
             'status': 'unhealthy',
             'service': 'veyu-api',
-            'database': 'disconnected',
             'error': str(e),
             'version': '1.0.0'
         }, status=503)
