@@ -52,7 +52,6 @@ def generate_static_site():
     import django
     from django.conf import settings
     from django.test import Client
-    from django.urls import reverse
     
     django.setup()
     
@@ -63,27 +62,142 @@ def generate_static_site():
     # Create a test client
     client = Client()
     
-    # Generate static pages
-    pages_to_generate = [
-        ('/', 'index.html'),
-        ('/api/docs/', 'api-docs.html'),
-    ]
+    # Generate a simple index.html since Django URLs are redirecting
+    log("📄 Creating static index.html")
+    index_content = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veyu API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .api-info { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .endpoint { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #007cba; }
+        a { color: #007cba; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 Veyu API</h1>
+        <p>Vehicle marketplace and services platform</p>
+    </div>
     
-    for url, filename in pages_to_generate:
-        try:
-            log(f"📄 Generating {filename} from {url}")
-            response = client.get(url)
+    <div class="api-info">
+        <h2>API Documentation</h2>
+        <p>Welcome to the Veyu API. This platform provides comprehensive vehicle marketplace and services.</p>
+        
+        <div class="endpoint">
+            <h3>📚 API Documentation</h3>
+            <p><a href="/api/docs/">Interactive API Documentation (Swagger)</a></p>
+            <p>Complete API reference with interactive testing capabilities</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>🔐 Authentication</h3>
+            <p><strong>POST</strong> <code>/api/v1/token/</code> - Get JWT token</p>
+            <p><strong>POST</strong> <code>/api/v1/token/refresh/</code> - Refresh JWT token</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>👥 Accounts</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/accounts/</code> - User account management</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>🚙 Listings</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/listings/</code> - Vehicle listings</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>💬 Chat</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/chat/</code> - Chat functionality</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>💰 Wallet</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/wallet/</code> - Wallet operations</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>🔧 Inspections</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/inspections/</code> - Vehicle inspections</p>
+        </div>
+        
+        <div class="endpoint">
+            <h3>🎧 Support</h3>
+            <p><strong>GET/POST</strong> <code>/api/v1/support/</code> - Customer support</p>
+        </div>
+    </div>
+    
+    <div class="api-info">
+        <h2>Getting Started</h2>
+        <ol>
+            <li>Visit the <a href="/api/docs/">API Documentation</a> for detailed endpoint information</li>
+            <li>Obtain an authentication token from <code>/api/v1/token/</code></li>
+            <li>Include the token in your requests: <code>Authorization: Bearer &lt;token&gt;</code></li>
+            <li>Start making API calls to the available endpoints</li>
+        </ol>
+    </div>
+    
+    <div class="api-info">
+        <h2>Status</h2>
+        <p>✅ API is running and ready to serve requests</p>
+        <p>🔗 Base URL: <code>https://py-veyu.vercel.app</code></p>
+    </div>
+</body>
+</html>'''
+    
+    # Write index.html
+    with open(output_dir / 'index.html', 'w', encoding='utf-8') as f:
+        f.write(index_content)
+    log("✅ Created index.html")
+    
+    # Try to generate API docs page
+    try:
+        log("📄 Attempting to generate API docs page")
+        response = client.get('/api/docs/', follow=True)  # Follow redirects
+        
+        if response.status_code == 200:
+            with open(output_dir / 'api-docs.html', 'w', encoding='utf-8') as f:
+                f.write(response.content.decode('utf-8'))
+            log("✅ Generated api-docs.html")
+        else:
+            log(f"⚠️  Could not generate API docs (status: {response.status_code})")
+            # Create a redirect page
+            redirect_content = '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>API Documentation</title>
+    <meta http-equiv="refresh" content="0; url=/api/docs/">
+</head>
+<body>
+    <p>Redirecting to <a href="/api/docs/">API Documentation</a>...</p>
+</body>
+</html>'''
+            with open(output_dir / 'api-docs.html', 'w', encoding='utf-8') as f:
+                f.write(redirect_content)
+            log("✅ Created redirect page for API docs")
             
-            if response.status_code == 200:
-                output_file = output_dir / filename
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(response.content.decode('utf-8'))
-                log(f"✅ Generated {filename}")
-            else:
-                log(f"⚠️  Skipped {filename} (status: {response.status_code})")
-                
-        except Exception as e:
-            log(f"❌ Failed to generate {filename}: {e}")
+    except Exception as e:
+        log(f"❌ Failed to generate API docs: {e}")
+        # Create a simple fallback
+        fallback_content = '''<!DOCTYPE html>
+<html>
+<head>
+    <title>API Documentation</title>
+</head>
+<body>
+    <h1>API Documentation</h1>
+    <p>Please visit <a href="/api/docs/">/api/docs/</a> for the interactive API documentation.</p>
+</body>
+</html>'''
+        with open(output_dir / 'api-docs.html', 'w', encoding='utf-8') as f:
+            f.write(fallback_content)
+        log("✅ Created fallback API docs page")
     
     # Copy static files to dist
     log("📁 Copying static files...")
