@@ -117,3 +117,5 @@ daphne==4.1.2
 # Additional Dependencies
 django-rest-framework==0.1.0
 zope.interface==7.0.3
+# Redis for caching and sessions (Railway)
+django-redis==5.4.0

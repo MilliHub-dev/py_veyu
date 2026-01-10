@@ -17,6 +17,7 @@ from drf_yasg import openapi
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework import permissions
 from utils.admin import veyu_admin
+from utils.views import health_check
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -36,6 +37,9 @@ schema_view = get_schema_view(
 
 
 urlpatterns = [
+    # Health check for Railway
+    path('health/', health_check, name='health_check'),
+    
     # Admin
     path('admin/', veyu_admin.urls, name='admin'),
     # path('old-admin/', include(admin.site.urls)),  # Keep the old admin for reference, remove later if not needed
