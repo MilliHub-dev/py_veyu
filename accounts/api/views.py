@@ -165,17 +165,22 @@ class SignUpView(generics.CreateAPIView):
                     last_name=data['last_name'],
                     email=data['email'],
                     provider=data['provider'],
-                    user_type=data['user_type']
+                    user_type=data['user_type'],
+                    verified_email=True
                 )
-                user.save(using=None)
                 if data['provider'] == 'veyu':
                     user.set_password(data['password'])
                 else:
                     user.set_unusable_password()
-                user.save()
+                user.save(using=None)
 
                 if user_type == 'customer':
-                    Customer.objects.create(user=user, phone_number=data.get('phone_number', ''))
+                    try:
+                        customer = Customer.objects.get(user=user)
+                        customer.phone_number = data.get('phone_number', '')
+                        customer.save()
+                    except Customer.DoesNotExist:
+                        Customer.objects.create(user=user, phone_number=data.get('phone_number', ''))
                 
                 # Generate and save email verification OTP with consistent parameters
                 otp = OTP.objects.create(

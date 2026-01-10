@@ -31,6 +31,7 @@ class AccountsAdmin(admin.ModelAdmin):
     list_display = [
         'name',
         'email',
+        'verified_email',
         'uuid',
         'user_type',
         'provider',
