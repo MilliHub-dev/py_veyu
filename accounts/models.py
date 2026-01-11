@@ -93,7 +93,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         ]
     )
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
-    verified_email = models.BooleanField(default=False)
+    verified_email = models.BooleanField(default=True)
     api_token = models.CharField(max_length=64, blank=True, null=True, unique=True)
 
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='veyu')
