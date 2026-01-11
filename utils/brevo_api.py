@@ -157,14 +157,28 @@ def send_template_email_via_api(
         # Create plain text version
         text_content = strip_tags(html_content)
         
-        # DIRECT SMTP USAGE (Skipping API due to IP restrictions)
-        logger.info("Using SMTP directly for email sending (API skipped)")
+        # Try sending via Brevo API first
+        logger.info(f"Attempting to send email via Brevo API to {recipients}")
+        api_result = send_email_via_brevo_api(
+            subject=subject,
+            recipients=recipients,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=from_email
+        )
+        
+        if api_result.get('success'):
+            return True
+            
+        # Fallback to SMTP if API fails
+        logger.warning(f"Brevo API failed: {api_result.get('error')} , falling back to SMTP")
         return send_simple_email(
             subject=subject,
             recipients=recipients,
             message=text_content,
             html_message=html_content,
-            from_email=from_email
+            from_email=from_email,
+            timeout=60  # Explicitly set 60s timeout here too
         )
         
     except Exception as e:

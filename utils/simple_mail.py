@@ -53,6 +53,7 @@ def send_simple_email(
         # logger.info(f"Using SMTP timeout: {timeout}s")
         
         from django.core.mail import get_connection
+        # Explicitly open connection to handle timeout/auth errors earlier
         connection = get_connection(timeout=timeout)
         
         # Use Django's simple send_mail function

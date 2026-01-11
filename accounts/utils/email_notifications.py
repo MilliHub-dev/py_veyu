@@ -8,7 +8,8 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from utils.simple_mail import send_template_email, send_simple_email
+from utils.simple_mail import send_simple_email
+from utils.brevo_api import send_template_email_via_api as send_template_email
 
 logger = logging.getLogger(__name__)
 
