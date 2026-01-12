@@ -1,7 +1,30 @@
-{% extends "emails/base.html" %}
+{% extends "emails/base_email.html" %}
+
+{% block title %}Security Alert - {{ app_name|default:'Veyu' }}{% endblock %}
+
 {% block content %}
-  <h2>Security Alert</h2>
-  <p>Hello {{ user_name }},</p>
-  <p>We detected a {{ action }} on your account from IP {{ ip_address }} at {{ timestamp }}.</p>
-  <p>If this was not you, please <a href="{{ support_link }}">contact support</a> immediately.</p>
+    <h1 style="color: #ef4444;">Security Alert</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>We detected a <strong>{{ action }}</strong> on your account.</p>
+    
+    <div class="highlight-box" style="text-align: left; border-left: 4px solid #ef4444;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600; width: 100px;">Time:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ timestamp }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">IP Address:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ ip_address }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <p>If this was you, you can ignore this email. If you did not perform this action, please secure your account immediately.</p>
+    
+    <div class="btn-container">
+        <a href="{{ support_link|default:'#' }}" class="btn" style="background-color: #ef4444;">Contact Support</a>
+    </div>
 {% endblock %}

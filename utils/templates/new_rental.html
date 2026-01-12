@@ -1,361 +1,54 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Rental Confirmation - {{ app_name|default:'Veyu' }}</title>
-    <style>
-        :root {
-            --primary-color: #4F46E5;
-            --secondary-color: #6366F1;
-            --success-color: #10B981;
-            --warning-color: #F59E0B;
-            --text-color: #1F2937;
-            --text-muted: #6B7280;
-            --border-color: #E5E7EB;
-            --bg-light: #F9FAFB;
-        }
+{% extends "emails/base_email.html" %}
+
+{% block title %}New Rental Confirmation - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Rental Confirmed!</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>Your vehicle rental has been successfully confirmed. Here are the details:</p>
+    
+    <div class="highlight-box" style="text-align: left;">
+        <h3 style="margin-top: 0; color: #4f46e5; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px;">Rental #{{ rental_reference }}</h3>
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: #F3F4F6;
-            margin: 0;
-            padding: 20px 0;
-        }
-        
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            padding: 2rem;
-            text-align: center;
-            color: white;
-        }
-        
-        .logo {
-            max-width: 120px;
-            height: auto;
-            margin-bottom: 1rem;
-        }
-        
-        .content {
-            padding: 2rem;
-        }
-        
-        h1, h2, h3 {
-            color: #111827;
-            margin-top: 0;
-            line-height: 1.3;
-        }
-        
-        h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        
-        p {
-            margin: 1rem 0;
-            color: var(--text-color);
-            font-size: 1rem;
-            line-height: 1.625;
-        }
-        
-        .rental-card {
-            background: var(--bg-light);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            border-left: 4px solid var(--primary-color);
-        }
-        
-        .detail-row {
-            display: flex;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .detail-row:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            width: 160px;
-            color: var(--text-muted);
-        }
-        
-        .detail-value {
-            flex: 1;
-            font-weight: 500;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 0.35rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        
-        .status-confirmed {
-            background-color: #D1FAE5;
-            color: #065F46;
-        }
-        
-        .vehicle-image {
-            width: 100%;
-            border-radius: 8px;
-            margin: 1rem 0;
-            max-height: 200px;
-            object-fit: cover;
-        }
-        
-        .button {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white !important;
-            text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 1.5rem 0;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-        
-        .button-block {
-            display: block;
-            width: 100%;
-        }
-        
-        .button:hover {
-            background: #4338CA;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
-        }
-        
-        .footer {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        
-        .footer p {
-            margin: 0.5rem 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-        .text-center {
-            text-align: center;
-        }
-        
-        .mt-4 {
-            margin-top: 1.5rem;
-        }
-        
-        .mb-4 {
-            margin-bottom: 1.5rem;
-        }
-        
-        .rental-period {
-            display: flex;
-            gap: 1rem;
-            margin: 1.5rem 0;
-        }
-        
-        .date-card {
-            flex: 1;
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        
-        .date-label {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-        
-        .date-value {
-            font-weight: 600;
-            font-size: 1.125rem;
-        }
-        
-        @media (max-width: 640px) {
-            .content {
-                padding: 1.5rem 1rem;
-            }
-            
-            .detail-row {
-                flex-direction: column;
-            }
-            
-            .detail-label {
-                width: 100%;
-                margin-bottom: 0.25rem;
-            }
-            
-            .rental-period {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
-        </div>
-        
-        <div class="content">
-            <div class="text-center">
-                <span class="status-badge status-confirmed">Rental Confirmed</span>
-                <h1>Your Rental is Confirmed</h1>
-                <p>Hello <strong>{{ recipient_name|default:'Valued Customer' }}</strong>,</p>
-                <p>Your rental request has been confirmed. Here are the details of your booking.</p>
-            </div>
-            
-            <div class="rental-card">
-                <div class="detail-row">
-                    <div class="detail-label">Rental ID</div>
-                    <div class="detail-value">#{{ rental_id|default:'N/A' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Status</div>
-                    <div class="detail-value">
-                        <span class="status-badge status-confirmed">Confirmed</span>
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Booking Date</div>
-                    <div class="detail-value">{{ booking_date|date:"F j, Y"|default:'Not specified' }}</div>
-                </div>
-            </div>
-            
-            <h3>Vehicle Details</h3>
-            {% if vehicle_image %}
-            <img src="{{ vehicle_image }}" alt="{{ vehicle_name|default:'Vehicle' }}" class="vehicle-image">
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600; width: 140px;">Vehicle:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ vehicle_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Start Date:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ start_date }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">End Date:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ end_date }}</td>
+            </tr>
+            {% if total_amount %}
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Total Amount:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: 700;">{{ total_amount }}</td>
+            </tr>
             {% endif %}
-            
-            <div class="detail-row">
-                <div class="detail-label">Vehicle</div>
-                <div class="detail-value">
-                    <strong>{{ vehicle_name|default:'Not specified' }}</strong>
-                    {% if vehicle_year %}<br>{{ vehicle_year }}{% endif %}
-                    {% if vehicle_vin %}<br>VIN: {{ vehicle_vin }}{% endif %}
-                </div>
-            </div>
-            
-            <div class="detail-row">
-                <div class="detail-label">Rental Period</div>
-                <div class="detail-value">
-                    {{ start_date|date:"F j, Y"|default:'Not specified' }} to {{ end_date|date:"F j, Y"|default:'Not specified' }}
-                    ({{ rental_days|default:'N/A' }} days)
-                </div>
-            </div>
-            
-            <div class="rental-period">
-                <div class="date-card">
-                    <div class="date-label">Pick-Up</div>
-                    <div class="date-value">{{ start_date|date:"M j, Y"|default:'N/A' }}</div>
-                    <div class="text-muted">{{ pickup_time|default:'Anytime' }}</div>
-                    {% if pickup_location %}
-                    <div class="mt-2">
-                        <strong>Location:</strong><br>
-                        {{ pickup_location|linebreaksbr }}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <div class="date-card">
-                    <div class="date-label">Drop-Off</div>
-                    <div class="date-value">{{ end_date|date:"M j, Y"|default:'N/A' }}</div>
-                    <div class="text-muted">{{ dropoff_time|default:'Anytime' }}</div>
-                    {% if dropoff_location %}
-                    <div class="mt-2">
-                        <strong>Location:</strong><br>
-                        {{ dropoff_location|linebreaksbr }}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <h3>Rental Summary</h3>
-            <div class="detail-row">
-                <div class="detail-label">Daily Rate</div>
-                <div class="detail-value">{{ daily_rate|default:'$0.00' }} x {{ rental_days|default:'0' }} days</div>
-            </div>
-            
-            {% if insurance_option %}
-            <div class="detail-row">
-                <div class="detail-label">Insurance</div>
-                <div class="detail-value">{{ insurance_option }} ({{ insurance_cost|default:'$0.00' }})</div>
-            </div>
-            {% endif %}
-            
-            {% if additional_services %}
-            <div class="detail-row">
-                <div class="detail-label">Additional Services</div>
-                <div class="detail-value">
-                    {% for service in additional_services %}
-                    <div>{{ service.name }} ({{ service.cost|default:'$0.00' }})</div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            
-            <div class="detail-row" style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--border-color);">
-                <div class="detail-label"><strong>Total Amount</strong></div>
-                <div class="detail-value"><strong>{{ total_amount|default:'$0.00' }}</strong></div>
-            </div>
-            
-            <div class="mt-4">
-                <h3>Next Steps</h3>
-                <p>We've sent a confirmation to <strong>{{ customer_email|default:'your email' }}</strong> with all the rental details.</p>
-                
-                <p>If you need to make any changes to your reservation or have any questions, please contact our support team.</p>
-                
-                <p class="text-center">
-                    <a href="{{ rental_details_link|default:'#' }}" class="button">View Rental Details</a>
-                </p>
-                
-                <p class="text-muted text-center">
-                    Need assistance? Contact us at 
-                    <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">
-                        {{ support_email|default:'support@veyu.cc' }}
-                    </a> 
-                    or call {{ support_phone|default:'your local support number' }}.
-                </p>
-            </div>
-            
-            <div class="footer">
-                <p> 2023 {{ app_name|default:'Veyu' }}. All rights reserved.</p>
-                <p>This is an automated message, please do not reply directly to this email.</p>
-            </div>
-        </div>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Status:</td>
+                <td style="padding: 8px 0; color: #10b981; font-weight: 600;">Confirmed</td>
+            </tr>
+        </table>
     </div>
-</body>
-</html>
+    
+    <p><strong>Important Information:</strong></p>
+    <ul>
+        <li>Please bring a valid driver's license and ID.</li>
+        <li>A security deposit may be required upon pickup.</li>
+    </ul>
+    
+    {% if rental_url %}
+        <div class="btn-container">
+            <a href="{{ rental_url }}" class="btn">View Rental Details</a>
+        </div>
+    {% endif %}
+    
+    <p>Thank you for choosing {{ app_name|default:'Veyu' }}!</p>
+{% endblock %}

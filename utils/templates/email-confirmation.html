@@ -1,80 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirm your Email </title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-        }
-        .container {
-            width: 80%;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #f4a950;
-        }
-        .details {
-            margin-bottom: 20px;
-        }
+{% extends "emails/base_email.html" %}
 
-        .details p {
-            margin: 10px 0;
-        }
+{% block title %}Confirm Your Email - {{ app_name|default:'Veyu' }}{% endblock %}
 
-        a {
-            text-decoration: none;
-            color: #fff !important;
-        }
-
-        .button {
-            display: inline-block;
-            font-size: 16px;
-            color: #fff !important;
-            background-color: #f4a950;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-        .footer {
-            font-size: 14px;
-            color: #777;
-            text-align: center;
-            margin-top: 20px;
-        }
-        .code{
-            padding: 10px 20px;
-            background-color: rgb(47, 47, 47);
-            font-weight: 600;
-            color: #fff;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Confirm your email</h1>
-
-        <div class="job-details">
-            <p>
-                <strong>Hi {{ user.first_name }}</strong>, <br />
-                Welcome to Veyu family! 
-            </p>
-            <p>We need to confirm your email address 
-                so that we can send you Security alerts, Updates, and Promotional offers.
-                <br />
-                <br />
-                Here's your OTP:
-            </p>
-            <p class="code"> {{ code }} </p>
-        </div>
+{% block content %}
+    <h1>Confirm your email</h1>
+    
+    <p>Hi {{ user.first_name|default:'there' }},</p>
+    
+    <p>Welcome to the {{ app_name|default:'Veyu' }} family!</p>
+    
+    <p>We need to confirm your email address so that we can send you security alerts, updates, and promotional offers.</p>
+    
+    <p>Here's your verification code:</p>
+    
+    <div class="highlight-box">
+        <span class="verification-code">{{ code }}</span>
+        <p style="margin: 8px 0 0; font-size: 14px; color: #6b7280;">(This code is valid for 10 minutes)</p>
     </div>
-</body>
-</html>
+    
+    <p>If you didn't request this code, you can safely ignore this email.</p>
+{% endblock %}

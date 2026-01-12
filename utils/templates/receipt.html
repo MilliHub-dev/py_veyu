@@ -1,0 +1,41 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Receipt - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Receipt</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>This is a receipt for your recent transaction.</p>
+    
+    <div class="highlight-box" style="text-align: left;">
+        <div style="border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #4f46e5;">Receipt #{{ receipt_number }}</h3>
+            <span style="font-size: 14px; color: #6b7280;">{{ date }}</span>
+        </div>
+        
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600; width: 140px;">Description:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ description }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Payment Method:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ payment_method }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Amount:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: 700; font-size: 18px;">{{ amount }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <p>Thank you for your business!</p>
+    
+    {% if receipt_url %}
+        <div class="btn-container">
+            <a href="{{ receipt_url }}" class="btn">View Receipt</a>
+        </div>
+    {% endif %}
+{% endblock %}

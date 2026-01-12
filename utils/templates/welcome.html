@@ -1,87 +1,24 @@
-{% load static tz %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Veyu</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-        }
-        .container {
-            width: 80%;
-            max-width: 750px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #f4a950;
-        }
-        .details {
-            margin-bottom: 20px;
-        }
-        .details p {
-            margin: 10px 0;
-        }
-        a {
-            text-decoration: none;
-            color: #fff !important;
-        }
+{% extends "emails/base_email.html" %}
 
-        .button {
-            display: inline-block;
-            font-size: 16px;
-            color: #fff !important;
-            background-color: #f4a950;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-        .footer {
-            font-size: 14px;
-            color: #777;
-            text-align: center;
-            margin-top: 20px;
-        }
-        .logo{
-            width: 100%;
-            max-width: 450px;
-            height: 25%;
-            max-height: 250px;
-            margin: 10px auto;
-        }
-        .logo img{
-            border-radius: 10px;
-            width: 100%;
-            max-height: 250px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">
-            <img src="{% static 'veyu/logo.png' %}" />
-        </div>
-        <h1> Welcome To Veyu</h1>
+{% block title %}Welcome to {{ app_name|default:'Veyu' }}{% endblock %}
 
-        <div class="details">
-            <p><strong>Hi {{ user.first_name }}</strong></p>
-            <p>Thanks for signing up for a Veyu account. </p>
-            <p>With Veyu you get the best deals for car rentals and purchases, with our vast inventory of 
-            vetted car listing, you're sure to find what you're looking for.
-            </p>
-        </div>
-
-        <div class="footer">
-            Veyu - &copy; {% now "Y" %}
+{% block content %}
+    <h1>Welcome to {{ app_name|default:'Veyu' }}!</h1>
+    
+    <p>Hi {{ user.first_name|default:'there' }},</p>
+    
+    <p>Thanks for signing up for a Veyu account!</p>
+    
+    <p>With Veyu, you get the best deals for car rentals and purchases. With our vast inventory of vetted car listings, you're sure to find exactly what you're looking for.</p>
+    
+    <div class="highlight-box">
+        <p style="margin-bottom: 16px;"><strong>Ready to get started?</strong></p>
+        
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+            <a href="{{ buy_link|default:'#' }}" class="btn" style="flex: 1; min-width: 140px; margin: 5px;">Buy a Car</a>
+            <a href="{{ rent_link|default:'#' }}" class="btn" style="flex: 1; min-width: 140px; margin: 5px;">Rent a Car</a>
         </div>
     </div>
-</body>
-</html>
+    
+    <p>If you have any questions, feel free to reply to this email.</p>
+{% endblock %}

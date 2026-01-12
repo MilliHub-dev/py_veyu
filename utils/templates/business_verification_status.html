@@ -1,122 +1,71 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Business Verification Status - Veyu</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .container {
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-            padding: 30px;
-            margin-top: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            max-width: 150px;
-            margin-bottom: 20px;
-        }
-        .status {
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            text-align: center;
-            font-weight: bold;
-        }
-        .approved {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-        }
-        .rejected {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ffcdd2;
-        }
-        .pending {
-            background-color: #fff3e0;
-            color: #ef6c00;
-            border: 1px solid #ffcc02;
-        }
-        .footer {
-            margin-top: 40px;
-            font-size: 12px;
-            color: #777;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="Veyu Logo" class="logo">
-            <h2>Business Verification Status</h2>
-        </div>
+{% extends "emails/base_email.html" %}
+
+{% block title %}Business Verification Status - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Business Verification Status</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    {% if business_name %}
+        <p>Your business verification request for <strong>{{ business_name }}</strong> has been updated.</p>
+    {% else %}
+        <p>Your business verification request has been updated.</p>
+    {% endif %}
+    
+    <!-- Status Box -->
+    <div style="text-align: center; padding: 24px; margin: 24px 0; border-radius: 8px; border: 1px solid 
+        {% if status == 'verified' or status == 'approved' %}#10b981; background-color: #ecfdf5; color: #047857;
+        {% elif status == 'rejected' %}#ef4444; background-color: #fef2f2; color: #b91c1c;
+        {% else %}#f59e0b; background-color: #fffbeb; color: #b45309;{% endif %}">
         
-        <p>Hello {{ user_name }},</p>
-        
-        {% if business_name %}
-            <p>Your business verification request for <strong>{{ business_name }}</strong> has been <strong>{{ status_display|upper }}</strong>.</p>
-        {% else %}
-            <p>Your business verification request has been <strong>{{ status_display|upper }}</strong>.</p>
-        {% endif %}
-        
-        <div class="status {% if status == 'verified' or status == 'approved' %}approved{% elif status == 'rejected' %}rejected{% else %}pending{% endif %}">
-            Status: {{ status_display|upper }}
-        </div>
-        
-        {% if status == 'verified' or status == 'approved' %}
-            <p>🎉 Congratulations! Your business has been verified on Veyu. You can now access all the features available to verified businesses.</p>
-            <p>What you can do now:</p>
-            <ul>
-                <li>Access your verified business dashboard</li>
-                <li>List vehicles or services with verified badge</li>
-                <li>Receive priority support</li>
-                <li>Build trust with customers through verification</li>
-            </ul>
-            {% if dashboard_url %}
-                <p><a href="{{ dashboard_url }}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Access Your Dashboard</a></p>
-            {% endif %}
-        {% elif status == 'rejected' %}
-            <p>We're sorry, but your business verification request could not be approved at this time.</p>
-            {% if reason %}
-                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 15px 0;">
-                    <strong>Reason for rejection:</strong> {{ reason }}
-                </div>
-            {% endif %}
-            <p>What to do next:</p>
-            <ul>
-                <li>Review the rejection reason above</li>
-                <li>Gather the correct documents</li>
-                <li>Resubmit your verification request</li>
-                <li>Contact support if you need assistance</li>
-            </ul>
-        {% elif status == 'submitted' or status == 'pending' %}
-            <p>Thank you for submitting your business verification request. Our team will review your submission and get back to you within 2-3 business days.</p>
-            <p>What happens next:</p>
-            <ul>
-                <li>Our verification team will review your documents</li>
-                <li>We may contact you if additional information is needed</li>
-                <li>You'll receive an email once the review is complete</li>
-            </ul>
-        {% endif %}
-        
-        <p>If you have any questions, please don't hesitate to contact our support team at <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
-        
-        <div class="footer">
-            <p>This email was sent to {{ user.email }}. If you didn't request this, please ignore this email or contact support if you have questions.</p>
-            <p>&copy; {% now "Y" %} {{ app_name }}. All rights reserved.</p>
-        </div>
+        <h2 style="margin: 0; font-size: 20px; color: inherit;">
+            Status: {{ status_display|default:status|upper }}
+        </h2>
     </div>
-</body>
-</html>
+
+    <!-- Approved Content -->
+    {% if status == 'verified' or status == 'approved' %}
+        <p>🎉 Congratulations! Your business has been verified on {{ app_name|default:'Veyu' }}. You can now access all the features available to verified businesses.</p>
+        
+        <p><strong>What you can do now:</strong></p>
+        <ul>
+            <li>Access your verified business dashboard</li>
+            <li>List vehicles or services with a verified badge</li>
+            <li>Receive priority support</li>
+            <li>Build trust with customers through verification</li>
+        </ul>
+        
+        {% if dashboard_url %}
+            <div class="btn-container">
+                <a href="{{ dashboard_url }}" class="btn">Go to Dashboard</a>
+            </div>
+        {% endif %}
+
+    <!-- Rejected Content -->
+    {% elif status == 'rejected' %}
+        <p>We're sorry, but your business verification request could not be approved at this time.</p>
+        
+        {% if reason %}
+            <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 16px; margin: 16px 0; border-radius: 4px;">
+                <p style="margin: 0; font-weight: 600; color: #9a3412;">Reason for rejection:</p>
+                <p style="margin: 8px 0 0; color: #c2410c;">{{ reason }}</p>
+            </div>
+        {% endif %}
+        
+        <p><strong>What to do next:</strong></p>
+        <ul>
+            <li>Review the rejection reason above.</li>
+            <li>Gather the correct documents or information.</li>
+            <li>Submit a new verification request from your dashboard.</li>
+        </ul>
+        
+        <p>If you believe this is an error, please contact our support team.</p>
+
+    <!-- Pending/Submitted Content -->
+    {% else %}
+        <p>Your verification request is currently under review. We will notify you as soon as we have an update.</p>
+        <p>This process usually takes 24-48 hours.</p>
+    {% endif %}
+
+{% endblock %}

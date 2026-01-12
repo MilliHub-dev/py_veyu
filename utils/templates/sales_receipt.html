@@ -1,312 +1,49 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Receipt - {{ app_name|default:'Veyu' }}</title>
-    <style>
-        :root {
-            --primary-color: #4F46E5;
-            --secondary-color: #6366F1;
-            --success-color: #10B981;
-            --text-color: #1F2937;
-            --text-muted: #6B7280;
-            --border-color: #E5E7EB;
-            --bg-light: #F9FAFB;
-        }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: #F3F4F6;
-            margin: 0;
-            padding: 20px 0;
-        }
-        
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            padding: 2rem;
-            text-align: center;
-            color: white;
-        }
-        
-        .logo {
-            max-width: 120px;
-            height: auto;
-            margin-bottom: 1rem;
-        }
-        
-        .content {
-            padding: 2rem;
-        }
-        
-        h1, h2, h3 {
-            color: #111827;
-            margin-top: 0;
-            line-height: 1.3;
-        }
-        
-        h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        
-        p {
-            margin: 1rem 0;
-            color: var(--text-color);
-            font-size: 1rem;
-            line-height: 1.625;
-        }
-        
-        .receipt-details {
-            background: var(--bg-light);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-        }
-        
-        .detail-row {
-            display: flex;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .detail-row:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            width: 120px;
-            color: var(--text-muted);
-        }
-        
-        .detail-value {
-            flex: 1;
-            font-weight: 500;
-        }
-        
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-        }
-        
-        .items-table th, 
-        .items-table td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .items-table th {
-            background-color: var(--bg-light);
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-        
-        .total-row {
-            font-weight: 700;
-            font-size: 1.125rem;
-            color: var(--text-color);
-        }
-        
-        .button {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white !important;
-            text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 1.5rem 0;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-        
-        .button-block {
-            display: block;
-            width: 100%;
-        }
-        
-        .button:hover {
-            background: #4338CA;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
-        }
-        
-        .footer {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        
-        .footer p {
-            margin: 0.5rem 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-        .text-center {
-            text-align: center;
-        }
-        
-        .mt-4 {
-            margin-top: 1.5rem;
-        }
-        
-        @media (max-width: 640px) {
-            .content {
-                padding: 1.5rem 1rem;
-            }
-            
-            .detail-row {
-                flex-direction: column;
-            }
-            
-            .detail-label {
-                width: 100%;
-                margin-bottom: 0.25rem;
-            }
-            
-            .items-table th, 
-            .items-table td {
-                padding: 0.5rem;
-                font-size: 0.875rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+{% extends "emails/base_email.html" %}
+
+{% block title %}Sales Receipt - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Sales Receipt</h1>
+    
+    <p>Hello {{ customer_info.name|default:'there' }},</p>
+    
+    <p>Thank you for your business. Here is your receipt:</p>
+    
+    <div class="highlight-box" style="text-align: left;">
+        <div style="border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #4f46e5;">Receipt #{{ receipt_id }}</h3>
+            <span style="font-size: 14px; color: #6b7280;">{{ date }}</span>
         </div>
         
-        <div class="content">
-            <div class="text-center">
-                <h1>Sales Receipt</h1>
-                <p>Thank you for your purchase, <strong>{{ customer_name|default:'Valued Customer' }}</strong>.</p>
-                <p>We've received your payment and your order is being processed.</p>
-            </div>
-            
-            <div class="receipt-details">
-                <div class="detail-row">
-                    <div class="detail-label">Receipt #</div>
-                    <div class="detail-value">{{ receipt_number|default:'N/A' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Date</div>
-                    <div class="detail-value">{{ transaction_date|date:"F j, Y h:i A"|default:'Not specified' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Payment Method</div>
-                    <div class="detail-value">{{ payment_method|default:'Credit Card' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Status</div>
-                    <div class="detail-value">
-                        <span style="color: var(--success-color); font-weight: 600;">
-                            {{ payment_status|default:'Paid' }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            
-            <h3>Order Summary</h3>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Price</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td>
-                            <strong>{{ item.name|default:'Item' }}</strong>
-                            {% if item.description %}
-                            <div style="font-size: 0.875rem; color: var(--text-muted);">
-                                {{ item.description }}
-                            </div>
-                            {% endif %}
-                        </td>
-                        <td>{{ item.quantity|default:1 }}</td>
-                        <td>{{ item.price|default:'$0.00' }}</td>
-                        <td>{{ item.total|default:'$0.00' }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr>
-                        <td colspan="3" style="text-align: right;"><strong>Subtotal</strong></td>
-                        <td>{{ subtotal|default:'$0.00' }}</td>
-                    </tr>
-                    {% if tax %}
-                    <tr>
-                        <td colspan="3" style="text-align: right;"><strong>Tax</strong></td>
-                        <td>{{ tax|default:'$0.00' }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if discount %}
-                    <tr>
-                        <td colspan="3" style="text-align: right;"><strong>Discount</strong></td>
-                        <td>-{{ discount|default:'$0.00' }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr class="total-row">
-                        <td colspan="3" style="text-align: right;"><strong>Total</strong></td>
-                        <td>{{ total|default:'$0.00' }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div class="mt-4">
-                <h3>Billing Information</h3>
-                <p>
-                    {{ billing_name|default:customer_name }}<br>
-                    {{ billing_address.line1|default:'' }}<br>
-                    {% if billing_address.line2 %}{{ billing_address.line2 }}<br>{% endif %}
-                    {{ billing_address.city|default:'' }}, {{ billing_address.state|default:'' }} {{ billing_address.postal_code|default:'' }}<br>
-                    {{ billing_address.country|default:'' }}
-                </p>
-                
-                <p class="text-center">
-                    <a href="{{ invoice_link|default:'#' }}" class="button">Download Invoice</a>
-                </p>
-                
-                <p class="text-muted text-center">
-                    Need help with your purchase? Contact our support team at 
-                    <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">
-                        {{ support_email|default:'support@veyu.cc' }}
-                    </a>
-                </p>
-            </div>
-            
-            <div class="footer">
-                <p> 2023 {{ app_name|default:'Veyu' }}. All rights reserved.</p>
-                <p>This is an automated message, please do not reply directly to this email.</p>
-            </div>
+        <table style="width: 100%; margin-bottom: 16px; border-collapse: collapse;">
+            <thead style="background-color: #f3f4f6;">
+                <tr>
+                    <th style="padding: 8px; text-align: left; color: #4b5563; font-size: 14px;">Item</th>
+                    <th style="padding: 8px; text-align: right; color: #4b5563; font-size: 14px;">Qty</th>
+                    <th style="padding: 8px; text-align: right; color: #4b5563; font-size: 14px;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 8px; color: #1f2937;">{{ item.name }}</td>
+                    <td style="padding: 8px; text-align: right; color: #1f2937;">{{ item.quantity }}</td>
+                    <td style="padding: 8px; text-align: right; color: #1f2937;">{{ item.amount }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div style="text-align: right; padding-top: 8px;">
+            {% if subtotal %}
+            <p style="margin: 4px 0; color: #6b7280;">Subtotal: {{ subtotal }}</p>
+            {% endif %}
+            {% if tax %}
+            <p style="margin: 4px 0; color: #6b7280;">Tax: {{ tax }}</p>
+            {% endif %}
+            <p style="margin: 8px 0 0; font-size: 18px; font-weight: 700; color: #111827;">Total: {{ total }}</p>
         </div>
     </div>
-</body>
-</html>
+    
+    <p>If you have any questions about this receipt, please contact our support team.</p>
+{% endblock %}

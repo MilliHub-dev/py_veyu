@@ -1,237 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to {{ app_name|default:'Veyu' }}!</title>
-    <style>
-        :root {
-            --primary-color: #4F46E5;
-            --secondary-color: #6366F1;
-            --success-color: #10B981;
-            --danger-color: #EF4444;
-            --text-color: #1F2937;
-            --text-muted: #6B7280;
-            --border-color: #E5E7EB;
-            --bg-light: #F9FAFB;
-        }
+{% extends "emails/base_email.html" %}
+
+{% block title %}Welcome to {{ app_name|default:'Veyu' }}!{% endblock %}
+
+{% block content %}
+    <h1>Welcome to {{ app_name|default:'Veyu' }}! 🎉</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>We're thrilled to have you on board! Veyu is your all-in-one platform for automotive services. Whether you're looking to buy a car, rent a vehicle, or find a trusted mechanic, we've got you covered.</p>
+    
+    <div class="highlight-box">
+        <p style="margin-bottom: 16px;"><strong>What would you like to do first?</strong></p>
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: #F3F4F6;
-            margin: 0;
-            padding: 20px 0;
-        }
-        
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        
-        .header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            padding: 2.5rem 2rem;
-            text-align: center;
-            color: white;
-        }
-        
-        .logo {
-            max-width: 150px;
-            height: auto;
-            margin-bottom: 1rem;
-        }
-        
-        .content {
-            padding: 2.5rem 2rem;
-        }
-        
-        h1, h2, h3 {
-            color: #111827;
-            margin-top: 0;
-            line-height: 1.3;
-        }
-        
-        h1 {
-            font-size: 1.875rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
-        }
-        
-        p {
-            margin: 1rem 0;
-            color: var(--text-color);
-            font-size: 1rem;
-            line-height: 1.625;
-        }
-        
-        .welcome-icon {
-            font-size: 4rem;
-            color: var(--primary-color);
-            margin: 1.5rem 0;
-            text-align: center;
-        }
-        
-        .cta-section {
-            background: var(--bg-light);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 2rem 0;
-            text-align: center;
-        }
-        
-        .button {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white !important;
-            text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 0.5rem;
-            transition: all 0.2s ease;
-        }
-        
-        .button:hover {
-            background: #4338CA;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
-        }
-        
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-        
-        .feature-card {
-            background: var(--bg-light);
-            border-radius: 8px;
-            padding: 1.5rem;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-        
-        .feature-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .feature-icon {
-            font-size: 2rem;
-            color: var(--primary-color);
-            margin-bottom: 1rem;
-        }
-        
-        .footer {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        
-        .footer p {
-            margin: 0.5rem 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-        .social-links {
-            margin: 1.5rem 0;
-        }
-        
-        .social-link {
-            display: inline-block;
-            margin: 0 0.5rem;
-            color: var(--primary-color);
-            text-decoration: none;
-            font-size: 1.25rem;
-        }
-        
-        @media (max-width: 640px) {
-            .content {
-                padding: 1.5rem 1rem;
-            }
-            
-            .feature-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
+        <div style="margin-bottom: 12px;">
+            <a href="{{ buy_link }}" class="btn" style="width: 200px; margin: 4px;">Buy a Car</a>
         </div>
-        
-        <div class="content">
-            <div class="welcome-icon">🎉</div>
-            <h1>Welcome to {{ app_name|default:'Veyu' }}, {{ user_name|default:'there' }}!</h1>
-            
-            <p>We're thrilled to have you join our community of vehicle enthusiasts, buyers, and service providers. Your journey with us starts now!</p>
-            
-            <div class="cta-section">
-                <p>Get started by exploring our platform:</p>
-                <div>
-                    <a href="{{ buy_link }}" class="button">Browse Vehicles</a>
-                    <a href="{{ rent_link }}" class="button">Rent a Vehicle</a>
-                    <a href="{{ mechanic_link }}" class="button">Find a Mechanic</a>
-                </div>
-            </div>
-            
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🚗</div>
-                    <h3>Wide Selection</h3>
-                    <p>Browse thousands of vehicles from trusted sellers across the country.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h3>Expert Services</h3>
-                    <p>Connect with certified mechanics and service providers in your area.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Secure Transactions</h3>
-                    <p>Shop with confidence with our secure payment and verification system.</p>
-                </div>
-            </div>
-            
-            <p>If you have any questions or need assistance, our support team is here to help. Just reply to this email or contact us at <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">{{ support_email|default:'support@veyu.cc' }}</a>.</p>
-            
-            <p>Happy exploring!<br><strong>The {{ app_name|default:'Veyu' }} Team</strong></p>
-            
-            <div class="social-links">
-                <a href="https://facebook.com/veyu" class="social-link" target="_blank">Facebook</a> •
-                <a href="https://twitter.com/veyu" class="social-link" target="_blank">Twitter</a> •
-                <a href="https://instagram.com/veyu" class="social-link" target="_blank">Instagram</a> •
-                <a href="https://linkedin.com/company/veyu" class="social-link" target="_blank">LinkedIn</a>
-            </div>
-            
-            <div class="footer">
-                <p>© {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.</p>
-                <p>
-                    <a href="{{ terms_url|default:'#' }}" style="color: var(--primary-color); text-decoration: none;">Terms of Service</a> •
-                    <a href="{{ privacy_url|default:'#' }}" style="color: var(--primary-color); text-decoration: none;">Privacy Policy</a>
-                </p>
-                <p class="text-muted">You're receiving this email because you created an account with {{ app_name|default:'Veyu' }}.</p>
-                <p class="text-muted">{{ address|default:'Abuja, Nigeria' }}</p>
-            </div>
+        <div style="margin-bottom: 12px;">
+            <a href="{{ rent_link }}" class="btn" style="width: 200px; margin: 4px;">Rent a Car</a>
+        </div>
+        <div>
+            <a href="{{ mechanic_link }}" class="btn" style="width: 200px; margin: 4px;">Find Mechanic</a>
         </div>
     </div>
-</body>
-</html>
+    
+    <p>If you have any questions or need assistance, our support team is always here to help.</p>
+    
+    <p>Happy driving!</p>
+{% endblock %}

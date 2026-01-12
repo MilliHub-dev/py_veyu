@@ -1,0 +1,28 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Reminder - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Reminder</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>This is a friendly reminder about:</p>
+    
+    <div class="highlight-box">
+        <h3 style="margin-top: 0; color: #4f46e5;">{{ reminder_title }}</h3>
+        <p>{{ reminder_message }}</p>
+        
+        {% if due_date %}
+            <p style="margin-top: 16px; font-weight: 600;">Due Date: {{ due_date }}</p>
+        {% endif %}
+    </div>
+    
+    {% if action_url %}
+        <div class="btn-container">
+            <a href="{{ action_url }}" class="btn">{{ action_text|default:'Take Action' }}</a>
+        </div>
+    {% endif %}
+    
+    <p>If you have already attended to this, please ignore this email.</p>
+{% endblock %}

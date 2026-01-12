@@ -1,158 +1,235 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ newsletter.subject|default:'Email from Veyu' }}</title>
-    <style type="text/css">
-        /* Base styles */
-        body, html {
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}Veyu Notification{% endblock %}</title>
+    <style>
+        /* Reset & Base */
+        body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            font-size: 16px;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: #f3f4f6;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            color: #1f2937;
             line-height: 1.6;
-            color: #333333;
-            background-color: #f4f4f4;
         }
         
-        /* Email container */
-        .email-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            width: 100%;
         }
         
-        /* Header */
-        .email-header {
-            background-color: #1a1a1a;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .logo {
-            max-width: 180px;
-            height: auto;
-        }
-        
-        /* Content */
-        .email-content {
-            padding: 0;
-        }
-        
-        /* Footer */
-        .email-footer {
-            background-color: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #999999;
-            border-top: 1px solid #e0e0e0;
-        }
-        
-        .email-footer a {
-            color: #4a90e2;
+        img {
+            border: 0;
+            outline: none;
             text-decoration: none;
+            display: block;
         }
-        
-        .email-footer a:hover {
-            text-decoration: underline;
+
+        /* Container */
+        .wrapper {
+            width: 100%;
+            table-layout: fixed;
+            background-color: #f3f4f6;
+            padding-bottom: 40px;
         }
-        
+
+        .main-container {
+            background-color: #ffffff;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            padding: 32px 20px;
+            text-align: center;
+        }
+
+        .header-logo {
+            max-width: 140px;
+            height: auto;
+            margin: 0 auto;
+        }
+
+        /* Content */
+        .content {
+            padding: 40px 32px;
+            text-align: left;
+        }
+
+        .content h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 20px;
+            line-height: 1.3;
+        }
+
+        .content h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #374151;
+            margin: 24px 0 16px;
+        }
+
+        .content p {
+            margin: 0 0 24px;
+            font-size: 16px;
+            color: #4b5563;
+        }
+
+        .content ul {
+            margin: 0 0 24px;
+            padding-left: 20px;
+        }
+
+        .content li {
+            margin-bottom: 8px;
+            color: #4b5563;
+        }
+
         /* Buttons */
+        .btn-container {
+            text-align: center;
+            margin: 32px 0;
+        }
+
         .btn {
             display: inline-block;
-            padding: 12px 24px;
-            background-color: #4a90e2;
+            padding: 14px 32px;
+            background-color: #4f46e5;
             color: #ffffff !important;
             text-decoration: none;
-            border-radius: 4px;
+            border-radius: 8px;
             font-weight: 600;
-            margin: 15px 0;
+            font-size: 16px;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+            transition: background-color 0.2s;
         }
-        
+
         .btn:hover {
-            background-color: #3a7bc8;
+            background-color: #4338ca;
         }
-        
-        /* Responsive */
+
+        /* Highlight/Box */
+        .highlight-box {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .verification-code {
+            font-size: 32px;
+            font-weight: 700;
+            color: #4f46e5;
+            letter-spacing: 4px;
+            margin: 10px 0;
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #f9fafb;
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer p {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .footer a {
+            color: #6b7280;
+            text-decoration: underline;
+        }
+
+        .social-links {
+            margin: 16px 0;
+        }
+
+        .social-links a {
+            margin: 0 8px;
+            text-decoration: none;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Mobile */
         @media only screen and (max-width: 600px) {
-            .email-container {
+            .content {
+                padding: 32px 20px;
+            }
+            .header {
+                padding: 24px 20px;
+            }
+            .main-container {
                 width: 100% !important;
                 border-radius: 0;
             }
-            
-            .email-content {
-                padding: 0 15px !important;
+            .wrapper {
+                padding-bottom: 0;
             }
         }
-        
-        /* Utility classes */
-        .text-center {
-            text-align: center;
-        }
-        
-        .mt-0 { margin-top: 0; }
-        .mb-0 { margin-bottom: 0; }
-        .mt-1 { margin-top: 10px; }
-        .mb-1 { margin-bottom: 10px; }
-        .mt-2 { margin-top: 20px; }
-        .mb-2 { margin-bottom: 20px; }
     </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333333;">
-    <!-- Email Container -->
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0; background-color: #f4f4f4;" bgcolor="#f4f4f4">
-        <tr>
-            <td align="center" valign="top" style="padding: 40px 10px;">
-                <!-- Logo Header -->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto;">
-                    <tr>
-                        <td style="padding: 0 0 20px 0; text-align: center;">
-                            <a href="https://{{ site_domain }}" style="display: inline-block;">
-                                <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="Veyu" class="logo" style="max-width: 180px; height: auto;" />
-                            </a>
-                        </td>
-                    </tr>
-                </table>
-                
+<body>
+    <div class="wrapper">
+        <center>
+            <div class="main-container">
+                <!-- Header -->
+                <div class="header">
+                    <a href="{{ frontend_url }}" target="_blank">
+                        <!-- Use logo_url if available, else text fallback -->
+                        {% if logo_url %}
+                            <img src="{{ logo_url }}" alt="{{ app_name|default:'Veyu' }}" class="header-logo" width="140">
+                        {% else %}
+                            <h1 style="color: white; margin: 0; font-size: 28px;">{{ app_name|default:'Veyu' }}</h1>
+                        {% endif %}
+                    </a>
+                </div>
+
                 <!-- Main Content -->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);" bgcolor="#ffffff">
+                <div class="content">
                     {% block content %}
-                    <!-- Content will be inserted here by child templates -->
                     {% endblock %}
-                    
-                    {% block footer %}
-                    <!-- Footer will be inserted here by child templates -->
-                    {% endblock %}
-                </table>
-                
+                </div>
+
                 <!-- Footer -->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 20px auto 0; text-align: center;">
-                    <tr>
-                        <td style="padding: 10px 0; color: #999999; font-size: 12px; line-height: 1.5;">
-                            <p style="margin: 0 0 5px;">
-                                &copy; {{ current_year }} Veyu. All rights reserved.
-                            </p>
-                            <p style="margin: 0 0 5px;">
-                                <a href="https://{{ site_domain }}/privacy" style="color: #999999; text-decoration: underline;">Privacy Policy</a> 
-                                | 
-                                <a href="https://{{ site_domain }}/terms" style="color: #999999; text-decoration: underline;">Terms of Service</a>
-                                |
-                                <a href="{{ unsubscribe_url }}" style="color: #999999; text-decoration: underline;">Unsubscribe</a>
-                            </p>
-                            <p style="margin: 0; font-size: 11px; color: #cccccc;">
-                                This is an automated message, please do not reply directly to this email.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+                <div class="footer">
+                    <div class="social-links">
+                        <a href="{{ frontend_url }}">Website</a> |
+                        <a href="mailto:{{ support_email }}">Support</a>
+                    </div>
+                    <p>
+                        &copy; {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.<br>
+                        This email was sent to {{ email }}.
+                    </p>
+                    <p>
+                        <a href="{{ frontend_url }}/privacy">Privacy Policy</a> &bull; 
+                        <a href="{{ frontend_url }}/terms">Terms of Service</a>
+                    </p>
+                </div>
+            </div>
+        </center>
+    </div>
 </body>
 </html>

@@ -1,99 +1,22 @@
-<!-- 
-DEPRECATED: This template has been consolidated into verification_email.html
-Use verification_email.html for all email verification purposes.
-This file is kept for backward compatibility but should not be used for new implementations.
--->
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Verify Your Email - Veyu</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .container {
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-            padding: 30px;
-            margin-top: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            max-width: 150px;
-            margin-bottom: 20px;
-        }
-        .otp-code {
-            font-size: 32px;
-            font-weight: bold;
-            letter-spacing: 8px;
-            text-align: center;
-            margin: 30px 0;
-            padding: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
-            display: inline-block;
-        }
-        .footer {
-            margin-top: 40px;
-            font-size: 12px;
-            color: #777;
-            text-align: center;
-        }
-        .btn {
-            display: inline-block;
-            background-color: #4CAF50;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 4px;
-            margin: 20px 0;
-            font-weight: bold;
-        }
-        .deprecated-notice {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="deprecated-notice">
-            <strong>Notice:</strong> This template is deprecated. Please use verification_email.html instead.
-        </div>
-        
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="Veyu Logo" class="logo">
-            <h2>Verify Your Email Address</h2>
-        </div>
-        
-        <p>Hello {{ user_name|default:'there' }},</p>
-        
-        <p>Your verification code for Veyu is:</p>
-        
-        <div class="otp-code">{{ otp|default:verification_code|default:"405982" }}</div>
-        
-        <p>Please enter this code to complete your verification. This code is valid for <strong>{{ validity_minutes|default:30 }} minutes</strong>.</p>
-        
-        <p>If you didn't request this code, please ignore this email or contact our support team if you have any concerns.</p>
-        
-        <div class="footer">
-            <p>For security reasons, do not share this code with anyone. Veyu will never ask for your password or verification code.</p>
-            <p>&copy; {% now "Y" %} Veyu. All rights reserved.</p>
-        </div>
+{% extends "emails/base_email.html" %}
+
+{% block title %}Verify Your Email - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <!-- 
+    DEPRECATED: This template is kept for backward compatibility.
+    Please use verification_email.html for new implementations.
+    -->
+    <h1>Verify your email</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>Your verification code for {{ app_name|default:'Veyu' }} is:</p>
+    
+    <div class="highlight-box">
+        <span class="verification-code">{{ otp|default:verification_code }}</span>
+        <p style="margin: 8px 0 0; font-size: 14px; color: #6b7280;">(This code is valid for {{ validity_minutes|default:30 }} minutes)</p>
     </div>
-</body>
-</html>
+    
+    <p>If you didn't request this code, please ignore this email.</p>
+{% endblock %}

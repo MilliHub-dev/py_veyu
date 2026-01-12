@@ -992,3 +992,25 @@ socket.gaierror: [Errno 11001] getaddrinfo failed
 [2025-11-20 15:42:03] INFO [utils.mail:358] [Email 1763649720_admin] Successfully delivered on attempt 1/3 in 2.50s to ['admin@veyu.cc']
 [2025-11-20 15:42:03] INFO [utils.mail.delivery:536] Email delivery status: {'email_id': '1763649720_admin', 'recipient': 'admin@veyu.cc', 'status': 'delivered', 'attempts': 1, 'delivery_time': 2.49704909324646, 'timestamp': 1763649723.4678693}
 [2025-11-20 15:42:03] INFO [utils.mail:198] [Email 1763649720_admin] Successfully sent to ['admin@veyu.cc']
+[2026-01-12 12:53:06] INFO [accounts.utils.email_notifications:396] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:53:12] INFO [accounts.utils.email_notifications:396] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:53:18] INFO [accounts.utils.email_notifications:396] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:55:57] INFO [accounts.utils.email_notifications:385] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:55:58] INFO [accounts.utils.email_notifications:385] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:55:59] INFO [accounts.utils.email_notifications:385] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 12:59:58] INFO [accounts.utils.email_notifications:43] Verification email sent successfully to veyultd@gmail.com
+[2026-01-12 12:59:59] INFO [accounts.utils.email_notifications:76] Welcome email sent successfully to veyultd@gmail.com
+[2026-01-12 13:00:00] INFO [accounts.utils.email_notifications:120] Password reset email sent successfully to veyultd@gmail.com
+[2026-01-12 13:00:01] INFO [accounts.utils.email_notifications:155] OTP email sent successfully to veyultd@gmail.com
+[2026-01-12 13:00:02] INFO [accounts.utils.email_notifications:216] Business verification status email sent to veyultd@gmail.com - Status: approved
+[2026-01-12 13:00:03] INFO [accounts.utils.email_notifications:216] Business verification status email sent to veyultd@gmail.com - Status: rejected
+[2026-01-12 13:00:04] INFO [accounts.utils.email_notifications:244] Booking confirmation email sent to veyultd@gmail.com
+[2026-01-12 13:00:05] INFO [accounts.utils.email_notifications:272] Inspection scheduled email sent to veyultd@gmail.com
+[2026-01-12 13:00:06] INFO [accounts.utils.email_notifications:300] Order confirmation email sent to veyultd@gmail.com
+[2026-01-12 13:00:07] INFO [accounts.utils.email_notifications:329] Listing published email sent to veyultd@gmail.com
+[2026-01-12 13:00:08] INFO [accounts.utils.email_notifications:357] Purchase confirmation email sent to veyultd@gmail.com
+[2026-01-12 13:00:09] INFO [accounts.utils.email_notifications:385] Wallet transaction email sent to veyultd@gmail.com
+[2026-01-12 13:00:10] INFO [accounts.utils.email_notifications:413] Security alert email sent to veyultd@gmail.com
+[2026-01-12 13:00:11] INFO [accounts.utils.email_notifications:441] Rental confirmation email sent to veyultd@gmail.com
+[2026-01-12 13:00:12] INFO [accounts.utils.email_notifications:469] Promotion email sent to veyultd@gmail.com
+[2026-01-12 13:00:13] INFO [accounts.utils.email_notifications:497] Reminder email sent to veyultd@gmail.com

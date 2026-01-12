@@ -1,412 +1,55 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Booking Confirmation - {{ app_name|default:'Veyu' }}</title>
-    <style>
-        :root {
-            --primary-color: #4F46E5;
-            --secondary-color: #6366F1;
-            --success-color: #10B981;
-            --warning-color: #F59E0B;
-            --text-color: #1F2937;
-            --text-muted: #6B7280;
-            --border-color: #E5E7EB;
-            --bg-light: #F9FAFB;
-        }
+{% extends "emails/base_email.html" %}
+
+{% block title %}Service Booking Confirmation - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>Booking Confirmed!</h1>
+    
+    <p>Hello {{ user_name|default:'there' }},</p>
+    
+    <p>Your service booking has been successfully confirmed. Here are the details of your appointment:</p>
+    
+    <div class="highlight-box" style="text-align: left;">
+        <h3 style="margin-top: 0; color: #4f46e5; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px;">Booking #{{ booking_reference }}</h3>
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            background-color: #F3F4F6;
-            margin: 0;
-            padding: 20px 0;
-        }
-        
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            padding: 2rem;
-            text-align: center;
-            color: white;
-        }
-        
-        .logo {
-            max-width: 120px;
-            height: auto;
-            margin-bottom: 1rem;
-        }
-        
-        .content {
-            padding: 2rem;
-        }
-        
-        h1, h2, h3 {
-            color: #111827;
-            margin-top: 0;
-            line-height: 1.3;
-        }
-        
-        h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        
-        p {
-            margin: 1rem 0;
-            color: var(--text-color);
-            font-size: 1rem;
-            line-height: 1.625;
-        }
-        
-        .booking-card {
-            background: var(--bg-light);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            border-left: 4px solid var(--primary-color);
-        }
-        
-        .detail-row {
-            display: flex;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .detail-row:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            width: 160px;
-            color: var(--text-muted);
-        }
-        
-        .detail-value {
-            flex: 1;
-            font-weight: 500;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 0.35rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        
-        .status-pending {
-            background-color: #FEF3C7;
-            color: #92400E;
-        }
-        
-        .status-confirmed {
-            background-color: #D1FAE5;
-            color: #065F46;
-        }
-        
-        .status-cancelled {
-            background-color: #FEE2E2;
-            color: #991B1B;
-        }
-        
-        .mechanic-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid white;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        
-        .button {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white !important;
-            text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 1.5rem 0;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-        
-        .button-block {
-            display: block;
-            width: 100%;
-        }
-        
-        .button:hover {
-            background: #4338CA;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);
-        }
-        
-        .footer {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        
-        .footer p {
-            margin: 0.5rem 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-        .text-center {
-            text-align: center;
-        }
-        
-        .mt-4 {
-            margin-top: 1.5rem;
-        }
-        
-        .mb-4 {
-            margin-bottom: 1.5rem;
-        }
-        
-        .mechanic-card {
-            display: flex;
-            align-items: center;
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1.25rem;
-            margin: 1.5rem 0;
-        }
-        
-        .mechanic-info {
-            margin-left: 1rem;
-        }
-        
-        .mechanic-name {
-            font-weight: 600;
-            font-size: 1.125rem;
-            margin: 0 0 0.25rem 0;
-        }
-        
-        .mechanic-specialty {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin: 0 0 0.5rem 0;
-        }
-        
-        .service-badge {
-            display: inline-block;
-            background: #EEF2FF;
-            color: var(--primary-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .problem-description {
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-            font-style: italic;
-            color: var(--text-muted);
-        }
-        
-        @media (max-width: 640px) {
-            .content {
-                padding: 1.5rem 1rem;
-            }
-            
-            .detail-row {
-                flex-direction: column;
-            }
-            
-            .detail-label {
-                width: 100%;
-                margin-bottom: 0.25rem;
-            }
-            
-            .mechanic-card {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .mechanic-info {
-                margin: 1rem 0 0 0;
-                text-align: center;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://dev.veyu.cc/static/veyu/logo.png" alt="{{ app_name|default:'Veyu' }} Logo" class="logo">
-        </div>
-        
-        <div class="content">
-            <div class="text-center">
-                <span class="status-badge status-pending">Booking Received</span>
-                <h1>Your Service Booking is Confirmed</h1>
-                <p>Hello <strong>{{ customer.user.name|default:'Valued Customer' }}</strong>,</p>
-                <p>Your service request has been received. Here are the details of your booking.</p>
-            </div>
-            
-            <div class="booking-card">
-                <div class="detail-row">
-                    <div class="detail-label">Booking ID</div>
-                    <div class="detail-value">#{{ booking.id|default:'N/A' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Status</div>
-                    <div class="detail-value">
-                        {% if booking.status == 'pending' %}
-                            <span class="status-badge status-pending">Pending</span>
-                        {% elif booking.status == 'confirmed' %}
-                            <span class="status-badge status-confirmed">Confirmed</span>
-                        {% elif booking.status == 'cancelled' %}
-                            <span class="status-badge status-cancelled">Cancelled</span>
-                        {% else %}
-                            <span class="status-badge">{{ booking.status|title }}</span>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Booking Date</div>
-                    <div class="detail-value">{{ booking.date_created|date:"F j, Y"|default:'Not specified' }}</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Scheduled Date</div>
-                    <div class="detail-value">
-                        {{ booking.scheduled_date|date:"F j, Y"|default:'Not specified' }}
-                        {% if booking.scheduled_time %}
-                            at {{ booking.scheduled_time|time:"g:i A" }}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <h3>Service Provider</h3>
-            <div class="mechanic-card">
-                <img src="{{ mechanic.profile_image|default:'https://dev.veyu.cc/static/veyu/mechanic-placeholder.jpg' }}" 
-                     alt="{{ mechanic.business_name|default:'Mechanic' }}" 
-                     class="mechanic-image">
-                <div class="mechanic-info">
-                    <h4 class="mechanic-name">{{ mechanic.business_name|default:'Mechanic' }}</h4>
-                    {% if mechanic.specialty %}
-                        <p class="mechanic-specialty">{{ mechanic.specialty }}</p>
-                    {% endif %}
-                    {% if mechanic.rating %}
-                        <div class="mechanic-rating">
-                            {% with ''|center:mechanic.rating as range %}
-                                {% for _ in range %}★{% endfor %}
-                            {% endwith %}
-                            <span>({{ mechanic.review_count|default:0 }} reviews)</span>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <h3>Service Details</h3>
-            <div class="detail-row">
-                <div class="detail-label">Services Requested</div>
-                <div class="detail-value">
-                    {% if services %}
-                        {% for service in services %}
-                            <span class="service-badge">{{ service }}</span>
-                        {% endfor %}
-                    {% else %}
-                        Not specified
-                    {% endif %}
-                </div>
-            </div>
-            
-            {% if booking.vehicle %}
-            <div class="detail-row">
-                <div class="detail-label">Vehicle</div>
-                <div class="detail-value">
-                    {{ booking.vehicle.make }} {{ booking.vehicle.model }} ({{ booking.vehicle.year }})
-                    {% if booking.vehicle.license_plate %}
-                        <br>License: {{ booking.vehicle.license_plate }}
-                    {% endif %}
-                </div>
-            </div>
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600; width: 140px;">Service:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ service_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Provider:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ provider_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Date:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ booking_date }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Time:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ booking_time }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Status:</td>
+                <td style="padding: 8px 0; color: #10b981; font-weight: 600;">{{ status|default:'Confirmed'|title }}</td>
+            </tr>
+            {% if amount %}
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Total Amount:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: 700;">{{ currency|default:'₦' }}{{ amount }}</td>
+            </tr>
             {% endif %}
-            
-            {% if booking.problem_description %}
-            <div class="detail-row">
-                <div class="detail-label">Problem Description</div>
-                <div class="detail-value">
-                    <div class="problem-description">
-                        {{ booking.problem_description|linebreaksbr }}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            {% if booking.estimated_cost %}
-            <div class="detail-row">
-                <div class="detail-label">Estimated Cost</div>
-                <div class="detail-value">
-                    <strong>{{ booking.estimated_cost|floatformat:2 }}</strong>
-                    {% if booking.status == 'pending' %}
-                        <br><small>This is an estimate. Final cost may vary.</small>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-            
-            <div class="mt-4">
-                <h3>What Happens Next?</h3>
-                <ol>
-                    <li>The service provider will review your request and may contact you for additional information.</li>
-                    <li>Once confirmed, you'll receive a notification with the final details and any required preparations.</li>
-                    <li>For any questions, you can contact the service provider directly or reply to this email.</li>
-                </ol>
-                
-                <p class="text-center">
-                    <a href="{{ booking_details_link|default:'#' }}" class="button">View Booking Details</a>
-                </p>
-                
-                <p class="text-center" style="color: var(--text-muted);">
-                    Need to make changes?<br>
-                    Contact support at 
-                    <a href="mailto:{{ support_email|default:'support@veyu.cc' }}" style="color: var(--primary-color);">
-                        {{ support_email|default:'support@veyu.cc' }}
-                    </a> 
-                    or call {{ support_phone|default:'your local support number' }}.
-                </p>
-            </div>
-            
-            <div class="footer">
-                <p>© {% now "Y" %} {{ app_name|default:'Veyu' }}. All rights reserved.</p>
-                <p>This is an automated message, please do not reply directly to this email.</p>
-            </div>
-        </div>
+        </table>
     </div>
-</body>
-</html>
+    
+    <p><strong>What's Next?</strong></p>
+    <p>Please arrive 10 minutes before your scheduled time. If you need to reschedule or cancel, you can do so from your dashboard.</p>
+    
+    {% if booking_url %}
+        <div class="btn-container">
+            <a href="{{ booking_url }}" class="btn">View Booking Details</a>
+        </div>
+    {% endif %}
+    
+    <p>Thank you for choosing {{ app_name|default:'Veyu' }}!</p>
+{% endblock %}

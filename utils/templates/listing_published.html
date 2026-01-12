@@ -1,13 +1,36 @@
-{% extends "base.html" %}
+{% extends "emails/base_email.html" %}
+
+{% block title %}Listing Approved - {{ app_name|default:'Veyu' }}{% endblock %}
+
 {% block content %}
-  <div class="title">Listing Approved</div>
-  <p>Hi <span class="highlight">{{ dealer_name }}</span>, your listing <strong>{{ listing_title }}</strong> has been approved and published.</p>
-  <table style="width:100%; border-collapse: collapse;">
-    <tr><td style="padding:6px 0;"><strong>Vehicle:</strong></td><td>{{ vehicle_name }}</td></tr>
-    <tr><td style="padding:6px 0;"><strong>Price:</strong></td><td>{{ price }}</td></tr>
-  </table>
-  <p style="margin-top:16px;">
-    <a class="btn" href="{{ dashboard_link|default:'#' }}">Manage Listing</a>
-  </p>
-  <p>— Veyu Team</p>
+    <h1>Listing Approved</h1>
+    
+    <p>Hi {{ dealer_name|default:'Partner' }},</p>
+    
+    <p>Great news! Your listing <strong>{{ listing_title }}</strong> has been approved and is now live.</p>
+    
+    <div class="highlight-box" style="text-align: left;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600; width: 100px;">Vehicle:</td>
+                <td style="padding: 8px 0; color: #111827;">{{ vehicle_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Price:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: 700;">{{ price }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Status:</td>
+                <td style="padding: 8px 0; color: #10b981; font-weight: 600;">Published</td>
+            </tr>
+        </table>
+    </div>
+    
+    <p>You can manage your listing or view its performance from your dashboard.</p>
+    
+    {% if dashboard_link %}
+        <div class="btn-container">
+            <a href="{{ dashboard_link }}" class="btn">Manage Listing</a>
+        </div>
+    {% endif %}
 {% endblock %}
