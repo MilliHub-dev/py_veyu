@@ -91,6 +91,8 @@ from utils import (
     upload_multiple_files,
 )
 from utils.dispatch import (on_listing_created, )
+
+logger = logging.getLogger(__name__)
 User = get_user_model()
 # Dealership Views
 
