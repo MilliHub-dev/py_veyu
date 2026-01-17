@@ -19,17 +19,21 @@ from rest_framework import permissions
 from utils.admin import veyu_admin
 from utils.views import health_check
 
-schema_view = get_schema_view(
-    openapi.Info(
-        title="Veyu API Documentation",
-        default_version='v1',
-        description="Comprehensive API documentation for Veyu - Redefining Mobility Platform. "
-                   "This API provides endpoints for vehicle marketplace, mechanic services, "
-                   "real-time chat, digital wallet, and user management.",
-        terms_of_service="https://veyu.cc/terms/",
-        contact=openapi.Contact(email="api@veyu.cc"),
-        license=openapi.License(name="MIT License"),
+api_info = openapi.Info(
+    title="Veyu API Documentation",
+    default_version='v1',
+    description=(
+        "Comprehensive API documentation for Veyu - Redefining Mobility Platform. "
+        "This API provides endpoints for vehicle marketplace, mechanic services, "
+        "real-time chat, digital wallet, and user management."
     ),
+    terms_of_service="https://veyu.cc/terms/",
+    contact=openapi.Contact(email="api@veyu.cc"),
+    license=openapi.License(name="MIT License"),
+)
+
+schema_view = get_schema_view(
+    api_info,
     public=True,
     authentication_classes=(),
     permission_classes=(permissions.AllowAny,),

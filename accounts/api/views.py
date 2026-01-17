@@ -520,7 +520,20 @@ class UpdateProfileView(views.APIView):
         operation_summary="Get User Profile",
         operation_description="Get the authenticated user's profile information.",
         responses={
-            200: UserProfileSerializer,
+            200: openapi.Response(
+                description="Profile retrieved successfully",
+                examples={
+                    "application/json": {
+                        "error": False,
+                        "message": "Profile retrieved successfully",
+                        "data": {
+                            "id": 1,
+                            "business_name": "ABC Motors",
+                            "phone_number": "+2348012345678"
+                        }
+                    }
+                }
+            ),
             404: "Profile not found"
         },
         tags=['User Profile']

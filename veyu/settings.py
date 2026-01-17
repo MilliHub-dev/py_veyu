@@ -261,6 +261,7 @@ if 'postgres' in DB_URL and not DEBUG:
 
 # drf-yasg (Swagger) configuration
 SWAGGER_SETTINGS = {
+    'DEFAULT_INFO': 'veyu.urls.api_info',
     'USE_SESSION_AUTH': False,
     'SECURITY_DEFINITIONS': {
         'Bearer': {
