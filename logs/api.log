@@ -1,0 +1,30 @@
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='car' for brand='Toyota'
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:689] Successfully created car listing: Test Car Listing (Vehicle ID: 1, Class: Car)
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='plane' for brand='Cessna'
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:689] Successfully created plane listing: Test Plane Listing (Vehicle ID: 2, Class: Plane)
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='boat' for brand='Yamaha'
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:689] Successfully created boat listing: Test Boat Listing (Vehicle ID: 3, Class: Boat)
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='bike' for brand='Ducati'
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:689] Successfully created bike listing: Test Bike Listing (Vehicle ID: 4, Class: Bike)
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='uav' for brand='DJI'
+[2026-01-19 09:57:17] INFO [listings.api.dealership_views:689] Successfully created uav listing: Test UAV Listing (Vehicle ID: 5, Class: UAV)
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='car' for brand='Toyota'
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:689] Successfully created car listing: Test Car Listing (Vehicle ID: 1, Class: Car)
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='plane' for brand='Cessna'
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:689] Successfully created plane listing: Test Plane Listing (Vehicle ID: 2, Class: Plane)
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='boat' for brand='Yamaha'
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:689] Successfully created boat listing: Test Boat Listing (Vehicle ID: 3, Class: Boat)
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='bike' for brand='Ducati'
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:689] Successfully created bike listing: Test Bike Listing (Vehicle ID: 4, Class: Bike)
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='uav' for brand='DJI'
+[2026-01-19 10:03:24] INFO [listings.api.dealership_views:689] Successfully created uav listing: Test UAV Listing (Vehicle ID: 5, Class: UAV)
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='car' for brand='Toyota'
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created car listing: Test Car Listing (Vehicle ID: 1, Class: Car)
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='plane' for brand='Cessna'
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created plane listing: Test Plane Listing (Vehicle ID: 2, Class: Plane)
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='boat' for brand='Yamaha'
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created boat listing: Test Boat Listing (Vehicle ID: 3, Class: Boat)
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='bike' for brand='Ducati'
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created bike listing: Test Bike Listing (Vehicle ID: 4, Class: Bike)
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='uav' for brand='DJI'
+[2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created uav listing: Test UAV Listing (Vehicle ID: 5, Class: UAV)

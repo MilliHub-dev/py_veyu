@@ -13,7 +13,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ('accounts', '0004_initial'),
         ('bookings', '0002_initial'),
-        ('inspections', '__first__'),
         ('listings', '0002_uav'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -42,7 +41,6 @@ class Migration(migrations.Migration):
                 ('narration', models.CharField(default='Veyu Subscription', max_length=200)),
                 ('payout_info', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='payout_transactions', to='accounts.payoutinformation')),
                 ('related_booking', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='booking_transactions', to='bookings.servicebooking')),
-                ('related_inspection', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='inspection_transactions', to='inspections.vehicleinspection')),
                 ('related_order', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='order_transactions', to='listings.order')),
             ],
             options={
