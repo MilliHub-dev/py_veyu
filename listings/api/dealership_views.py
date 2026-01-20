@@ -460,6 +460,7 @@ class CreateListingView(CreateAPIView):
                 'seats': openapi.Schema(type=openapi.TYPE_INTEGER, example=5, description='Required for cars only'),
                 'doors': openapi.Schema(type=openapi.TYPE_INTEGER, example=4, description='Required for cars only'),
                 'vin': openapi.Schema(type=openapi.TYPE_STRING, example='1HGBH41JXMN109186', description='Required for cars only'),
+                'body_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['suv','sedan','hatchback','coupe','convertible','pickup','van','wagon','luxury','sport'], description='For cars only'),
                 'registration_number': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
                 'aircraft_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['jet','propeller','glider','helicopter'], description='For planes'),
                 'engine_type': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
@@ -486,6 +487,7 @@ class CreateListingView(CreateAPIView):
                 'has_gps': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='For UAVs'),
                 'has_return_to_home': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='For UAVs'),
                 'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental'], example='sale'),
+                'currency': openapi.Schema(type=openapi.TYPE_STRING, enum=['NGN','USD'], example='NGN'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, example=5000000),
                 'color': openapi.Schema(type=openapi.TYPE_STRING, example='Black'),
                 'mileage': openapi.Schema(type=openapi.TYPE_INTEGER, example=25000),
@@ -605,6 +607,7 @@ class CreateListingView(CreateAPIView):
                         seats=data.get('seats', 5),
                         doors=data.get('doors', 4),
                         vin=data.get('vin'),
+                        body_type=data.get('body_type'),
                     )
                 elif vehicle_type == 'plane':
                     vehicle = Plane(
@@ -673,6 +676,7 @@ class CreateListingView(CreateAPIView):
                     vehicle=vehicle,
                     created_by=request.user,
                     listing_type=data['listing_type'],
+                    currency=data.get('currency', 'NGN'),
                     price=data['price'],
                     title=data['title'],
                     notes=data.get('notes', ''),
@@ -777,6 +781,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
             properties={
                 'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['edit-listing','upload-images','remove-image','publish-listing'], example='edit-listing'),
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Listing title'),
+                'currency': openapi.Schema(type=openapi.TYPE_STRING, enum=['NGN','USD'], description='Listing currency'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Listing price'),
                 'notes': openapi.Schema(type=openapi.TYPE_STRING, description='Additional notes'),
                 'listing_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['sale','rental']),
@@ -795,6 +800,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                         'seats': openapi.Schema(type=openapi.TYPE_INTEGER, description='For cars only'),
                         'doors': openapi.Schema(type=openapi.TYPE_INTEGER, description='For cars only'),
                         'vin': openapi.Schema(type=openapi.TYPE_STRING, description='For cars only'),
+                        'body_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['suv','sedan','hatchback','coupe','convertible','pickup','van','wagon','luxury','sport'], description='For cars only'),
                         'registration_number': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
                         'aircraft_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['jet','propeller','glider','helicopter'], description='For planes'),
                         'engine_type': openapi.Schema(type=openapi.TYPE_STRING, description='For planes'),
@@ -836,6 +842,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
 
             if action == 'edit-listing':
                 listing.title = data['title']
+                listing.currency = data.get('currency', listing.currency)
                 listing.price=data['price']
                 listing.notes=data['notes']
 
@@ -856,6 +863,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                     vehicle.seats = data['vehicle'].get('seats')
                     vehicle.doors = data['vehicle'].get('doors')
                     vehicle.vin = data['vehicle'].get('vin')
+                    vehicle.body_type = data['vehicle'].get('body_type')
                 
                 # Check if vehicle is a Plane
                 if hasattr(vehicle, 'registration_number'):

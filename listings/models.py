@@ -168,9 +168,23 @@ class Car(Vehicle):
         ('RWD', 'Rear Wheel Drive'),
     ]
 
+    BODY_TYPE_CHOICES = [
+        ('suv', 'SUV'),
+        ('sedan', 'Sedan'),
+        ('hatchback', 'Hatchback'),
+        ('coupe', 'Coupe'),
+        ('convertible', 'Convertible'),
+        ('pickup', 'Pickup Truck'),
+        ('van', 'Van/Minivan'),
+        ('wagon', 'Wagon'),
+        ('luxury', 'Luxury'),
+        ('sport', 'Sports Car'),
+    ]
+
     doors = models.PositiveIntegerField(blank=True, null=True, default=4)
     seats = models.PositiveIntegerField(blank=True, null=True, default=5)
     drivetrain = models.CharField(max_length=200, blank=True, null=True, choices=DRIVETRAIN)
+    body_type = models.CharField(max_length=50, blank=True, null=True, choices=BODY_TYPE_CHOICES)
     vin = models.CharField(max_length=200, blank=True, null=True)
 
 
@@ -501,8 +515,13 @@ class Coupon(DbModel):
 
 class Listing(DbModel):
     LISTING_TYPES  = {'rental': 'Car Rental', 'sale': 'Car Sale'}
+    CURRENCY_CHOICES = [
+        ('NGN', 'Naira'),
+        ('USD', 'Dollar'),
+    ]
 
     listing_type = models.CharField(max_length=20, choices=LISTING_TYPES, default='sale')
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='NGN')
     verified = models.BooleanField(default=False)
     approved = models.BooleanField(default=False)
     approved_by = models.ForeignKey('accounts.Account', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_listings')

@@ -114,6 +114,8 @@ class VehicleSerializer(serializers.ModelSerializer):
     fuel_system = serializers.SerializerMethodField()
     trips = serializers.SerializerMethodField()
     kind = serializers.SerializerMethodField()
+    body_type = serializers.SerializerMethodField()
+
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -142,6 +144,15 @@ class VehicleSerializer(serializers.ModelSerializer):
 
     def get_kind(self, obj):
         return obj.__class__.__name__.lower()
+
+    def get_body_type(self, obj):
+        # Check if it is a car via inheritance
+        if hasattr(obj, 'car'):
+            return obj.car.get_body_type_display()
+        # If the object passed IS a car instance
+        if hasattr(obj, 'body_type'):
+             return obj.get_body_type_display()
+        return None
 
     # def get_features(self, obj):
     #     return json.dumps(obj.features)

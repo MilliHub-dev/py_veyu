@@ -24,7 +24,7 @@ from .models import (
 
 # @veyu_admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ['vehicle', 'listing_type', 'approved', 'verified', 'title']
+    list_display = ['vehicle', 'listing_type', 'approved', 'verified', 'title', 'currency', 'price']
     list_filter = ['listing_type', 'approved', 'approved_by', 'vehicle__brand']
     search_fields = ['vehicle__name', 'title', 'vehicle__brand']
     list_editable = ['approved', 'verified']
@@ -118,8 +118,8 @@ class VehicleAdmin(admin.ModelAdmin):
 
 
 class CarAdmin(VehicleAdmin):
-    list_display = ['name', 'brand', 'doors', 'seats', 'drivetrain', 'available']
-    list_filter = VehicleAdmin.list_filter + ['drivetrain']
+    list_display = ['name', 'brand', 'body_type', 'doors', 'seats', 'drivetrain', 'available']
+    list_filter = VehicleAdmin.list_filter + ['drivetrain', 'body_type']
 
 
 class BoatAdmin(VehicleAdmin):

@@ -76,8 +76,10 @@ Content-Type: application/json
   "vin": "1HGBH41JXMN109186",
   "listing_type": "sale",
   "price": 5000000,
+  "currency": "NGN",
   "color": "Black",
   "mileage": 25000,
+  "body_type": "sedan",
   "notes": "Well maintained with full service history",
   "features": ["AC", "Bluetooth"]
 }
