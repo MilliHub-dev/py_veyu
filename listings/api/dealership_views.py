@@ -772,6 +772,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
             "This endpoint performs multiple actions based on 'action':\n\n"
             "- edit-listing: Update listing and vehicle fields (see request schema)\n"
             "- upload-images: Upload images array under 'image' (multipart/form-data)\n"
+            "- upload-video: Upload a video file under 'video' (multipart/form-data)\n"
             "- remove-image: Remove a vehicle image by 'image_id' (UUID)\n"
             "- publish-listing: Publish a listing by passing 'listing' UUID (note: uses body UUID)"
         ),
@@ -779,7 +780,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
             type=openapi.TYPE_OBJECT,
             required=['action'],
             properties={
-                'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['edit-listing','upload-images','remove-image','publish-listing'], example='edit-listing'),
+                'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['edit-listing','upload-images','remove-image','publish-listing', 'upload-video'], example='edit-listing'),
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Listing title'),
                 'currency': openapi.Schema(type=openapi.TYPE_STRING, enum=['NGN','USD'], description='Listing currency'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Listing price'),
@@ -820,6 +821,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                     }
                 ),
                 'image': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_FILE), description='Used with action=upload-images'),
+                'video': openapi.Schema(type=openapi.TYPE_FILE, description='Used with action=upload-video'),
                 'image_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid', description='Used with action=remove-image'),
                 'listing': openapi.Schema(type=openapi.TYPE_STRING, format='uuid', description='Used with action=publish-listing')
             }
@@ -931,6 +933,14 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 vehicle.save() # save to db
                 message = "Image added"
                 # return Response({'error': False, 'message': })
+            elif action == 'upload-video':
+                video_file = request.FILES.get('video')
+                if not video_file:
+                    return Response({'error': True, 'message': 'No video file provided'}, status=400)
+                
+                vehicle.video = video_file
+                vehicle.save()
+                message = "Video uploaded successfully"
             elif action == 'remove-image':
                 image = vehicle.images.get(uuid=data['image_id'])
                 image.delete()
