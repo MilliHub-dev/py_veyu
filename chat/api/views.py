@@ -40,6 +40,10 @@ def send_message_view(request, room_id=None):
 	room = None
 	other_member = None
 
+	# Try to get room_id from payload if not in URL
+	if room_id is None:
+		room_id = data.get('room_id')
+
 	# Handle case where room_id is provided (existing chat)
 	if room_id is not None:
 		try:
