@@ -25,10 +25,12 @@ class CarSaleFilter(FilterSet):
     fuel_system = CharFilter(method='filter_fuel_system', label="Fuel System")
     price = CharFilter(method='filter_price', label="Listing Price (min-max)")
     vehicle_type = CharFilter(method='filter_vehicle_type', label="Vehicle Type (car, boat, plane, bike, uav)")
+    body_type = CharFilter(method='filter_body_type', label="Body Type (suv, sedan, etc.)")
+    location = CharFilter(method='filter_location', label="Location (State or City)")
 
     class Meta:
         model = Listing
-        fields = ['brands', 'price', 'transmission', 'fuel_system', 'vehicle_type']
+        fields = ['brands', 'price', 'transmission', 'fuel_system', 'vehicle_type', 'body_type', 'location']
 
     def filter_brands(self, queryset, name, value):
         # Filter listing by car brands
@@ -103,11 +105,19 @@ class CarSaleFilter(FilterSet):
         
         return queryset
 
-    def filter_mileage(self, queryset, name, value):
-        return
-    
+    def filter_body_type(self, queryset, name, value):
+        q = Q()
+        filters = [_type.strip() for _type in value.split(',')]
+        for item in filters:
+             q |= Q(vehicle__car__body_type__iexact=item)
+        return queryset.filter(q).distinct()
+
     def filter_location(self, queryset, name, value):
-        return
+        q = Q()
+        filters = [_type.strip() for _type in value.split(',')]
+        for item in filters:
+            q |= Q(vehicle__dealer__location__state__icontains=item) | Q(vehicle__dealer__location__city__icontains=item)
+        return queryset.filter(q).distinct()
     
 
 
@@ -117,10 +127,12 @@ class CarRentalFilter(FilterSet):
     fuel_system = CharFilter(method='filter_fuel_system', label="Fuel System")
     price = CharFilter(method='filter_price', label="Listing Price (min-max)")
     vehicle_type = CharFilter(method='filter_vehicle_type', label="Vehicle Type (car, boat, plane, bike, uav)")
+    body_type = CharFilter(method='filter_body_type', label="Body Type (suv, sedan, etc.)")
+    location = CharFilter(method='filter_location', label="Location (State or City)")
 
     class Meta:
         model = Listing
-        fields = ['vehicle_type']
+        fields = ['vehicle_type', 'body_type', 'location', 'make', 'transmission', 'fuel_system', 'price']
 
     def filter_make(self, queryset, name, value):
         # Filter listing by car brands
@@ -202,8 +214,19 @@ class CarRentalFilter(FilterSet):
     def filter_mileage(self, queryset, name, value):
         return
     
+    def filter_body_type(self, queryset, name, value):
+        q = Q()
+        filters = [_type.strip() for _type in value.split(',')]
+        for item in filters:
+             q |= Q(vehicle__car__body_type__iexact=item)
+        return queryset.filter(q).distinct()
+
     def filter_location(self, queryset, name, value):
-        return
+        q = Q()
+        filters = [_type.strip() for _type in value.split(',')]
+        for item in filters:
+            q |= Q(vehicle__dealer__location__state__icontains=item) | Q(vehicle__dealer__location__city__icontains=item)
+        return queryset.filter(q).distinct()
     
 
 
