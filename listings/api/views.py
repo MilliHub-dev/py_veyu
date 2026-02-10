@@ -253,8 +253,6 @@ class ListingSearchView(ListAPIView):
         approved=True,
         verified=True,
         vehicle__available=True,
-        vehicle__dealer__verified_business=True,
-        vehicle__dealer__verified_id=True,
     ).distinct() # serach all listings sale & rent
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter # Use the filter class
@@ -318,8 +316,6 @@ class AllListingsView(ListAPIView):
         approved=True,
         verified=True,
         vehicle__available=True,
-        vehicle__dealer__verified_business=True,
-        vehicle__dealer__verified_id=True,
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter
@@ -369,8 +365,6 @@ class FeaturedListingsView(ListAPIView):
         verified=True,
         vehicle__available=True,
         listing_boost__active=True,
-        vehicle__dealer__verified_business=True,
-        vehicle__dealer__verified_id=True,
     ).distinct()
     pagination_class = OffsetPaginator
 
@@ -596,12 +590,16 @@ class MyListingsView(ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [IsAuthenticated]
     queryset = Listing.objects.filter(
-        approved=True,
-        verified=True,
-        vehicle__available=True,
-        vehicle__dealer__verified_business=True,
-        vehicle__dealer__verified_id=True,
+        # approved=True, # Allow dealers to see unapproved listings
+        # verified=True, # Allow dealers to see unverified listings
+        # vehicle__available=True, # Allow dealers to see unavailable listings
     ).distinct()
+
+    def get_queryset(self):
+        # Only show listings belonging to the current user's dealership
+        if hasattr(self.request.user, 'dealership_profile'):
+            return Listing.objects.filter(vehicle__dealer=self.request.user.dealership_profile)
+        return Listing.objects.none()
 
     def get(self, request, *args, **kwargs):
         scope = request.GET.get('scope', '')

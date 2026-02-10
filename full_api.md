@@ -119,7 +119,7 @@ Base Path: `/api/v1/admin/dealership/`
     - `image`: [File1, File2] (Array of files)
   - **Action: upload-video**:
     - `action`: "upload-video"
-    - `video`: File (Single video file)
+    - `video`: File (Single video file, max 50MB)
   - **Action: remove-image**:
     ```json
     {
@@ -132,6 +132,28 @@ Base Path: `/api/v1/admin/dealership/`
     {
         "action": "publish-listing",
         "listing": "uuid-of-listing"
+    }
+    ```
+
+---
+
+## Chat & Messaging
+Base Path: `/api/v1/chat/`
+
+### 1. Chat Rooms
+- **List Chat Rooms**: `GET /chats/`
+- **Create/Get Room**: `GET /start-chat/{recipient_uuid}/`
+  - Creates a new room or returns existing one between current user and recipient.
+
+### 2. Messages
+- **Get Messages**: `GET /room/{room_uuid}/`
+- **Send Message**: `POST /send/`
+  - **Payload**:
+    ```json
+    {
+      "room_id": "uuid-of-room", // Optional if room_uuid is in URL context
+      "message": "Hello, is this car still available?",
+      "attachments": [File1, File2] // Optional files
     }
     ```
 
