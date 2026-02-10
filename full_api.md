@@ -164,9 +164,12 @@ Base Path: `/api/v1/listings/`
 
 ### 1. Search & Browse
 - **All Listings**: `GET /`
-- **Search**: `GET /find/?brand=Toyota&price_min=5000000&body_type=suv`
-- **Featured**: `GET /featured/`
+- **Buy Listings**: `GET /buy/`
+  - Filters: `brands`, `price` (min-max), `vehicle_type`, `transmission`, `fuel_system`
 - **Rentals**: `GET /rentals/`
+  - Filters: `make`, `price`, `vehicle_type`, `transmission`, `fuel_system`
+- **Search**: `GET /find/?find=Toyota`
+- **Featured**: `GET /featured/`
 - **Dealership Profile**: `GET /dealer/{uuid}/`
 
 ### 2. Listing Details
@@ -236,27 +239,29 @@ Base Path: `/api/v1/chat/`
 ---
 
 ## Mechanic Services
-Base Path: `/api/v1/bookings/`
+Base Path: `/api/v1/mechanics/`
 
 ### 1. Find Mechanics
-- **Search**: `GET /find/?service=Oil Change&location=Lagos`
-- **Profile**: `GET /{mech_id}/`
-- **Service History**: `GET /{mech_id}/history/`
+- **List Mechanics**: `GET /`
+  - Filters: `lat`, `lng` (required for distance sorting), `services`
+- **Search Mechanics**: `GET /find/`
+- **Mechanic Profile**: `GET /{uuid}/`
+- **Service History**: `GET /{uuid}/history/`
 
 ### 2. Booking
-- **Request Service**: `POST /{mech_id}/`
+- **Request Service**: `POST /{uuid}/`
   ```json
   {
-    "transaction_id": "...", 
+    "transaction_id": "paystack-ref",
     "problem_description": "Car won't start",
-    "services": ["Diagnosis"]
+    "services": ["Diagnosis", "Oil Change"]
   }
   ```
-- **Update Booking**: `PUT /bookings/{booking_id}/`
+- **Update Booking**: `PUT /bookings/{booking_id}/` (Mechanic only)
 
 ---
 
-## Wallet & Payments
+## Transaction & Orders
 Base Path: `/api/v1/wallet/`
 
 ### 1. Overview

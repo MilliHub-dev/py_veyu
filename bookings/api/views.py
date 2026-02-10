@@ -69,8 +69,9 @@ class MechanicListView(ListAPIView):
     
     ordering = ['account__first_name']  # Default ordering if none specified by the user
 
-    def get_queryset(self, request=None):
-        if not request:
+    def get_queryset(self):
+        request = self.request
+        if not request.GET.get('lat') or not request.GET.get('lng'):
             return Mechanic.objects.all()
 
         user_lat = float(request.GET.get('lat'))
@@ -97,7 +98,7 @@ class MechanicListView(ListAPIView):
             else:
                 results.append(mech.uuid)
 
-        mechanics = mechanics.exclude(uuid__in=results)
+        return mechanics.exclude(uuid__in=results)
                 # results.append({
                 #     "id": m.id,
                 #     "name": m.name,
@@ -116,7 +117,7 @@ class MechanicListView(ListAPIView):
             if lat and lng:
                 ctx['coords'] = (lat, lng)
 
-            queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset(request)))
+            queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
             serializer = self.serializer_class(queryset, many=True, context=ctx)
             data = {
                 'error': False,
