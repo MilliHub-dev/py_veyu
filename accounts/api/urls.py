@@ -10,6 +10,7 @@ from .views import (
     NotificationView,
     VerifyEmailUnauthenticatedView,
     LocationViewSet,
+    ReferralView,
 )
 from .test_views import TestEmailView
 from .document_views import (
@@ -54,6 +55,9 @@ urlpatterns = [
     # User profile
     path('profile/', UpdateProfileView.as_view(), name='update-profile'),
     
+    # Referral
+    path('referral/', ReferralView.as_view(), name='referral'),
+
     # Cart
     path('cart/', CartView.as_view(), name='cart'),
     

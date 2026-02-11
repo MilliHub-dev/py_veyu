@@ -69,6 +69,8 @@ from ..models import (
     Dealer,
     UserProfile,
     Location,
+    ReferralReward,
+    ReferralSetting,
 )
 from rest_framework import viewsets
 from .serializers import (
@@ -172,15 +174,30 @@ class SignUpView(generics.CreateAPIView):
                     user.set_password(data['password'])
                 else:
                     user.set_unusable_password()
+                
+                # Handle referral
+                referral_code = data.get('referral_code')
+                if referral_code:
+                    try:
+                        referrer = Account.objects.get(referral_code=referral_code)
+                        user.referred_by = referrer
+                    except Account.DoesNotExist:
+                        pass # Ignore invalid referral codes
+                        
                 user.save(using=None)
 
                 if user_type == 'customer':
-                    try:
-                        customer = Customer.objects.get(user=user)
-                        customer.phone_number = data.get('phone_number', '')
+                    phone_number = data.get('phone_number', '')
+                    # Use get_or_create to handle potential race condition with post_save signal
+                    customer, created = Customer.objects.get_or_create(
+                        user=user,
+                        defaults={'phone_number': phone_number}
+                    )
+                    # If customer existed (e.g. created by signal) or was just created with default,
+                    # ensure phone number is set if provided
+                    if phone_number and customer.phone_number != phone_number:
+                        customer.phone_number = phone_number
                         customer.save()
-                    except Customer.DoesNotExist:
-                        Customer.objects.create(user=user, phone_number=data.get('phone_number', ''))
                 
                 # Generate and save email verification OTP with consistent parameters
                 otp = OTP.objects.create(
@@ -311,6 +328,46 @@ class SignUpView(generics.CreateAPIView):
                 message = f"Signup failed: {str(error)}"
             
             return Response({'error': True, 'message': message}, status=500)
+
+
+class ReferralView(views.APIView):
+    """
+    Endpoint to get user's referral code and statistics.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # Calculate referral stats
+        referrals = user.referrals.all()
+        referral_count = referrals.count()
+        
+        # Calculate total earnings
+        from django.db.models import Sum
+        total_earnings = ReferralReward.objects.filter(
+            referrer=user, 
+            status='paid'
+        ).aggregate(total=Sum('amount'))['total'] or 0.00
+        
+        # Get settings for currency
+        settings = ReferralSetting.get_settings()
+
+        return Response({
+            "referral_code": user.referral_code,
+            "referral_count": referral_count,
+            "total_earnings": total_earnings,
+            "currency": settings.currency,
+            "referral_link": f"https://veyu.app/register?ref={user.referral_code}", # Example link
+            "referrals": [
+                {
+                    "first_name": ref.first_name,
+                    "last_name": ref.last_name,
+                    "date_joined": ref.date_joined,
+                    "reward_status": ReferralReward.objects.filter(referrer=user, referred_user=ref).first().status if ReferralReward.objects.filter(referrer=user, referred_user=ref).exists() else "pending"
+                } for ref in referrals[:10] # Return last 10 referrals
+            ]
+        }, status=status.HTTP_200_OK)
 
 
 class LoginView(views.APIView):

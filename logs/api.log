@@ -28,3 +28,6 @@
 [2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created bike listing: Test Bike Listing (Vehicle ID: 4, Class: Bike)
 [2026-01-19 10:19:42] INFO [listings.api.dealership_views:555] Creating listing with vehicle_type='uav' for brand='DJI'
 [2026-01-19 10:19:42] INFO [listings.api.dealership_views:689] Successfully created uav listing: Test UAV Listing (Vehicle ID: 5, Class: UAV)
+[2026-02-11 02:25:02] ERROR [django.request:248] Internal Server Error: /api/v1/accounts/signup/
+[2026-02-11 02:26:43] ERROR [django.request:248] Internal Server Error: /api/v1/accounts/signup/
+[2026-02-11 02:27:58] ERROR [django.request:248] Internal Server Error: /api/v1/accounts/signup/

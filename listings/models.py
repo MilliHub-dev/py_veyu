@@ -349,7 +349,8 @@ class Order(DbModel):
     @property
     def sub_total(self):
         amt = to_decimal(0.00)
-        if self.is_recurring:
+        is_recurring = getattr(self, 'is_recurring', False)
+        if is_recurring:
             cycle = 1
             days = 30 # count days
             amt += (self.order_item.price/30) * days

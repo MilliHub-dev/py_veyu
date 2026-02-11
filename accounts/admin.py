@@ -9,6 +9,8 @@ from .models import (
     OTP,
     Dealer,
     BusinessVerificationSubmission,
+    ReferralSetting,
+    ReferralReward,
 )
 from .newsletter import Newsletter, NewsletterAdmin
 from utils.sms import send_sms
@@ -923,3 +925,22 @@ veyu_admin.register(Location)
 veyu_admin.register(Dealer, DealershipAdmin)
 veyu_admin.register(OTP, OTPAdmin)
 veyu_admin.register(BusinessVerificationSubmission, BusinessVerificationSubmissionAdmin)
+
+
+@admin.register(ReferralSetting)
+class ReferralSettingAdmin(admin.ModelAdmin):
+    list_display = ['currency', 'reward_amount', 'min_purchase_amount', 'is_active']
+    list_editable = ['reward_amount', 'min_purchase_amount', 'is_active']
+    
+    def has_add_permission(self, request):
+        # Only allow one instance
+        if self.model.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+@admin.register(ReferralReward)
+class ReferralRewardAdmin(admin.ModelAdmin):
+    list_display = ['referrer', 'referred_user', 'amount', 'currency', 'status', 'date_created']
+    list_filter = ['status', 'currency', 'date_created']
+    search_fields = ['referrer__email', 'referred_user__email', 'transaction_ref']
+    readonly_fields = ['date_created', 'last_updated']

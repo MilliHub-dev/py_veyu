@@ -95,6 +95,9 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=True)
     api_token = models.CharField(max_length=64, blank=True, null=True, unique=True)
+    
+    referral_code = models.CharField(max_length=12, blank=True, null=True, unique=True)
+    referred_by = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='referrals')
 
     provider = models.CharField(max_length=20, choices=ACCOUNT_PROVIDERS, default='veyu')
 
@@ -168,6 +171,17 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
         if self.last_name:
             self.last_name = self.last_name.strip().title()
         
+        if not self.referral_code:
+            # Generate a unique referral code
+            import random
+            import string
+            
+            while True:
+                code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                if not Account.objects.filter(referral_code=code).exists():
+                    self.referral_code = code
+                    break
+
         if not self.api_token:
             super().save(using=None)
             # Generate/ensure DRF Token then store the key string to avoid FK dependency
@@ -2152,3 +2166,47 @@ class DocumentAccessLog(DbModel):
 # use as ref to old imports for now
 # TODO: rename old imports before staging
 Dealer = Dealership
+
+class ReferralSetting(DbModel):
+    """
+    Singleton model to store referral program configuration.
+    """
+    reward_amount = models.DecimalField(max_digits=10, decimal_places=2, default=5000.00, help_text="Amount to reward the referrer")
+    currency = models.CharField(max_length=3, default='NGN', help_text="Currency of the reward")
+    is_active = models.BooleanField(default=True, help_text="Enable or disable the referral program")
+    min_purchase_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Minimum purchase amount required to trigger reward")
+
+    class Meta:
+        verbose_name = "Referral Setting"
+        verbose_name_plural = "Referral Settings"
+
+    def __str__(self):
+        return f"Referral Reward: {self.currency} {self.reward_amount}"
+
+    @classmethod
+    def get_settings(cls):
+        obj, created = cls.objects.get_or_create(id=1)
+        return obj
+
+
+class ReferralReward(DbModel):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+    )
+
+    referrer = models.ForeignKey(Account, on_delete=models.CASCADE, related_name='referral_rewards_earned')
+    referred_user = models.ForeignKey(Account, on_delete=models.CASCADE, related_name='referral_rewards_triggered')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='NGN')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    transaction_ref = models.CharField(max_length=100, blank=True, null=True, help_text="Reference of the qualifying transaction")
+    
+    class Meta:
+        verbose_name = "Referral Reward"
+        verbose_name_plural = "Referral Rewards"
+        unique_together = ('referrer', 'referred_user')  # One reward per referred user
+
+    def __str__(self):
+        return f"{self.referrer.email} earned {self.currency} {self.amount} from {self.referred_user.email}"

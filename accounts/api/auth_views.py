@@ -224,23 +224,41 @@ class EnhancedSignUpView(APIView):
                 provider=provider,
                 user_type=user_type
             )
+            
+        # Handle referral
+        referral_code = validated_data.get('referral_code')
+        if referral_code:
+            try:
+                referrer = Account.objects.get(referral_code=referral_code)
+                user.referred_by = referrer
+                user.save(update_fields=['referred_by'])
+            except Account.DoesNotExist:
+                # Ignore invalid referral codes
+                pass
         
-        # Create user type specific profile
+        # Create or update user type specific profile
+        # Note: Profiles are auto-created by signals (accounts.signals.create_user_profile)
+        # We use get_or_create or update existing profiles to avoid race conditions/duplicates
         if user_type == 'customer':
-            Customer.objects.create(
-                user=user, 
-                phone_number=validated_data.get('phone_number', '')
-            )
+            phone_number = validated_data.get('phone_number', '')
+            customer, created = Customer.objects.get_or_create(user=user)
+            if phone_number and customer.phone_number != phone_number:
+                customer.phone_number = phone_number
+                customer.save()
+                
         elif user_type == 'mechanic':
-            Mechanic.objects.create(
-                user=user,
-                business_name=validated_data.get('business_name', '')
-            )
+            business_name = validated_data.get('business_name', '')
+            mechanic, created = Mechanic.objects.get_or_create(user=user)
+            if business_name and mechanic.business_name != business_name:
+                mechanic.business_name = business_name
+                mechanic.save()
+                
         elif user_type == 'dealer':
-            Dealership.objects.create(
-                user=user,
-                business_name=validated_data.get('business_name', '')
-            )
+            business_name = validated_data.get('business_name', '')
+            dealership, created = Dealership.objects.get_or_create(user=user)
+            if business_name and dealership.business_name != business_name:
+                dealership.business_name = business_name
+                dealership.save()
         
         return user
 

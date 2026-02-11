@@ -99,3 +99,46 @@
 [2026-01-10 00:24:00] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
 [2026-01-10 00:31:40] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
 [2026-01-10 00:33:09] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:12:33] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:16:19] INFO [django.channels.server:187] [32mHTTP GET /api/accounts/referral/ 301 [0.01, 127.0.0.1:51475][0m
+[2026-02-11 02:18:29] INFO [django.channels.server:187] [32mHTTP GET /api/accounts/referral/ 301 [0.00, 127.0.0.1:55524][0m
+[2026-02-11 02:21:24] INFO [django.channels.server:187] [32mHTTP GET /api/v1/accounts/referral/ 301 [0.00, 127.0.0.1:53839][0m
+[2026-02-11 02:23:07] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:23:47] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\veyu\settings.py changed, reloading.
+[2026-02-11 02:23:50] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:24:04] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:24:20] WARNING [django.channels.server:191] [31;1mHTTP GET /api/v1/accounts/referral/ 401 [2.24, 127.0.0.1:53525][0m
+[2026-02-11 02:25:02] ERROR [django.channels.server:194] [35;1mHTTP POST /api/v1/accounts/signup/ 500 [7.54, 127.0.0.1:53562][0m
+[2026-02-11 02:26:43] ERROR [django.channels.server:194] [35;1mHTTP POST /api/v1/accounts/signup/ 500 [8.31, 127.0.0.1:57698][0m
+[2026-02-11 02:27:37] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\api\views.py changed, reloading.
+[2026-02-11 02:27:41] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:27:58] ERROR [django.channels.server:194] [35;1mHTTP POST /api/v1/accounts/signup/ 500 [8.94, 127.0.0.1:57731][0m
+[2026-02-11 02:29:57] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\api\auth_views.py changed, reloading.
+[2026-02-11 02:29:59] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:30:22] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/signup/ 201 [13.12, 127.0.0.1:57834][0m
+[2026-02-11 02:30:32] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/login/ 200 [7.82, 127.0.0.1:57842][0m
+[2026-02-11 02:31:05] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/signup/ 201 [13.17, 127.0.0.1:57859][0m
+[2026-02-11 02:31:15] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/login/ 200 [7.49, 127.0.0.1:51391][0m
+[2026-02-11 02:31:20] INFO [django.channels.server:181] [mHTTP GET /api/v1/accounts/referral/ 200 [2.68, 127.0.0.1:51399][0m
+[2026-02-11 02:31:56] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/signup/ 201 [12.58, 127.0.0.1:51414][0m
+[2026-02-11 02:32:06] INFO [django.channels.server:181] [mHTTP POST /api/v1/accounts/login/ 200 [8.39, 127.0.0.1:51422][0m
+[2026-02-11 02:32:11] INFO [django.channels.server:181] [mHTTP GET /api/v1/accounts/referral/ 200 [2.52, 127.0.0.1:51430][0m
+[2026-02-11 02:32:13] WARNING [django.channels.server:191] [31;1mHTTP POST /api/v1/accounts/signup/ 429 [0.01, 127.0.0.1:51435][0m
+[2026-02-11 02:43:54] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\models.py changed, reloading.
+[2026-02-11 02:43:59] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:44:23] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\models.py changed, reloading.
+[2026-02-11 02:44:26] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:50:54] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\models.py changed, reloading.
+[2026-02-11 02:51:01] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:53:25] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\admin.py changed, reloading.
+[2026-02-11 02:53:31] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 02:59:33] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\signals.py changed, reloading.
+[2026-02-11 02:59:36] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 03:04:56] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\listings\models.py changed, reloading.
+[2026-02-11 03:05:02] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 03:08:00] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\wallet\models.py changed, reloading.
+[2026-02-11 03:08:03] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 03:14:13] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\api\views.py changed, reloading.
+[2026-02-11 03:14:19] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader
+[2026-02-11 03:14:26] INFO [django.utils.autoreload:266] C:\Users\Dell\Downloads\project\py_veyu\accounts\api\views.py changed, reloading.
+[2026-02-11 03:14:29] INFO [django.utils.autoreload:668] Watching for file changes with StatReloader

@@ -94,6 +94,12 @@ class SignupSerializer(Serializer):
         help_text="User's phone number (optional)",
         style={'placeholder': '+234XXXXXXXXXX'}
     )
+    referral_code = CharField(
+        required=False,
+        max_length=12,
+        help_text="Referral code of the user who invited this account (optional)",
+        style={'placeholder': 'ABC12345'}
+    )
     business_name = CharField(
         required=False,
         max_length=300,
@@ -159,11 +165,21 @@ class SignupSerializer(Serializer):
     def create(self, validated_data):
         """Create new user account with proper authentication setup."""
         validated_data.pop('confirm_password', None)
-        password = validated_data.pop('password')
+        password = validated_data.pop('password', None)
+        referral_code = validated_data.pop('referral_code', None)
+        
+        # Resolve referral if provided
+        referred_by_user = None
+        if referral_code:
+            try:
+                referred_by_user = Account.objects.get(referral_code=referral_code)
+            except Account.DoesNotExist:
+                pass # Fail silently for invalid referral codes
         
         try:
             user = Account.objects.create_user(
                 password=password if validated_data.get('provider') == 'veyu' else None,
+                referred_by=referred_by_user,
                 **validated_data
             )
             

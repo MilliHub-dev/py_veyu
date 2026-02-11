@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from utils.models import DbModel
 from django.core.exceptions import ValidationError
+from decimal import Decimal
 
 
 User = get_user_model()
@@ -21,13 +22,17 @@ class Wallet(DbModel):
         # if there are locked transactions (ie awaiting escrow action)
         # do not allow the user withdraw funds from those transactions
         # return ledger balance for now
-        amt = self.ledger_balance
+        amt = Decimal(str(self.ledger_balance))
         locked_trans = self.transactions.filter(status__in=['locked', 'pending', ])
         for trans in locked_trans:
             amt -= trans.amount
         return amt
 
     def apply_transaction(self, trans):
+        # Ensure ledger_balance is Decimal
+        if not isinstance(self.ledger_balance, Decimal):
+            self.ledger_balance = Decimal(str(self.ledger_balance))
+            
         if trans.type in ['payment', 'charge', 'transfer_out', 'withdraw']:
             self.ledger_balance -= trans.amount
         elif trans.type in ['transfer_in', 'deposit']:

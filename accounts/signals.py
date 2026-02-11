@@ -243,3 +243,104 @@ def send_verification_status_email_async(user, status: str, business_name: str, 
         reason=rejection_reason,
         business_name=business_name
     )
+
+
+def process_referral_reward(user, transaction_amount, trigger_instance):
+    """
+    Process referral reward for the user's referrer if eligible.
+    """
+    # Check if user was referred
+    if not user.referred_by:
+        return
+
+    try:
+        from django.db import transaction
+        from accounts.models import ReferralSetting, ReferralReward
+        from wallet.models import Wallet, Transaction
+        
+        # Get settings
+        settings = ReferralSetting.get_settings()
+        if not settings.is_active:
+            return
+            
+        # Check minimum purchase amount
+        # Ensure transaction_amount is decimal
+        from decimal import Decimal
+        if not isinstance(transaction_amount, Decimal):
+            transaction_amount = Decimal(str(transaction_amount))
+            
+        if transaction_amount < settings.min_purchase_amount:
+            return
+
+        # Check if reward already exists for this pair
+        # We only reward once per referred user (first purchase/payment)
+        if ReferralReward.objects.filter(referrer=user.referred_by, referred_user=user).exists():
+            return
+
+        # Get or create referrer's wallet
+        referrer_wallet = getattr(user.referred_by, 'user_wallet', None)
+        if not referrer_wallet:
+            referrer_wallet = Wallet.objects.create(user=user.referred_by)
+
+        with transaction.atomic():
+            # Create ReferralReward record
+            reward = ReferralReward.objects.create(
+                referrer=user.referred_by,
+                referred_user=user,
+                amount=settings.reward_amount,
+                currency=settings.currency,
+                status='paid',
+                transaction_ref=f"REF-{user.id}-{trigger_instance.id}"
+            )
+
+            # Create Wallet Transaction
+            wallet_trans = Transaction.objects.create(
+                recipient=user.referred_by.name or user.referred_by.email,
+                recipient_wallet=referrer_wallet,
+                type='deposit',
+                amount=settings.reward_amount,
+                status='completed',
+                source='bank', # Using bank to represent system deposit
+                narration=f"Referral Reward for referring {user.name or user.email}",
+                sender="Veyu Referral System"
+            )
+            
+            # Apply transaction to wallet
+            referrer_wallet.apply_transaction(wallet_trans)
+            
+            logger.info(f"Processed referral reward of {settings.reward_amount} for {user.referred_by.email}")
+
+    except Exception as e:
+        logger.error(f"Error processing referral reward: {str(e)}", exc_info=True)
+
+
+@receiver(post_save, sender='listings.Order')
+def trigger_referral_reward_order(sender, instance, created, **kwargs):
+    """
+    Trigger referral reward when an order is paid.
+    """
+    if instance.paid:
+        try:
+            # instance.customer.user is the Account
+            user = instance.customer.user
+            # Use total property
+            amount = instance.total
+            process_referral_reward(user, amount, instance)
+        except Exception as e:
+            logger.error(f"Error in referral trigger for Order {instance.id}: {str(e)}")
+
+
+@receiver(post_save, sender='bookings.ServiceBooking')
+def trigger_referral_reward_booking(sender, instance, created, **kwargs):
+    """
+    Trigger referral reward when a service booking is completed.
+    """
+    if instance.completed:
+        try:
+            # instance.customer.user is the Account
+            user = instance.customer.user
+            # Use sub_total property (assuming it represents the value)
+            amount = instance.sub_total
+            process_referral_reward(user, amount, instance)
+        except Exception as e:
+            logger.error(f"Error in referral trigger for Booking {instance.id}: {str(e)}")
