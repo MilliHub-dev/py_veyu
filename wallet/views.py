@@ -242,7 +242,7 @@ class Deposit(APIView):
         amount = data.get('amount')
 
         # confirm the deposit from flutterwave
-        response = self.gateway.verify_transaction()
+        response = self.gateway.verify_transaction(transaction_id)
         print("Verifying transaction:", transaction_id)
 
         print("Response:", response)
@@ -287,7 +287,7 @@ class ResolveAccountNumber(APIView):
 
         if seralizer.is_valid():
             account_details = seralizer.validated_data
-            gateway = FlutterwaveAdapter()
+            gateway = PaystackAdapter()
             response = gateway.resolve(account_details)
 
             return Response(response)
@@ -299,8 +299,8 @@ class GetBanks(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request:Request):
-        country = request.GET.get('country', 'NG')
-        gateway = FlutterwaveAdapter()
+        country = request.GET.get('country', 'nigeria')
+        gateway = PaystackAdapter()
         response = gateway.get_banks(country=country)
         return Response({'error': False, 'data': response}, status=status.HTTP_200_OK)
 
@@ -330,8 +330,8 @@ class Withdrawal(APIView):
             if user_wallet.balance < amount:
                 return Response({'error': 'Insufficient funds'}, status=status.HTTP_403_FORBIDDEN)
             
-            withdrawal_gateway = FlutterwaveAdapter()
-            response = withdrawal_gateway.initiate_withdrawal(amount=str(amount), account_details=account_details, narration=narration, reference=reference)
+            withdrawal_gateway = PaystackAdapter()
+            response = withdrawal_gateway.initiate_withdrawal(amount=amount, account_details=account_details, narration=narration, reference=reference)
             transaction_status = response["status"]
             if transaction_status == 'success':
                 user_wallet.withdraw(amount=amount, transaction_status=transaction_status, account_details=account_details, reference=reference)
@@ -353,7 +353,7 @@ class GetTransferFees(APIView):
         if serializer.is_valid():
             amount = serializer.validated_data['amount']
 
-            gateway = FlutterwaveAdapter()
+            gateway = PaystackAdapter()
             response = gateway.get_transfer_fees(amount=amount)
 
             return Response(response, status=status.HTTP_200_OK)

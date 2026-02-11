@@ -145,8 +145,8 @@ class FlutterwaveAdapter(PaymentGateway):
         url = 'https://api.flutterwave.com/v3/accounts/resolve'
 
         payload = {
-        "account_number": account_details['number'],
-        "account_bank": account_details['code']
+            "account_number": account_details.get('account_number', account_details.get('number')),
+            "account_bank": account_details.get('bank_code', account_details.get('code'))
         }
 
         headers = {
@@ -251,6 +251,61 @@ class PaystackAdapter(PaymentGateway):
     ]
 
     def initiate_deposit(self, amount, currency, customer_details, notes):pass
+
+    def initiate_withdrawal(self, amount, account_details, narration, reference):
+        try:
+            # 1. Create Transfer Recipient
+            recipient_data = self.client.transfer_recipient.create(
+                type="nuban",
+                name=account_details.get('account_name', 'Beneficiary'),
+                account_number=account_details['account_number'],
+                bank_code=account_details['bank_code'],
+                currency="NGN"
+            )
+            
+            if not recipient_data['status']:
+                return {'status': 'error', 'message': recipient_data.get('message', 'Failed to create recipient')}
+                
+            recipient_code = recipient_data['data']['recipient_code']
+            
+            # 2. Initiate Transfer
+            # Paystack expects amount in kobo
+            amount_kobo = int(float(amount) * 100)
+            
+            transfer_data = self.client.transfer.initiate(
+                source="balance",
+                reason=narration,
+                amount=amount_kobo,
+                recipient=recipient_code,
+                reference=reference
+            )
+            
+            if transfer_data['status']:
+                return {'status': 'success', 'data': transfer_data['data']}
+            else:
+                return {'status': 'error', 'message': transfer_data.get('message', 'Transfer failed')}
+                
+        except Exception as error:
+            return {'status': 'error', 'message': str(error)}
+
+    def get_transfer_fees(self, amount):
+        # Paystack transfer fee logic (as of standard pricing)
+        try:
+            amount = float(amount)
+            if amount <= 5000:
+                return {'fee': 10}
+            elif amount <= 50000:
+                return {'fee': 25}
+            else:
+                return {'fee': 50}
+        except:
+            return {'fee': 0}
+
+    def resolve(self, account_details):
+        return self.resolve_account(
+            account_number=account_details.get('account_number', account_details.get('number')),
+            bank_code=account_details.get('bank_code', account_details.get('code'))
+        )
 
     def verify_transaction(self, reference):
         try:

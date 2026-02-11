@@ -47,10 +47,12 @@ class MechanicFilter(FilterSet):
             return
         return
     
-    def filter_location(self, request, name, value):
-        if value:
-            return
-        return
+    def filter_location(self, queryset, name, value):
+        q = Q()
+        filters = [_type.strip() for _type in value.split(',')]
+        for item in filters:
+            q |= Q(location__state__icontains=item) | Q(location__city__icontains=item)
+        return queryset.filter(q).distinct()
     
     def filter_services(self, queryset, name, value):
         # Split the services by commas and strip any extra spaces
