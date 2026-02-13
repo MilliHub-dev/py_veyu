@@ -5,6 +5,7 @@ from ..models import (
     Mechanic,
     PayoutInformation,
     Location,
+    FCMDevice,
 )
 from feedback.api.serializers import (
     RatingSerializer,
@@ -39,6 +40,14 @@ from django.db.models import Q
 from utils.location import haversine
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+
+class FCMDeviceSerializer(ModelSerializer):
+    class Meta:
+        model = FCMDevice
+        fields = ['registration_id', 'device_type', 'active']
+        extra_kwargs = {
+            'registration_id': {'validators': []}, # We handle uniqueness in view to update/get
+        }
 
 class SignupSerializer(Serializer):
     """

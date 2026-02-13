@@ -14,6 +14,29 @@ from cloudinary.models import CloudinaryField
 import re
 
 
+class FCMDevice(DbModel):
+    DEVICE_TYPES = (
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('web', 'Web'),
+    )
+    user = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='fcm_devices')
+    registration_id = models.TextField(unique=True)
+    device_type = models.CharField(max_length=10, choices=DEVICE_TYPES, default='android')
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'FCM Device'
+        verbose_name_plural = 'FCM Devices'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['registration_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.device_type} ({self.registration_id[:10]}...)"
+
+
 class AccountManager(BaseUserManager):
 
     def _create_user(self, email, password=None, **extra_fields):

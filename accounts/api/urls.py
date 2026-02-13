@@ -8,6 +8,7 @@ from .views import (
     BusinessVerificationView,
     CartView,
     NotificationView,
+    RegisterDeviceView,
     VerifyEmailUnauthenticatedView,
     LocationViewSet,
     ReferralView,
@@ -63,6 +64,7 @@ urlpatterns = [
     
     # Notifications
     path('notifications/', NotificationView.as_view(), name='notifications'),
+    path('notifications/register-device/', RegisterDeviceView.as_view(), name='register-device'),
     
     # Unauthenticated email verification
     path('verify-email-unauthenticated/', VerifyEmailUnauthenticatedView.as_view(), name='verify-email-unauthenticated'),

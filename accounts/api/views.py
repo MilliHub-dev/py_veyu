@@ -89,6 +89,7 @@ from .serializers import (
     GetDealershipSerializer,
     ListingSerializer,
     LocationSerializer,
+    FCMDeviceSerializer,
 )
 from listings.api.serializers import OrderSerializer
 from .filters import (
@@ -2153,6 +2154,38 @@ class VerifyEmailUnauthenticatedView(APIView):
                 'error': True,
                 'message': 'An error occurred during verification. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RegisterDeviceView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """
+        Register or update a device for push notifications.
+        Expects: { "registration_id": "token", "device_type": "android" }
+        """
+        serializer = FCMDeviceSerializer(data=request.data)
+        if serializer.is_valid():
+            registration_id = serializer.validated_data['registration_id']
+            device_type = serializer.validated_data.get('device_type', 'android')
+            
+            # Update or create
+            device, created = FCMDevice.objects.update_or_create(
+                registration_id=registration_id,
+                defaults={
+                    'user': request.user,
+                    'device_type': device_type,
+                    'active': True
+                }
+            )
+            # Ensure the device is associated with the current user
+            # (update_or_create finds by registration_id, so if it existed for another user, 
+            # the defaults logic would try to update 'user'. But wait.
+            # update_or_create(registration_id=..., defaults={...})
+            # If registration_id matches, it updates defaults. So user is updated. Correct.
+            
+            return Response({'error': False, 'message': 'Device registered successfully'}, status=200)
+        return Response({'error': True, 'message': serializer.errors}, status=400)
 
 
 class NotificationView(APIView):

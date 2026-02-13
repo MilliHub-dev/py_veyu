@@ -217,6 +217,7 @@ class Notification(DbModel):
         'email': 'Email Notification',
         'in-app': 'In-App Notification',
         'sms': 'SMS Notification',
+        'push': 'Push Notification',
     }
     LEVELS = {
         'info': 'Info',
@@ -240,6 +241,15 @@ class Notification(DbModel):
         elif self.channel == 'email':
             # TODO: send email and delete instance
             pass
+        elif self.channel == 'push':
+            from accounts.models import FCMDevice
+            devices = FCMDevice.objects.filter(user=self.user, active=True)
+            if devices.exists():
+                # TODO: Integrate with FCM/Expo
+                # For now, we assume the push is sent.
+                # We do NOT delete the instance so it remains in the in-app list.
+                pass
+
         # else do nothing, they'll see this notification in notifications tab
         return
 
