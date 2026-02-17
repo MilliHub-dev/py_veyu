@@ -124,7 +124,14 @@ def send_message_view(request, room_id=None):
 @api_view(["POST"])
 def new_chat_view(request):
 	sender = request.user
-	recipient = Account.objects.get(uuid=request.data['recipient'])
+	data = request.data
+	recipient_id = data.get('recipient') or data.get('recipient_id') or data.get('account_id')
+	if not recipient_id:
+		return Response({'error': True, 'message': 'recipient is required'}, 400)
+	try:
+		recipient = Account.objects.get(uuid=recipient_id)
+	except Account.DoesNotExist:
+		return Response({'error': True, 'message': 'Recipient not found'}, 404)
 	room = None
 
 	try:
@@ -138,9 +145,12 @@ def new_chat_view(request):
 		room.save()
 
 	# create new message
+	text = data.get('message') or data.get('content') or data.get('initial_message') or data.get('text')
+	if not text:
+		return Response({'error': True, 'message': 'message is required'}, 400)
 	message = ChatMessage(
 		message_type="user",
-		text=request.data['message'],
+		text=text,
 		room=room,
 		sender=sender
 	)
@@ -155,7 +165,7 @@ def new_chat_view(request):
 		notif = Notification.objects.create(
 			user=recipient,
 			subject="New message",
-			message=f"{sender.name or sender.email}: {request.data['message']}",
+			message=f"{sender.name or sender.email}: {text}",
 			channel="push",
 			level="info",
 		)
