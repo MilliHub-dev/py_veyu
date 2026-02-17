@@ -21,6 +21,7 @@ from listings.models import Listing
 
 class CarSaleFilter(FilterSet):
     brands = CharFilter(method='filter_brands', label='Car Make / Brand')
+    make = CharFilter(method='filter_brands', label='Car Make / Brand (alias)')  # alias for frontend consistency
     transmission = CharFilter(method='filter_transmission', label="Transmission")
     fuel_system = CharFilter(method='filter_fuel_system', label="Fuel System")
     price = CharFilter(method='filter_price', label="Listing Price (min-max)")
@@ -30,7 +31,7 @@ class CarSaleFilter(FilterSet):
 
     class Meta:
         model = Listing
-        fields = ['brands', 'price', 'transmission', 'fuel_system', 'vehicle_type', 'body_type', 'location']
+        fields = ['brands', 'make', 'price', 'transmission', 'fuel_system', 'vehicle_type', 'body_type', 'location']
 
     def filter_brands(self, queryset, name, value):
         # Filter listing by car brands
@@ -129,6 +130,7 @@ class CarSaleFilter(FilterSet):
 
 class CarRentalFilter(FilterSet):
     make = CharFilter(method='filter_make', label='Car Make / Brand')
+    brands = CharFilter(method='filter_make', label='Car Make / Brand (alias)')  # alias for frontend consistency
     transmission = CharFilter(method='filter_transmission', label="Transmission")
     fuel_system = CharFilter(method='filter_fuel_system', label="Fuel System")
     price = CharFilter(method='filter_price', label="Listing Price (min-max)")
@@ -138,7 +140,7 @@ class CarRentalFilter(FilterSet):
 
     class Meta:
         model = Listing
-        fields = ['vehicle_type', 'body_type', 'location', 'make', 'transmission', 'fuel_system', 'price']
+        fields = ['vehicle_type', 'body_type', 'location', 'make', 'brands', 'transmission', 'fuel_system', 'price']
 
     def filter_make(self, queryset, name, value):
         # Filter listing by car brands
