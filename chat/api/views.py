@@ -16,6 +16,7 @@ from rest_framework.permissions import (
 	IsAuthenticated,
 )
 from accounts.models import Dealership, Customer, Mechanic, Account
+from feedback.models import Notification
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -104,6 +105,17 @@ def send_message_view(request, room_id=None):
 	)
 	room.messages.add(message,)
 	room.save()
+
+	recipients = room.members.exclude(id=request.user.id)
+	for recipient in recipients:
+		notif = Notification.objects.create(
+			user=recipient,
+			subject="New message",
+			message=f"{request.user.name or request.user.email}: {message_text}",
+			channel="push",
+			level="info",
+		)
+		notif.send()
 	
 	return Response({'error': False, 'message': 'Message sent!', 'data': {'room_id': str(room.uuid)}}, 200)
 
@@ -137,6 +149,17 @@ def new_chat_view(request):
 	# add message to room
 	room.messages.add(message,)
 	room.save()
+
+	recipients = room.members.exclude(id=sender.id)
+	for recipient in recipients:
+		notif = Notification.objects.create(
+			user=recipient,
+			subject="New message",
+			message=f"{sender.name or sender.email}: {request.data['message']}",
+			channel="push",
+			level="info",
+		)
+		notif.send()
 
 	# dispatch a signal (in a thread)
 	data = {
