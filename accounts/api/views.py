@@ -71,6 +71,7 @@ from ..models import (
     Location,
     ReferralReward,
     ReferralSetting,
+    FCMDevice,
 )
 from rest_framework import viewsets
 from .serializers import (
