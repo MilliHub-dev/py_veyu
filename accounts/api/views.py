@@ -340,6 +340,15 @@ class ReferralView(views.APIView):
 
     def get(self, request):
         user = request.user
+        if not user.referral_code:
+            import random
+            import string
+            while True:
+                code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                if not Account.objects.filter(referral_code=code).exists():
+                    break
+            Account.objects.filter(pk=user.pk).update(referral_code=code)
+            user.referral_code = code
         
         # Calculate referral stats
         referrals = user.referrals.all()
