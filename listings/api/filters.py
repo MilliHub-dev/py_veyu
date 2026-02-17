@@ -77,32 +77,38 @@ class CarSaleFilter(FilterSet):
         return queryset.filter(q).distinct()
 
     def filter_vehicle_type(self, queryset, name, value):
-        """Filter by vehicle type: car, boat, plane, bike, uav (comma-separated)"""
         from django.contrib.contenttypes.models import ContentType
-        
+
         q = Q()
         filters = [_type.strip().lower() for _type in value.split(',')]
-        
+
         type_map = {
             'car': Car,
+            'cars': Car,
             'boat': Boat,
+            'boats': Boat,
+            'marine': Boat,
             'plane': Plane,
+            'planes': Plane,
+            'aircraft': Plane,
             'bike': Bike,
+            'bikes': Bike,
             'uav': UAV,
-            'drone': UAV,  # Alias for UAV
+            'uavs': UAV,
+            'drone': UAV,
+            'drones': UAV,
         }
-        
+
         vehicle_ids = []
         for vehicle_type in filters:
             vehicle_model = type_map.get(vehicle_type)
             if vehicle_model:
-                # Get all IDs of this vehicle type
                 ids = vehicle_model.objects.values_list('id', flat=True)
                 vehicle_ids.extend(ids)
-        
+
         if vehicle_ids:
             return queryset.filter(vehicle_id__in=vehicle_ids).distinct()
-        
+
         return queryset
 
     def filter_body_type(self, queryset, name, value):
@@ -183,32 +189,38 @@ class CarRentalFilter(FilterSet):
         return queryset.filter(q).distinct()
 
     def filter_vehicle_type(self, queryset, name, value):
-        """Filter by vehicle type: car, boat, plane, bike, uav (comma-separated)"""
         from django.contrib.contenttypes.models import ContentType
-        
+
         q = Q()
         filters = [_type.strip().lower() for _type in value.split(',')]
-        
+
         type_map = {
             'car': Car,
+            'cars': Car,
             'boat': Boat,
+            'boats': Boat,
+            'marine': Boat,
             'plane': Plane,
+            'planes': Plane,
+            'aircraft': Plane,
             'bike': Bike,
+            'bikes': Bike,
             'uav': UAV,
-            'drone': UAV,  # Alias for UAV
+            'uavs': UAV,
+            'drone': UAV,
+            'drones': UAV,
         }
-        
+
         vehicle_ids = []
         for vehicle_type in filters:
             vehicle_model = type_map.get(vehicle_type)
             if vehicle_model:
-                # Get all IDs of this vehicle type
                 ids = vehicle_model.objects.values_list('id', flat=True)
                 vehicle_ids.extend(ids)
-        
+
         if vehicle_ids:
             return queryset.filter(vehicle_id__in=vehicle_ids).distinct()
-        
+
         return queryset
 
     def filter_mileage(self, queryset, name, value):
