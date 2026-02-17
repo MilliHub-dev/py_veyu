@@ -13,6 +13,7 @@ from .serializers import *
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from decimal import Decimal
 from utils.dispatch import (
     on_wallet_deposit,
@@ -71,7 +72,7 @@ class Transfer(APIView):
 
 class Balance(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
     allowed_methods = ["GET"]
     
     @swagger_auto_schema(operation_summary="Endpoint to get user balance")
