@@ -12,6 +12,7 @@ from .views import (
     VerifyEmailUnauthenticatedView,
     LocationViewSet,
     ReferralView,
+    DiditWebhookView,
 )
 from .test_views import TestEmailView
 from .document_views import (
@@ -55,6 +56,7 @@ urlpatterns = [
     
     # User profile
     path('profile/', UpdateProfileView.as_view(), name='update-profile'),
+    path('kyc/didit/webhook/', DiditWebhookView.as_view(), name='didit-webhook'),
     
     # Referral
     path('referral/', ReferralView.as_view(), name='referral'),

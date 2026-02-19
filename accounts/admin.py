@@ -34,6 +34,7 @@ class AccountsAdmin(admin.ModelAdmin):
         'name',
         'email',
         'verified_email',
+        'is_verified',
         'uuid',
         'user_type',
         'provider',
@@ -49,6 +50,7 @@ class AccountsAdmin(admin.ModelAdmin):
         'user_type',
         'provider',
         'verified_email',
+        'is_verified',
         'welcome_email_sent_at',
     ]
     readonly_fields = [
@@ -60,7 +62,7 @@ class AccountsAdmin(admin.ModelAdmin):
             'fields': ('email', 'first_name', 'last_name', 'user_type', 'provider')
         }),
         ('Account Status', {
-            'fields': ('verified_email', 'is_active', 'is_staff', 'is_superuser')
+            'fields': ('verified_email', 'is_verified', 'is_active', 'is_staff', 'is_superuser')
         }),
         ('Welcome Email Status', {
             'fields': ('welcome_email_sent_at', 'has_received_welcome_email'),

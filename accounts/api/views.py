@@ -101,6 +101,8 @@ from feedback.api.serializers import NotificationSerializer
 from bookings.models import (ServiceBooking, )
 from bookings.api.serializers import (BookingSerializer, )
 from dj_rest_auth.jwt_auth import JWTAuthentication
+from django.utils.crypto import constant_time_compare
+from django.conf import settings
 from rest_framework.parsers import (
     MultiPartParser,
     JSONParser,
@@ -621,8 +623,59 @@ class UpdateProfileView(views.APIView):
         return Response({
             'error': False,
             'message': 'Profile retrieved successfully',
-            'data': serializer.data
+            'data': serializer.data,
+            'is_verified': getattr(request.user, 'is_verified', False)
         })
+
+
+class DiditWebhookView(views.APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request: Request):
+        secret = getattr(settings, 'DIDIT_WEBHOOK_SECRET', None)
+        if not secret:
+            return Response({'error': True, 'message': 'Webhook not configured'}, status=500)
+
+        raw_body = request.body
+        provided_sig = request.META.get('HTTP_X_DIDIT_SIGNATURE') or request.headers.get('X-Didit-Signature')
+        if not provided_sig:
+            return Response({'error': True, 'message': 'Missing signature'}, status=400)
+
+        expected_sig = hmac.new(secret.encode('utf-8'), raw_body, hashlib.sha256).hexdigest()
+        if not constant_time_compare(provided_sig, expected_sig):
+            return Response({'error': True, 'message': 'Invalid signature'}, status=400)
+
+        try:
+            payload = json.loads(raw_body.decode('utf-8'))
+        except Exception:
+            return Response({'error': True, 'message': 'Invalid payload'}, status=400)
+
+        external_id = (
+            payload.get('external_id')
+            or payload.get('reference_id')
+            or payload.get('user_id')
+        )
+        if not external_id:
+            return Response({'error': True, 'message': 'Missing external identifier'}, status=400)
+
+        try:
+            user = Account.objects.get(uuid=external_id)
+        except Account.DoesNotExist:
+            return Response({'error': True, 'message': 'User not found'}, status=404)
+
+        status_value = (
+            payload.get('status')
+            or payload.get('verification_status')
+            or (payload.get('result') or {}).get('status')
+        )
+
+        verified_statuses = {'approved', 'verified', 'completed', 'accepted', 'pass', 'passed'}
+        if status_value and str(status_value).lower() in verified_statuses:
+            user.is_verified = True
+            user.save(update_fields=['is_verified'])
+
+        return Response({'error': False}, status=200)
 
     @swagger_auto_schema(
         operation_summary="Update User Profile",

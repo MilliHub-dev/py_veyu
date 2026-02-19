@@ -117,6 +117,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
     )
     role = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True, null=True)
     verified_email = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
     api_token = models.CharField(max_length=64, blank=True, null=True, unique=True)
     
     referral_code = models.CharField(max_length=12, blank=True, null=True, unique=True)
@@ -149,6 +150,7 @@ class Account(AbstractBaseUser, PermissionsMixin, DbModel):
             models.Index(fields=['user_type']),
             models.Index(fields=['provider']),
             models.Index(fields=['verified_email']),
+            models.Index(fields=['is_verified']),
             models.Index(fields=['is_active']),
             models.Index(fields=['is_staff']),
             models.Index(fields=['date_joined']),
