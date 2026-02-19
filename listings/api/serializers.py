@@ -115,6 +115,8 @@ class VehicleSerializer(serializers.ModelSerializer):
     trips = serializers.SerializerMethodField()
     kind = serializers.SerializerMethodField()
     body_type = serializers.SerializerMethodField()
+    seats = serializers.SerializerMethodField()
+    doors = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
@@ -152,6 +154,20 @@ class VehicleSerializer(serializers.ModelSerializer):
         # If the object passed IS a car instance
         if hasattr(obj, 'body_type'):
              return obj.get_body_type_display()
+        return None
+
+    def get_seats(self, obj):
+        if hasattr(obj, 'seats') and obj.seats is not None:
+            return obj.seats
+        if hasattr(obj, 'car') and obj.car.seats is not None:
+            return obj.car.seats
+        return None
+
+    def get_doors(self, obj):
+        if hasattr(obj, 'doors') and obj.doors is not None:
+            return obj.doors
+        if hasattr(obj, 'car') and obj.car.doors is not None:
+            return obj.car.doors
         return None
 
     # def get_features(self, obj):
