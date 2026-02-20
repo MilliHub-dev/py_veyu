@@ -117,6 +117,33 @@ class VehicleSerializer(serializers.ModelSerializer):
     body_type = serializers.SerializerMethodField()
     seats = serializers.SerializerMethodField()
     doors = serializers.SerializerMethodField()
+    hull_material = serializers.SerializerMethodField()
+    engine_count = serializers.SerializerMethodField()
+    propeller_type = serializers.SerializerMethodField()
+    length = serializers.SerializerMethodField()
+    beam_width = serializers.SerializerMethodField()
+    draft = serializers.SerializerMethodField()
+    registration_number = serializers.SerializerMethodField()
+    engine_type = serializers.SerializerMethodField()
+    aircraft_type = serializers.SerializerMethodField()
+    max_altitude = serializers.SerializerMethodField()
+    wing_span = serializers.SerializerMethodField()
+    range = serializers.SerializerMethodField()
+    engine_capacity = serializers.SerializerMethodField()
+    bike_type = serializers.SerializerMethodField()
+    saddle_height = serializers.SerializerMethodField()
+    uav_type = serializers.SerializerMethodField()
+    purpose = serializers.SerializerMethodField()
+    max_flight_time = serializers.SerializerMethodField()
+    max_range = serializers.SerializerMethodField()
+    max_speed = serializers.SerializerMethodField()
+    camera_resolution = serializers.SerializerMethodField()
+    payload_capacity = serializers.SerializerMethodField()
+    weight = serializers.SerializerMethodField()
+    rotor_count = serializers.SerializerMethodField()
+    has_obstacle_avoidance = serializers.SerializerMethodField()
+    has_gps = serializers.SerializerMethodField()
+    has_return_to_home = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
@@ -169,6 +196,111 @@ class VehicleSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'car') and obj.car.doors is not None:
             return obj.car.doors
         return None
+
+    def _get_attr_from_related(self, obj, attr_name, related_name):
+        if hasattr(obj, attr_name):
+            return getattr(obj, attr_name)
+        related = getattr(obj, related_name, None)
+        if related is not None and hasattr(related, attr_name):
+            return getattr(related, attr_name)
+        return None
+
+    def get_hull_material(self, obj):
+        return self._get_attr_from_related(obj, 'hull_material', 'boat')
+
+    def get_engine_count(self, obj):
+        return self._get_attr_from_related(obj, 'engine_count', 'boat')
+
+    def get_propeller_type(self, obj):
+        return self._get_attr_from_related(obj, 'propeller_type', 'boat')
+
+    def get_length(self, obj):
+        value = (
+            self._get_attr_from_related(obj, 'length', 'boat')
+            or self._get_attr_from_related(obj, 'length', 'plane')
+        )
+        return value
+
+    def get_beam_width(self, obj):
+        return self._get_attr_from_related(obj, 'beam_width', 'boat')
+
+    def get_draft(self, obj):
+        return self._get_attr_from_related(obj, 'draft', 'boat')
+
+    def get_registration_number(self, obj):
+        value = (
+            self._get_attr_from_related(obj, 'registration_number', 'plane')
+            or self._get_attr_from_related(obj, 'registration_number', 'uav')
+        )
+        return value
+
+    def get_engine_type(self, obj):
+        return self._get_attr_from_related(obj, 'engine_type', 'plane')
+
+    def get_aircraft_type(self, obj):
+        return self._get_attr_from_related(obj, 'aircraft_type', 'plane')
+
+    def get_max_altitude(self, obj):
+        value = (
+            self._get_attr_from_related(obj, 'max_altitude', 'plane')
+            or self._get_attr_from_related(obj, 'max_altitude', 'uav')
+        )
+        return value
+
+    def get_wing_span(self, obj):
+        return self._get_attr_from_related(obj, 'wing_span', 'plane')
+
+    def get_range(self, obj):
+        value = (
+            self._get_attr_from_related(obj, 'range', 'plane')
+            or self._get_attr_from_related(obj, 'range', 'uav')
+        )
+        return value
+
+    def get_engine_capacity(self, obj):
+        return self._get_attr_from_related(obj, 'engine_capacity', 'bike')
+
+    def get_bike_type(self, obj):
+        return self._get_attr_from_related(obj, 'bike_type', 'bike')
+
+    def get_saddle_height(self, obj):
+        return self._get_attr_from_related(obj, 'saddle_height', 'bike')
+
+    def get_uav_type(self, obj):
+        return self._get_attr_from_related(obj, 'uav_type', 'uav')
+
+    def get_purpose(self, obj):
+        return self._get_attr_from_related(obj, 'purpose', 'uav')
+
+    def get_max_flight_time(self, obj):
+        return self._get_attr_from_related(obj, 'max_flight_time', 'uav')
+
+    def get_max_range(self, obj):
+        return self._get_attr_from_related(obj, 'max_range', 'uav')
+
+    def get_max_speed(self, obj):
+        return self._get_attr_from_related(obj, 'max_speed', 'uav')
+
+    def get_camera_resolution(self, obj):
+        return self._get_attr_from_related(obj, 'camera_resolution', 'uav')
+
+    def get_payload_capacity(self, obj):
+        return self._get_attr_from_related(obj, 'payload_capacity', 'uav')
+
+    def get_weight(self, obj):
+        return self._get_attr_from_related(obj, 'weight', 'uav')
+
+    def get_rotor_count(self, obj):
+        return self._get_attr_from_related(obj, 'rotor_count', 'uav')
+
+    def get_has_obstacle_avoidance(self, obj):
+        return self._get_attr_from_related(obj, 'has_obstacle_avoidance', 'uav')
+
+    def get_has_gps(self, obj):
+        return self._get_attr_from_related(obj, 'has_gps', 'uav')
+
+    def get_has_return_to_home(self, obj):
+        return self._get_attr_from_related(obj, 'has_return_to_home', 'uav')
 
     # def get_features(self, obj):
     #     return json.dumps(obj.features)
