@@ -17,6 +17,7 @@ from rest_framework.permissions import (
 )
 from accounts.models import Dealership, Customer, Mechanic, Account
 from feedback.models import Notification
+from accounts.utils.email_notifications import send_simple_email, send_security_alert
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -116,6 +117,21 @@ def send_message_view(request, room_id=None):
 			level="info",
 		)
 		notif.send()
+
+		if recipient.user_type == 'dealer':
+			try:
+				send_simple_email(
+					subject="New chat message on Veyu",
+					recipients=[recipient.email],
+					template_name="chat_new_message.html",
+					context={
+						"user_name": recipient.first_name or recipient.email,
+						"sender_name": request.user.name or request.user.email,
+						"message_preview": message_text[:200],
+					},
+				)
+			except Exception:
+				pass
 	
 	return Response({'error': False, 'message': 'Message sent!', 'data': {'room_id': str(room.uuid)}}, 200)
 
@@ -170,6 +186,21 @@ def new_chat_view(request):
 			level="info",
 		)
 		notif.send()
+
+		if recipient.user_type == 'dealer':
+			try:
+				send_simple_email(
+					subject="New chat message on Veyu",
+					recipients=[recipient.email],
+					template_name="chat_new_message.html",
+					context={
+						"user_name": recipient.first_name or recipient.email,
+						"sender_name": sender.name or sender.email,
+						"message_preview": text[:200],
+					},
+				)
+			except Exception:
+				pass
 
 	# dispatch a signal (in a thread)
 	data = {
