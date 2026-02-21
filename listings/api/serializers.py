@@ -33,6 +33,7 @@ from rest_framework.test import APIRequestFactory
 from django.db import models
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from feedback.api.serializers import (ReviewSerializer,)
 
@@ -174,36 +175,47 @@ class VehicleSerializer(serializers.ModelSerializer):
     def get_kind(self, obj):
         return obj.__class__.__name__.lower()
 
+    def _as_car(self, obj):
+        from ..models import Car
+        if isinstance(obj, Car):
+            return obj
+        try:
+            return obj.car
+        except ObjectDoesNotExist:
+            return None
+        except AttributeError:
+            return None
+
     def get_body_type(self, obj):
-        # Check if it is a car via inheritance
-        if hasattr(obj, 'car'):
-            return obj.car.get_body_type_display()
-        # If the object passed IS a car instance
-        if hasattr(obj, 'body_type'):
-             return obj.get_body_type_display()
+        car = self._as_car(obj)
+        if car and getattr(car, 'body_type', None):
+            return car.get_body_type_display()
         return None
 
     def get_seats(self, obj):
-        if hasattr(obj, 'seats') and obj.seats is not None:
-            return obj.seats
-        if hasattr(obj, 'car') and obj.car.seats is not None:
-            return obj.car.seats
+        car = self._as_car(obj)
+        if car and getattr(car, 'seats', None) is not None:
+            return car.seats
         return None
 
     def get_doors(self, obj):
-        if hasattr(obj, 'doors') and obj.doors is not None:
-            return obj.doors
-        if hasattr(obj, 'car') and obj.car.doors is not None:
-            return obj.car.doors
+        car = self._as_car(obj)
+        if car and getattr(car, 'doors', None) is not None:
+            return car.doors
         return None
 
     def _get_attr_from_related(self, obj, attr_name, related_name):
         if hasattr(obj, attr_name):
             return getattr(obj, attr_name)
-        related = getattr(obj, related_name, None)
-        if related is not None and hasattr(related, attr_name):
-            return getattr(related, attr_name)
-        return None
+        try:
+            related = getattr(obj, related_name)
+        except ObjectDoesNotExist:
+            return None
+        except AttributeError:
+            return None
+        if related is None:
+            return None
+        return getattr(related, attr_name, None)
 
     def get_hull_material(self, obj):
         return self._get_attr_from_related(obj, 'hull_material', 'boat')
