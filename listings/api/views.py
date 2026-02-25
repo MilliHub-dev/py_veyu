@@ -260,7 +260,18 @@ class ListingSearchView(ListAPIView):
 
     def get_queryset(self):
         find = self.request.GET.get('find', None)
-        qs = self.queryset
+        qs = self.queryset.select_related(
+            'vehicle',
+            'vehicle__dealer',
+            'vehicle__car',
+            'vehicle__boat',
+            'vehicle__plane',
+            'vehicle__bike',
+            'vehicle__uav'
+        ).prefetch_related(
+            'vehicle__images',
+            'vehicle__features'
+        )
         if find:
             qs = qs.filter(
                 Q(vehicle__name__icontains=find) |
@@ -316,6 +327,17 @@ class AllListingsView(ListAPIView):
         approved=True,
         verified=True,
         vehicle__available=True,
+    ).select_related(
+        'vehicle',
+        'vehicle__dealer',
+        'vehicle__car',
+        'vehicle__boat',
+        'vehicle__plane',
+        'vehicle__bike',
+        'vehicle__uav'
+    ).prefetch_related(
+        'vehicle__images',
+        'vehicle__features'
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter
@@ -365,6 +387,17 @@ class FeaturedListingsView(ListAPIView):
         verified=True,
         vehicle__available=True,
         listing_boost__active=True,
+    ).select_related(
+        'vehicle',
+        'vehicle__dealer',
+        'vehicle__car',
+        'vehicle__boat',
+        'vehicle__plane',
+        'vehicle__bike',
+        'vehicle__uav'
+    ).prefetch_related(
+        'vehicle__images',
+        'vehicle__features'
     ).distinct()
     pagination_class = OffsetPaginator
 
@@ -404,6 +437,17 @@ class RentListingView(ListAPIView):
         vehicle__available=True,
         vehicle__dealer__verified_id=True,
         vehicle__dealer__verified_business=True,
+    ).select_related(
+        'vehicle',
+        'vehicle__dealer',
+        'vehicle__car',
+        'vehicle__boat',
+        'vehicle__plane',
+        'vehicle__bike',
+        'vehicle__uav'
+    ).prefetch_related(
+        'vehicle__images',
+        'vehicle__features'
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter # Use the filter class
@@ -553,7 +597,22 @@ class BuyListingDetailView(RetrieveAPIView):
     authentication_classes = [JWTAuthentication, TokenAuthentication, SessionAuthentication]
     allowed_methods = ['GET', 'POST']
     lookup_field = 'uuid'
-    queryset = Listing.objects.filter(verified=True, approved=True, listing_type='sale').distinct()
+    queryset = Listing.objects.filter(
+        verified=True, 
+        approved=True, 
+        listing_type='sale'
+    ).select_related(
+        'vehicle',
+        'vehicle__dealer',
+        'vehicle__car',
+        'vehicle__boat',
+        'vehicle__plane',
+        'vehicle__bike',
+        'vehicle__uav'
+    ).prefetch_related(
+        'vehicle__images',
+        'vehicle__features'
+    ).distinct()
 
     @swagger_auto_schema(
         operation_summary="Get sale listing details",
@@ -604,29 +663,46 @@ class MyListingsView(ListAPIView):
     def get(self, request, *args, **kwargs):
         scope = request.GET.get('scope', '')
         scope = scope.split(';') if scope else []
-        qs = self.get_queryset()
+        qs = self.get_queryset().select_related(
+            'vehicle',
+            'vehicle__dealer',
+            'vehicle__car',
+            'vehicle__boat',
+            'vehicle__plane',
+            'vehicle__bike',
+            'vehicle__uav'
+        ).prefetch_related(
+            'vehicle__images',
+            'vehicle__features'
+        )
 
         data = {
             'error': False,
         }
 
         if 'recents' in scope:
+            # Optimize: Slice the queryset first to limit DB fetch, then serialize
+            recent_qs = qs.filter(viewers__in=[self.request.user,]).distinct().order_by('-id')[:6]
             recents = self.serializer_class(
-                qs.filter(viewers__in=[self.request.user,]),
+                recent_qs,
                 many=True, context={'request': request}
-            ).data[::6]
+            ).data
             data['recents'] = recents
         if 'favorites' in scope:
             pass
         if 'top-deals' in scope:
+            # Optimize: Slice the queryset first
+            rentals_qs = qs.filter(listing_type='rental').order_by('-id')[:6]
             rentals = self.serializer_class(
-                qs.filter(listing_type='rental').order_by('-id'),
+                rentals_qs,
                 many=True, context={'request': request}
-            ).data[::6]
+            ).data
+            
+            sales_qs = qs.filter(listing_type='sale').order_by('-id')[:6]
             sales = self.serializer_class(
-                qs.filter(listing_type='sale').order_by('-id'),
+                sales_qs,
                 many=True, context={'request': request}
-            ).data[::6]
+            ).data
             data['top_deals'] = {
                 'services': [],
                 'sales': sales,
