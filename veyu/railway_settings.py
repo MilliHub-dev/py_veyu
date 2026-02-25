@@ -81,20 +81,21 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
 
 # CORS settings for Railway deployment
-CORS_ALLOWED_ORIGINS = [
-    "https://veyu.up.railway.app",
-    "https://dev.veyu.cc",
-    "https://veyu.cc",
-    "https://www.veyu.cc",
-    "http://localhost:5173",  # For local development
-    "http://localhost:3000",  # For local development
-]
+CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOWED_ORIGINS = [
+#     "https://veyu.up.railway.app",
+#     "https://dev.veyu.cc",
+#     "https://veyu.cc",
+#     "https://www.veyu.cc",
+#     "http://localhost:5173",  # For local development
+#     "http://localhost:3000",  # For local development
+# ]
 
-if CUSTOM_DOMAIN:
-    CORS_ALLOWED_ORIGINS.extend([
-        f"https://{CUSTOM_DOMAIN}",
-        f"https://www.{CUSTOM_DOMAIN}",
-    ])
+# if CUSTOM_DOMAIN:
+#     CORS_ALLOWED_ORIGINS.extend([
+#         f"https://{CUSTOM_DOMAIN}",
+#         f"https://www.{CUSTOM_DOMAIN}",
+#     ])
 
 CORS_ALLOW_CREDENTIALS = True
 

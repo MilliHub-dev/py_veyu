@@ -124,11 +124,12 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
 # CORS settings for Vercel deployment
-CORS_ALLOWED_ORIGINS = [
-    "https://veyu.vercel.app",
-    "https://veyu.cc",
-    "https://dev.veyu.cc",
-]
+CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOWED_ORIGINS = [
+#     "https://veyu.vercel.app",
+#     "https://veyu.cc",
+#     "https://dev.veyu.cc",
+# ]
 
 CORS_ALLOW_CREDENTIALS = True
 
