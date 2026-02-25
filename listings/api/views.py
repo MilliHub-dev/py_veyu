@@ -244,6 +244,44 @@ def django_date(date_str: str) -> str:
 
 # ... rest of your code ...
 
+class ListingCountsView(APIView):
+    allowed_methods = ['GET']
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
+    @swagger_auto_schema(
+        operation_summary="Get vehicle type counts",
+        tags=["Listings"],
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'car': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'boat': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'plane': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'bike': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'uav': openapi.Schema(type=openapi.TYPE_INTEGER),
+                }
+            )
+        }
+    )
+    def get(self, request, *args, **kwargs):
+        base_qs = Listing.objects.filter(
+            approved=True,
+            verified=True,
+            vehicle__available=True,
+        )
+        
+        counts = {
+            'car': base_qs.filter(vehicle__car__isnull=False).count(),
+            'boat': base_qs.filter(vehicle__boat__isnull=False).count(),
+            'plane': base_qs.filter(vehicle__plane__isnull=False).count(),
+            'bike': base_qs.filter(vehicle__bike__isnull=False).count(),
+            'uav': base_qs.filter(vehicle__uav__isnull=False).count(),
+        }
+        
+        return Response(counts)
+
 class ListingSearchView(ListAPIView):
     allowed_methods = ['GET']
     serializer_class = ListingSerializer
