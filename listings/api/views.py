@@ -308,7 +308,6 @@ class ListingSearchView(ListAPIView):
             'vehicle__uav'
         ).prefetch_related(
             'vehicle__images',
-            'vehicle__features'
         )
         if find:
             qs = qs.filter(
@@ -375,7 +374,6 @@ class AllListingsView(ListAPIView):
         'vehicle__uav'
     ).prefetch_related(
         'vehicle__images',
-        'vehicle__features'
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter
@@ -435,7 +433,6 @@ class FeaturedListingsView(ListAPIView):
         'vehicle__uav'
     ).prefetch_related(
         'vehicle__images',
-        'vehicle__features'
     ).distinct()
     pagination_class = OffsetPaginator
 
@@ -485,7 +482,6 @@ class RentListingView(ListAPIView):
         'vehicle__uav'
     ).prefetch_related(
         'vehicle__images',
-        'vehicle__features'
     ).distinct()
     filter_backends = [DjangoFilterBackend,]
     filterset_class = CarRentalFilter # Use the filter class
@@ -649,7 +645,6 @@ class BuyListingDetailView(RetrieveAPIView):
         'vehicle__uav'
     ).prefetch_related(
         'vehicle__images',
-        'vehicle__features'
     ).distinct()
 
     @swagger_auto_schema(
@@ -711,7 +706,6 @@ class MyListingsView(ListAPIView):
             'vehicle__uav'
         ).prefetch_related(
             'vehicle__images',
-            'vehicle__features'
         )
 
         data = {
