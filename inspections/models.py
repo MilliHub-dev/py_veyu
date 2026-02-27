@@ -45,15 +45,16 @@ class VehicleInspection(DbModel):
     
     # Core relationships
     vehicle = models.ForeignKey('listings.Vehicle', on_delete=models.CASCADE, related_name='inspections')
-    inspector = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='conducted_inspections')
+    inspector = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='conducted_inspections', null=True, blank=True)
     customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='vehicle_inspections')
-    dealer = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='dealer_inspections')
+    dealer = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='dealer_inspections', null=True, blank=True)
     
     # Inspection metadata
     inspection_number = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Unique inspection slip number (e.g., INSP-7)")
     inspection_type = models.CharField(max_length=20, choices=INSPECTION_TYPES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_payment')
     overall_rating = models.CharField(max_length=20, choices=CONDITION_CHOICES, blank=True, null=True)
+    scheduled_date = models.DateTimeField(blank=True, null=True, help_text="Date and time when the inspection is scheduled")
     
     # Inspection slip
     inspection_slip = CloudinaryField('inspection_slip', folder='inspections/slips/', blank=True, null=True, help_text="PDF slip for customer to show dealer")

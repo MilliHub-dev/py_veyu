@@ -398,6 +398,59 @@ Manages document search and filtering.
 **Methods:**
 - `search_documents()` - Search documents with filters
 
+## User Flow & Integration Guide
+
+### 1. Customer Booking Flow
+1. **Get Fee Quote** (Optional):
+   - `POST /api/v1/inspections/quote/`
+   - Body: `{"inspection_type": "pre_purchase", "vehicle_id": 123}`
+   
+2. **Book Inspection**:
+   - `POST /api/v1/inspections/`
+   - Body: 
+     ```json
+     {
+       "vehicle": 123,
+       "inspection_type": "pre_purchase",
+       "scheduled_date": "2024-12-25T10:00:00Z",
+       "first_name": "John",       // Optional: Updates user profile
+       "last_name": "Doe",         // Optional
+       "phone_number": "+234...",  // Optional
+       "state": "Lagos",           // Optional: Updates location
+       "lga": "Ikeja",             // Optional
+       "address": "123 St",        // Optional
+       "date_of_birth": "1990-01-01", // Optional
+       "postal_code": "100001"     // Optional
+     }
+     ```
+   - *Note: Inspector and Dealer are optional at this stage.*
+
+3. **Pay for Inspection**:
+   - `POST /api/v1/inspections/{id}/pay/`
+   - Returns Paystack payment initialization data.
+   
+4. **Verify Payment**:
+   - `POST /api/v1/inspections/{id}/verify-payment/`
+   - Body: `{"reference": "paystack-ref"}`
+   - *System Action: Generates Inspection Slip and assigns to available inspector (or marks ready).*
+
+### 2. Inspector Execution Flow
+1. **View Assigned Jobs**:
+   - `GET /api/v1/inspections/?status=paid`
+   
+2. **Perform Inspection**:
+   - **Upload Photos**: `POST /api/v1/inspections/{id}/photos/`
+   - **Update Data**: `PATCH /api/v1/inspections/{id}/`
+     - Body: `{"exterior_data": {...}, "interior_data": {...}, "inspector_notes": "..."}`
+     
+3. **Complete Inspection**:
+   - `POST /api/v1/inspections/{id}/complete/`
+   - *System Action: Generates PDF Report.*
+
+### 3. Report & Access
+- **Download Report**: `GET /api/v1/inspections/documents/{id}/download/`
+- **Frontend Preview**: `POST /api/v1/inspections/frontend/inspections/{id}/generate-preview/`
+
 ### DocumentRetentionManager
 Manages document retention and archival.
 

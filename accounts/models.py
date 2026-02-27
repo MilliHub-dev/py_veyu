@@ -443,6 +443,11 @@ class UserProfile(DbModel):
     verified_phone_number = models.BooleanField(default=False)
     verified_id = models.BooleanField(default=False)
     payout_info = models.ManyToManyField('PayoutInformation', blank=True, related_name='%(class)s_profiles')
+    date_of_birth = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Date of Birth"
+    )
     verification_ref = models.CharField(
         max_length=50, 
         blank=True, 
@@ -1176,6 +1181,13 @@ class Location(DbModel):
         validators=[
             MinLengthValidator(5, message="Address must be at least 5 characters long")
         ]
+    )
+    lga = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="LGA",
+        help_text="Local Government Area"
     )
     zip_code = models.CharField(
         max_length=10, 

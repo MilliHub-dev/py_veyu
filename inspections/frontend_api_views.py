@@ -107,19 +107,37 @@ class InspectionDataCollectionView(APIView):
                 from listings.models import Vehicle
                 from accounts.models import Customer, Dealership
                 
+                # Get related objects
                 vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-                customer = get_object_or_404(Customer, id=customer_id)
-                dealer = get_object_or_404(Dealership, id=dealer_id)
                 
+                # Determine dealer (optional)
+                dealer = None
+                if dealer_id:
+                    dealer = get_object_or_404(Dealership, id=dealer_id)
+                
+                # Determine inspector based on user type
+                inspector = request.user if getattr(request.user, 'user_type', None) == 'mechanic' else None
+                
+                # Determine customer
+                if hasattr(request.user, 'customer_profile'):
+                    customer = request.user.customer_profile
+                elif customer_id:
+                    customer = get_object_or_404(Customer, id=customer_id)
+                else:
+                    return Response({
+                        'error': 'Customer identification required'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
                 inspection = VehicleInspection.objects.create(
                     vehicle=vehicle,
-                    inspector=request.user,
+                    inspector=inspector,
                     customer=customer,
                     dealer=dealer,
                     inspection_type=inspection_type,
                     overall_rating=overall_rating,
                     inspector_notes=request.data.get('notes', ''),
                     recommended_actions=request.data.get('recommendations', []),
+                    scheduled_date=request.data.get('scheduled_date'),
                     **inspection_data
                 )
                 
@@ -214,7 +232,8 @@ class DocumentPreviewGenerationView(APIView):
         """Check if user has permission to generate document"""
         return (
             user == inspection.inspector or
-            (hasattr(user, 'dealership') and user.dealership == inspection.dealer)
+            (hasattr(user, 'dealership_profile') and user.dealership_profile == inspection.dealer) or
+            (hasattr(user, 'customer_profile') and user.customer_profile == inspection.customer)
         )
 
 

@@ -84,24 +84,29 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         """Set default values when creating inspection"""
         from .services import InspectionFeeService
+        from accounts.models import Customer, Dealership
         
         # Calculate inspection fee
         inspection_type = serializer.validated_data.get('inspection_type')
         vehicle = serializer.validated_data.get('vehicle')
         inspection_fee = InspectionFeeService.calculate_inspection_fee(inspection_type, vehicle)
         
-        # Auto-assign inspector if user is a mechanic
-        if getattr(self.request.user, 'user_type', None) == 'mechanic':
-            serializer.save(
-                inspector=self.request.user,
-                inspection_fee=inspection_fee,
-                status='pending_payment'
-            )
-        else:
-            serializer.save(
-                inspection_fee=inspection_fee,
-                status='pending_payment'
-            )
+        save_kwargs = {
+            'inspection_fee': inspection_fee,
+            'status': 'pending_payment'
+        }
+        
+        user = self.request.user
+        
+        # Auto-assign roles based on user type
+        if getattr(user, 'user_type', None) == 'mechanic':
+            save_kwargs['inspector'] = user
+        elif hasattr(user, 'customer_profile'):
+            save_kwargs['customer'] = user.customer_profile
+        elif hasattr(user, 'dealership_profile'):
+            save_kwargs['dealer'] = user.dealership_profile
+            
+        serializer.save(**save_kwargs)
 
 
 class VehicleInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):

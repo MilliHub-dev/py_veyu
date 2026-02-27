@@ -86,7 +86,7 @@ class VehicleInspectionListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'inspection_number', 'vehicle_name', 'inspector_name', 'customer_name', 'dealer_name',
             'inspection_type', 'inspection_type_display', 'status', 'status_display',
-            'overall_rating', 'overall_rating_display', 'inspection_date', 'completed_at',
+            'overall_rating', 'overall_rating_display', 'inspection_date', 'scheduled_date', 'completed_at',
             'inspection_fee', 'payment_status', 'payment_status_display', 'paid_at', 'inspection_slip'
         ]
 
@@ -111,7 +111,7 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
             'inspection_type', 'inspection_type_display', 'status', 'status_display',
             'overall_rating', 'overall_rating_display', 'exterior_data', 'interior_data',
             'engine_data', 'mechanical_data', 'safety_data', 'documentation_data',
-            'inspector_notes', 'recommended_actions', 'inspection_date', 'completed_at',
+            'inspector_notes', 'recommended_actions', 'inspection_date', 'scheduled_date', 'completed_at',
             'inspection_fee', 'payment_status', 'payment_method', 'paid_at',
             'inspection_slip', 'photos', 'documents', 'inspection_summary'
         ]
@@ -166,14 +166,33 @@ class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating vehicle inspections"""
     photos = InspectionPhotoSerializer(many=True, required=False)
     
+    # User details fields (write-only)
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    phone_number = serializers.CharField(write_only=True, required=False)
+    state = serializers.CharField(write_only=True, required=False)
+    lga = serializers.CharField(write_only=True, required=False)
+    address = serializers.CharField(write_only=True, required=False)
+    date_of_birth = serializers.DateField(write_only=True, required=False)
+    postal_code = serializers.CharField(write_only=True, required=False)
+    
     class Meta:
         model = VehicleInspection
         fields = [
             'vehicle', 'inspector', 'customer', 'dealer', 'inspection_type',
             'exterior_data', 'interior_data', 'engine_data', 'mechanical_data',
             'safety_data', 'documentation_data', 'inspector_notes',
-            'recommended_actions', 'overall_rating', 'photos'
+            'recommended_actions', 'overall_rating', 'scheduled_date', 'photos',
+            'first_name', 'last_name', 'phone_number', 'state', 'lga',
+            'address', 'date_of_birth', 'postal_code'
         ]
+    
+    def validate_scheduled_date(self, value):
+        """Validate scheduled date is in the future"""
+        from django.utils import timezone
+        if value and value < timezone.now():
+            raise serializers.ValidationError("Scheduled date cannot be in the past")
+        return value
     
     def validate(self, data):
         """Validate inspection data"""
@@ -196,8 +215,36 @@ class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        """Create inspection with photos"""
+        """Create inspection with photos and update user details"""
         photos_data = validated_data.pop('photos', [])
+        
+        # Extract user details
+        user_details = {
+            'first_name': validated_data.pop('first_name', None),
+            'last_name': validated_data.pop('last_name', None),
+            'phone_number': validated_data.pop('phone_number', None),
+            'state': validated_data.pop('state', None),
+            'lga': validated_data.pop('lga', None),
+            'address': validated_data.pop('address', None),
+            'date_of_birth': validated_data.pop('date_of_birth', None),
+            'postal_code': validated_data.pop('postal_code', None),
+        }
+        
+        # Update profile details if provided
+        customer = validated_data.get('customer')
+        dealer = validated_data.get('dealer')
+        profile = customer or dealer
+        
+        if profile:
+            try:
+                self._update_profile_details(profile, user_details)
+            except Exception as e:
+                # Log error but continue with inspection creation
+                # or raise ValidationError if strict
+                from django.core.exceptions import ValidationError as DjangoValidationError
+                if isinstance(e, DjangoValidationError):
+                    raise serializers.ValidationError(e.message_dict if hasattr(e, 'message_dict') else str(e))
+                raise
         
         # Create inspection
         inspection = VehicleInspection.objects.create(**validated_data)
@@ -207,6 +254,77 @@ class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
             InspectionPhoto.objects.create(inspection=inspection, **photo_data)
         
         return inspection
+
+    def _update_profile_details(self, profile, details):
+        """Update user profile details if provided"""
+        from accounts.models import Location
+        from django.core.exceptions import ValidationError
+        
+        user = profile.user
+        save_user = False
+        save_profile = False
+        
+        # Update Account (User)
+        if details.get('first_name'):
+            user.first_name = details['first_name']
+            save_user = True
+        if details.get('last_name'):
+            user.last_name = details['last_name']
+            save_user = True
+            
+        if save_user:
+            user.save()
+            
+        # Update UserProfile (Customer/Dealer/Mechanic)
+        if details.get('phone_number'):
+            profile.phone_number = details['phone_number']
+            save_profile = True
+        if details.get('date_of_birth'):
+            profile.date_of_birth = details['date_of_birth']
+            save_profile = True
+            
+        # Update Location
+        # Check if any location data is provided
+        location_fields = ['state', 'lga', 'address', 'postal_code']
+        has_location_data = any(details.get(f) for f in location_fields)
+        
+        if has_location_data:
+            # Get or create location
+            location = profile.location
+            is_new_location = False
+            
+            if not location:
+                # For new location, state and address are required by model
+                if not (details.get('state') and details.get('address')):
+                    # If we have partial data but not enough to create location,
+                    # we can either fail or skip. 
+                    # Here we skip if missing critical fields for new location
+                    if save_profile:
+                        profile.save()
+                    return
+                
+                location = Location(user=user)
+                is_new_location = True
+            
+            if details.get('state'):
+                location.state = details['state']
+            if details.get('lga'):
+                location.lga = details['lga']
+            if details.get('address'):
+                location.address = details['address']
+            if details.get('postal_code'):
+                location.zip_code = details['postal_code']
+            
+            # Save location (will validate)
+            location.save()
+            
+            # Link location to profile if not already linked
+            if not profile.location:
+                profile.location = location
+                save_profile = True
+                
+        if save_profile:
+            profile.save()
 
 
 class DocumentGenerationSerializer(serializers.Serializer):
