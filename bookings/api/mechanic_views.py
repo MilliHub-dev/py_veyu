@@ -76,7 +76,7 @@ class MechanicOverview(ListAPIView):
             return Response({'error': True, 'message': 'Authentication required'}, status=401)
             
         try:
-            mechanic = request.user.mechanic
+            mechanic = Mechanic.objects.get(user=request.user)
             serializer = self.serializer_class(mechanic, context={'request': request})
 
             data = {
@@ -85,7 +85,7 @@ class MechanicOverview(ListAPIView):
                 'data': serializer.data
             }
             return Response(data, 200)
-        except AttributeError:
+        except Mechanic.DoesNotExist:
             return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
 
 
@@ -116,7 +116,7 @@ class MechanicDashboardView(ListAPIView):
             return Response({'error': True, 'message': 'Authentication required'}, status=401)
             
         try:
-            mechanic = request.user.mechanic
+            mechanic = Mechanic.objects.get(user=request.user)
             booking_history = ServiceBooking.objects.filter(
                 Q(mechanic=mechanic) &
                 Q(booking_status='accepted') |
@@ -149,7 +149,7 @@ class MechanicDashboardView(ListAPIView):
                 }
             }
             return Response(data, 200)
-        except AttributeError:
+        except Mechanic.DoesNotExist:
             return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
 
 
@@ -240,7 +240,11 @@ class BookingsView(APIView):
 
     
     def get(self, request, *args, **kwargs):
-        mechanic:Mechanic = request.user.mechanic
+        try:
+            mechanic = Mechanic.objects.get(user=request.user)
+        except Mechanic.DoesNotExist:
+            return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
+        
         history = ServiceBooking.objects.filter(mechanic=mechanic).filter( 
             Q(booking_status='accepted') |
             Q(booking_status='working') |
@@ -469,7 +473,11 @@ class CreateServiceOfferingView(CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         data = request.data
-        mechanic = request.user.mechanic
+        try:
+            mechanic = Mechanic.objects.get(user=request.user)
+        except Mechanic.DoesNotExist:
+            return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
+
         service = Service.objects.get_or_create(title=data['title'])[0]
         # if not service.description
 
@@ -512,7 +520,11 @@ class BookingUpdateView(APIView):
     serializer_class = ViewBookingSerializer
     
     def get(self, request, *args, **kwargs):
-        mech:Mechanic = request.mechanic
+        try:
+            mech = Mechanic.objects.get(user=request.user)
+        except Mechanic.DoesNotExist:
+             return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
+        
         booking = mech.job_history.get(uuid=kwargs['booking_id'])
         data = {
             'error': False,
@@ -522,7 +534,11 @@ class BookingUpdateView(APIView):
         return Response(data, 200)
 
     def post(self, request, booking_id, *args, **kwargs):
-        mechanic:Mechanic = request.user.mechanic
+        try:
+            mechanic = Mechanic.objects.get(user=request.user)
+        except Mechanic.DoesNotExist:
+             return Response({'error': True, 'message': 'Mechanic profile not found'}, status=404)
+
         booking:ServiceBooking = ServiceBooking.objects.get(uuid=booking_id)
 
         action = request.data.get('action', 'respond')
