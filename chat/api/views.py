@@ -184,6 +184,7 @@ def new_chat_view(request):
 			message=f"{sender.name or sender.email}: {text}",
 			channel="push",
 			level="info",
+			cta_link=f"/chat/{room.uuid}",
 		)
 		notif.send()
 

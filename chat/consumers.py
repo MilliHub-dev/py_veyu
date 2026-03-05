@@ -15,7 +15,7 @@ from rest_framework.authtoken.models import Token
 from .api.serializers import (
     ChatMessageSerializer,
 )
-
+from feedback.models import Notification
 
 
 class LiveEventRelayConsumer(WebsocketConsumer):
@@ -140,6 +140,22 @@ class LiveChatConsumer(JsonWebsocketConsumer):
                 self.room_group_name,
                 {"type": "chat.message", "data": data}
             )
+
+            # Send Push Notification to offline members
+            recipients = self.room.members.exclude(id=user.id)
+            for recipient in recipients:
+                try:
+                    notif = Notification.objects.create(
+                        user=recipient,
+                        subject="New message",
+                        message=f"{user.name or user.email}: {message.text}",
+                        channel="push",
+                        level="info",
+                        cta_link=f"/chat/{self.room.uuid}",
+                    )
+                    notif.send()
+                except Exception as e:
+                    print(f"Error sending push notification: {e}")
 
     # Receive message from room group
     def chat_message(self, event):

@@ -9,6 +9,7 @@ import threading
 
 otp_requested = Signal()
 on_booking_requested = Signal()
+on_booking_completed = Signal()
 on_checkout_success = Signal(['listing', 'customer'])
 on_inspection_created = Signal()
 on_listing_created = Signal()
@@ -32,10 +33,12 @@ def handle_booking_request(sender, **kwargs):
         subject="Service Booking Confirmed",
         message=f"Your booking with {mechanic.user.name or 'mechanic'} for {services_text} has been confirmed. They will contact you shortly.",
         level='success',
+        channel='push',
         cta_text='View Booking',
         cta_link='/bookings'
     )
     user_notification.save()
+    user_notification.send()
 
     # Mechanic notification
     mech_notification = Notification(
@@ -43,10 +46,12 @@ def handle_booking_request(sender, **kwargs):
         subject="New Service Booking",
         message=f"{customer.user.name or 'A customer'} has booked you for {services_text}. Please review the booking details and contact the customer.",
         level='info',
+        channel='push',
         cta_text='View Booking',
         cta_link='/bookings'
     )
     mech_notification.save()
+    mech_notification.send()
 
     threading.Thread(
         target=send_email,
@@ -90,6 +95,26 @@ def handle_wallet_deposit(sender, **kwargs):
         cta_link='/wallet'
     )
     notification.save()
+
+
+@receiver(on_booking_completed)
+def handle_booking_completed(sender, **kwargs):
+    booking = sender
+    customer = booking.customer
+    mechanic = booking.mechanic
+    
+    # Customer notification
+    user_notification = Notification(
+        user=customer.user,
+        subject="Service Booking Completed",
+        message=f"Your booking with {mechanic.user.name or 'mechanic'} has been marked as completed.",
+        level='success',
+        channel='push',
+        cta_text='Rate Service',
+        cta_link=f'/bookings/{booking.uuid}/review'
+    )
+    user_notification.save()
+    user_notification.send()
 
 
 @receiver(on_listing_created)

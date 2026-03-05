@@ -1,6 +1,28 @@
 from django.db import models
 from django.utils.timezone import now
 from utils.models import DbModel
+import firebase_admin
+from firebase_admin import credentials, messaging
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Initialize Firebase App
+def initialize_firebase():
+    try:
+        if not firebase_admin._apps:
+            # Check if FIREBASE_CREDENTIALS path is set in settings or env
+            cred_path = getattr(settings, 'FIREBASE_CREDENTIALS', 'serviceAccountKey.json')
+            if hasattr(settings, 'FIREBASE_CREDENTIALS_DICT'):
+                # Use dictionary config if available (better for cloud deployment)
+                cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_DICT)
+            else:
+                # Fallback to file path
+                cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase: {e}")
 
 # Create your models here.
 class Review(DbModel):
@@ -232,7 +254,7 @@ class Notification(DbModel):
     level = models.CharField(max_length=10, choices=LEVELS, default='info')
     channel = models.CharField(max_length=10, default='in-app', choices=CHANNELS)
     cta_text = models.CharField(max_length=20, blank=True, null=True)
-    cta_link = models.URLField(blank=True, null=True)
+    cta_link = models.CharField(max_length=500, blank=True, null=True)
 
     def send(self):
         if self.channel =='sms':
@@ -243,12 +265,48 @@ class Notification(DbModel):
             pass
         elif self.channel == 'push':
             from accounts.models import FCMDevice
+            
+            # Initialize Firebase if needed
+            initialize_firebase()
+            
             devices = FCMDevice.objects.filter(user=self.user, active=True)
             if devices.exists():
-                # TODO: Integrate with FCM/Expo
-                # For now, we assume the push is sent.
-                # We do NOT delete the instance so it remains in the in-app list.
-                pass
+                registration_ids = list(devices.values_list('registration_id', flat=True))
+                
+                # Construct the message
+                # Note: 'data' is for background handling, 'notification' is for foreground/system tray
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title=self.subject,
+                        body=self.message,
+                    ),
+                    data={
+                        'click_action': 'FLUTTER_NOTIFICATION_CLICK',
+                        'sound': 'default', 
+                        'status': 'done',
+                        'screen': self.cta_link if self.cta_link else '/notifications',
+                        'channel': self.channel,
+                        'level': self.level,
+                    },
+                    tokens=registration_ids,
+                )
+                
+                try:
+                    response = messaging.send_multicast(message)
+                    if response.failure_count > 0:
+                        responses = response.responses
+                        failed_tokens = []
+                        for idx, resp in enumerate(responses):
+                            if not resp.success:
+                                # The order of responses corresponds to the order of the registration tokens.
+                                failed_tokens.append(registration_ids[idx])
+                                logger.warning(f"Failed to send to token {registration_ids[idx]}: {resp.exception}")
+                        
+                        # Optionally deactivate invalid tokens
+                        # FCMDevice.objects.filter(registration_id__in=failed_tokens).update(active=False)
+                        
+                except Exception as e:
+                    logger.error(f"Error sending FCM message: {e}")
 
         # else do nothing, they'll see this notification in notifications tab
         return

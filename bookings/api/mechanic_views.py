@@ -33,6 +33,7 @@ from accounts.api.serializers import (
 )
 from utils.dispatch import (
     user_just_registered,
+    on_booking_completed,
 )
 from utils import (
     IsMechanicOnly,
@@ -555,6 +556,7 @@ class BookingUpdateView(APIView):
         elif action == 'complete':
             booking.booking_status = 'completed'
             booking.ended_on = today
+            on_booking_completed.send(booking)
         elif action == 'decline':
             booking.booking_status = 'declined'
         elif action == 'respond':

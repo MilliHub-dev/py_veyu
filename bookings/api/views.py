@@ -30,6 +30,7 @@ from accounts.api.serializers import (
 )
 from utils.dispatch import (
     on_booking_requested,
+    on_booking_completed,
 )
 from utils import (
     IsMechanicOnly,
