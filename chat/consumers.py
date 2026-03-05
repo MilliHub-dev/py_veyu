@@ -16,6 +16,7 @@ from .api.serializers import (
     ChatMessageSerializer,
 )
 from feedback.models import Notification
+from accounts.utils.email_notifications import send_simple_email
 
 
 class LiveEventRelayConsumer(WebsocketConsumer):
@@ -154,6 +155,21 @@ class LiveChatConsumer(JsonWebsocketConsumer):
                         cta_link=f"/chat/{self.room.uuid}",
                     )
                     notif.send()
+
+                    if recipient.user_type == 'dealer':
+                        try:
+                            send_simple_email(
+                                subject="New chat message on Veyu",
+                                recipients=[recipient.email],
+                                template_name="chat_new_message.html",
+                                context={
+                                    "user_name": recipient.first_name or recipient.email,
+                                    "sender_name": user.name or user.email,
+                                    "message_preview": message.text[:200],
+                                },
+                            )
+                        except Exception as e:
+                            print(f"Error sending email to dealer: {e}")
                 except Exception as e:
                     print(f"Error sending push notification: {e}")
 

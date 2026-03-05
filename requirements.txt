@@ -98,6 +98,9 @@ packaging==24.1
 
 # JSON & YAML
 PyYAML==6.0.2
+
+# Firebase Cloud Messaging
+firebase-admin==6.6.0
 inflection==0.5.1
 uritemplate==4.1.1
 
