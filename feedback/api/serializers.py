@@ -53,15 +53,20 @@ class ReviewSerializer(ModelSerializer):
         }
 
         if not request: return data
-        if obj.reviewer.user_type == 'customer':
-            if obj.reviewer.customer.image:
-                data['image'] = request.build_absolute_uri(obj.reviewer.customer.image.url)
-        elif obj.reviewer.user_type == 'dealer':
-            if obj.reviewer.dealership.logo:
-                data['image'] = request.build_absolute_uri(obj.reviewer.dealership.logo.url)
-        elif obj.reviewer.user_type == 'mechanic':
-            if obj.reviewer.mechanic.logo:
-                data['image'] = request.build_absolute_uri(obj.reviewer.mechanic.logo.url)
+        
+        try:
+            if obj.reviewer.user_type == 'customer':
+                if hasattr(obj.reviewer, 'customer_profile') and obj.reviewer.customer_profile.image:
+                    data['image'] = request.build_absolute_uri(obj.reviewer.customer_profile.image.url)
+            elif obj.reviewer.user_type == 'dealer':
+                if hasattr(obj.reviewer, 'dealership_profile') and obj.reviewer.dealership_profile.logo:
+                    data['image'] = request.build_absolute_uri(obj.reviewer.dealership_profile.logo.url)
+            elif obj.reviewer.user_type == 'mechanic':
+                if hasattr(obj.reviewer, 'mechanic_profile') and obj.reviewer.mechanic_profile.logo:
+                    data['image'] = request.build_absolute_uri(obj.reviewer.mechanic_profile.logo.url)
+        except Exception:
+            pass
+            
         return data
 
 
