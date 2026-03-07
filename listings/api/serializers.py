@@ -39,8 +39,16 @@ from feedback.api.serializers import (ReviewSerializer,)
 
 User = get_user_model()
 
+
+class SimpleLocationSerializer(ModelSerializer):
+    class Meta:
+        from accounts.models import Location
+        model = Location
+        fields = ['country', 'state', 'city', 'address', 'zip_code', 'lat', 'lng', 'full_address']
+
+
 class DealerSerializer(ModelSerializer):
-    location = StringRelatedField()
+    location = SimpleLocationSerializer(read_only=True)
     logo = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
     owner = SerializerMethodField()
