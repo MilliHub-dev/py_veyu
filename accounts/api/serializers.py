@@ -249,11 +249,17 @@ def get_user_serializer(user_type):
     return UserProfileSerializer
 
 
+class SimpleLocationSerializer(ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['country', 'state', 'city', 'address', 'zip_code', 'lat', 'lng', 'full_address']
+
+
 class MechanicSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
     services = MechanicServiceSerializer(many=True)
-    location = StringRelatedField()
+    location = SimpleLocationSerializer(read_only=True)
     logo = SerializerMethodField()
     level = SerializerMethodField()
     price_start = SerializerMethodField()
@@ -347,7 +353,7 @@ class GetDealershipSerializer(ModelSerializer):
 class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
-    location = StringRelatedField()
+    location = SimpleLocationSerializer(read_only=True)
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
     services = serializers.ListField(read_only=True)  # Read-only property from model
