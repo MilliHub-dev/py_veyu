@@ -324,6 +324,9 @@ class GetDealershipSerializer(ModelSerializer):
     account_status = SerializerMethodField()
     services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
+    reviews = ReviewSerializer(many=True)
+    avg_rating = SerializerMethodField()
+    ratings = SerializerMethodField()
 
     class Meta:
         model = Dealer
@@ -332,8 +335,39 @@ class GetDealershipSerializer(ModelSerializer):
             'verified_phone_number', 'account_status',
             'verified_business', 'verified_tin', 'verification_status',
             'offers_rental', 'offers_purchase', 'offers_drivers', 'offers_trade_in',
-            'services', 'extended_services'
+            'services', 'extended_services', 'reviews', 'avg_rating', 'ratings'
         ]
+
+    def get_avg_rating(self, obj):
+        reviews = obj.reviews.all()
+        if not reviews.exists():
+            return 0  # Avoid division by zero
+
+        total_rating = sum(review.avg_rating for review in reviews)
+        return round(total_rating / reviews.count(), 1)
+
+    def get_ratings(self, obj):
+        reviews = obj.reviews.all()
+        ratings = {}
+        
+        # Aggregate ratings from all reviews
+        for review in reviews:
+            _ratings = review.get_ratings()  # Call method, don't reference directly
+            
+            for key, stars in _ratings.items():
+                if key not in ratings:
+                    ratings[key] = {'total_stars': 0, 'count': 0}
+            
+                ratings[key]['total_stars'] += stars
+                ratings[key]['count'] += 1
+
+        # Compute average ratings per category
+        avg_ratings = {
+            key: round(value['total_stars'] / value['count'], 1)
+            for key, value in ratings.items() if value['count'] > 0
+        }
+
+        return avg_ratings
 
     def get_logo(self, obj):
         request = self.context.get('request', None)
