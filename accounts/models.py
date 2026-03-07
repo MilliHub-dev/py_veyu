@@ -699,10 +699,12 @@ class Mechanic(UserProfile):
     @property
     def average_rating(self):
         """Returns the average rating from reviews"""
-        if self.reviews.exists():
-            total_rating = sum(review.avg_rating for review in self.reviews.all())
-            return round(total_rating / self.reviews.count(), 1)
-        return 0.0
+        from feedback.models import Review
+        reviews = Review.objects.filter(object_type='mechanic', related_object=self.uuid)
+        if not reviews.exists():
+            return 0.0
+        total_rating = sum(review.avg_rating for review in reviews)
+        return round(total_rating / reviews.count(), 1)
     
     @property
     def availability_status(self):
@@ -729,7 +731,7 @@ class Mechanic(UserProfile):
         verbose_name_plural = 'Mechanic Profiles'
 
     def rating(self):
-        return '0.0'
+        return self.average_rating()
     
     @property
     def business_verification_status(self):
@@ -970,12 +972,13 @@ class Dealership(UserProfile):
         ordering = ['-date_created']
 
     def rating(self):
-        avg = 0
-        for review in self.reviews.all():
-            avg += review.avg_rating
-        if avg > 0:
-            avg = avg/self.reviews.count()
-        return round(avg, 1)
+        from feedback.models import Review
+        reviews = Review.objects.filter(object_type='dealer', related_object=self.uuid)
+        if not reviews.exists():
+            return 0.0
+        
+        avg = sum(review.avg_rating for review in reviews)
+        return round(avg / reviews.count(), 1)
     
     @property
     def business_verification_status(self):

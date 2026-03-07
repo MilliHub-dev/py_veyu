@@ -7,6 +7,7 @@ from ..models import (
     Location,
     FCMDevice,
 )
+from feedback.models import Review
 from feedback.api.serializers import (
     RatingSerializer,
     ReviewSerializer,
@@ -257,13 +258,15 @@ class SimpleLocationSerializer(ModelSerializer):
 
 class MechanicSerializer(ModelSerializer):
     user = SerializerMethodField()
-    reviews = ReviewSerializer(many=True)
+    reviews = SerializerMethodField()
     services = MechanicServiceSerializer(many=True)
     location = SimpleLocationSerializer(read_only=True)
     logo = SerializerMethodField()
     level = SerializerMethodField()
     price_start = SerializerMethodField()
     distance = SerializerMethodField()
+    avg_rating = SerializerMethodField()
+    ratings = SerializerMethodField()
 
     class Meta:
         model = Mechanic
@@ -273,7 +276,43 @@ class MechanicSerializer(ModelSerializer):
             "job_history","reviews", 'logo', 'level', 'business_name', 'slug', 'headline',
             'verified_business', 'verification_status', 'account_status', 'distance',
             'about', 'rating', 'contact_email', 'contact_phone', 'business_type', 'price_start',
+            'avg_rating', 'ratings'
         )
+
+    def get_reviews(self, obj):
+        reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
+        return ReviewSerializer(reviews, many=True, context=self.context).data
+
+    def get_avg_rating(self, obj):
+        reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
+        if not reviews.exists():
+            return 0  # Avoid division by zero
+
+        total_rating = sum(review.avg_rating for review in reviews)
+        return round(total_rating / reviews.count(), 1)
+
+    def get_ratings(self, obj):
+        reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
+        ratings = {}
+        
+        # Aggregate ratings from all reviews
+        for review in reviews:
+            _ratings = review.get_ratings()  # Call method, don't reference directly
+            
+            for key, stars in _ratings.items():
+                if key not in ratings:
+                    ratings[key] = {'total_stars': 0, 'count': 0}
+                
+                ratings[key]['total_stars'] += stars
+                ratings[key]['count'] += 1
+
+        # Compute average ratings per category
+        avg_ratings = {
+            key: round(value['total_stars'] / value['count'], 1)
+            for key, value in ratings.items() if value['count'] > 0
+        }
+
+        return avg_ratings
 
     def get_logo(self, obj):
         request = self.context.get('request', None)
@@ -324,7 +363,7 @@ class GetDealershipSerializer(ModelSerializer):
     account_status = SerializerMethodField()
     services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
-    reviews = ReviewSerializer(many=True)
+    reviews = SerializerMethodField()
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
 
@@ -338,8 +377,12 @@ class GetDealershipSerializer(ModelSerializer):
             'services', 'extended_services', 'reviews', 'avg_rating', 'ratings'
         ]
 
+    def get_reviews(self, obj):
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
+        return ReviewSerializer(reviews, many=True, context=self.context).data
+
     def get_avg_rating(self, obj):
-        reviews = obj.reviews.all()
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
         if not reviews.exists():
             return 0  # Avoid division by zero
 
@@ -347,7 +390,7 @@ class GetDealershipSerializer(ModelSerializer):
         return round(total_rating / reviews.count(), 1)
 
     def get_ratings(self, obj):
-        reviews = obj.reviews.all()
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
         ratings = {}
         
         # Aggregate ratings from all reviews
@@ -386,7 +429,7 @@ class GetDealershipSerializer(ModelSerializer):
 
 class DealershipSerializer(ModelSerializer):
     user = SerializerMethodField()
-    reviews = ReviewSerializer(many=True)
+    reviews = SerializerMethodField()
     location = SimpleLocationSerializer(read_only=True)
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
@@ -403,8 +446,12 @@ class DealershipSerializer(ModelSerializer):
             'offers_purchase', 'offers_drivers', 'offers_trade_in', 'extended_services'
         )
 
+    def get_reviews(self, obj):
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
+        return ReviewSerializer(reviews, many=True, context=self.context).data
+
     def get_avg_rating(self, obj):
-        reviews = obj.reviews.all()
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
         if not reviews.exists():
             return 0  # Avoid division by zero
 
@@ -412,7 +459,7 @@ class DealershipSerializer(ModelSerializer):
         return round(total_rating / reviews.count(), 1)
 
     def get_ratings(self, obj):
-        reviews = obj.reviews.all()
+        reviews = Review.objects.filter(object_type='dealer', related_object=obj.uuid)
         ratings = {}
         
         # Aggregate ratings from all reviews
