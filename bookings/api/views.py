@@ -320,7 +320,8 @@ class BookingUpdateView(RetrieveAPIView):
             booking.status = 'accepted'
         elif action == 'complete':
             booking.ended_on = now()
-            booking.status = 'accepted'
+            booking.status = 'completed'
+            on_booking_completed.send(booking)
         elif action == 'decline':
             booking.status = 'declined'
             booking.responded_on = now()

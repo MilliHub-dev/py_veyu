@@ -1,0 +1,19 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}{{ subject|default:'Notification' }} - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>{{ subject }}</h1>
+    
+    <p>{{ message|linebreaksbr }}</p>
+    
+    {% if cta_link and cta_text %}
+        <div class="btn-container">
+            <a href="{{ cta_link }}" class="btn">{{ cta_text }}</a>
+        </div>
+    {% endif %}
+    
+    <p>
+        If you have any questions, please contact our support team.
+    </p>
+{% endblock %}

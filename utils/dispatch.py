@@ -91,10 +91,12 @@ def handle_wallet_deposit(sender, **kwargs):
         subject="Wallet Funded Successfully",
         message=f"Your wallet has been credited with {formatted_amount}. Your new balance is {currency_symbol}{wallet.balance:,.2f}.",
         level='success',
+        channel='push',
         cta_text='View Wallet',
         cta_link='/wallet'
     )
     notification.save()
+    notification.send()
 
 
 @receiver(on_booking_completed)
@@ -152,10 +154,12 @@ def handle_inspection_created(sender, **kwargs):
         subject="Vehicle Inspection Scheduled",
         message=f"Your vehicle inspection has been scheduled for {formatted_date} at {kwargs['time']}. The inspector will contact you before the appointment.",
         level='info',
+        channel='push',
         cta_text='View Details',
         cta_link='/inspections'
     )
     notification.save()
+    notification.send()
 
 
 @receiver(otp_requested)
@@ -219,10 +223,12 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
             subject=subject,
             message=message,
             level='success',
+            channel='push',
             cta_text=cta_text,
             cta_link='/orders'
         )
         notification.save()
+        notification.send()
     send_customer_notification()
 
 @receiver(user_just_registered)

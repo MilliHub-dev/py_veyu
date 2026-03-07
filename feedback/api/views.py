@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission, SAFE_METHODS
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
@@ -293,10 +293,29 @@ def ticket_stats(request):
     return Response(stats)
 
 
+class ReviewPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class IsReviewAuthorOrReadOnly(BasePermission):
+    """
+    Custom permission to only allow authors of a review to edit or delete it.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        if request.method in SAFE_METHODS:
+            return True
+
+        # Write permissions are only allowed to the author of the review.
+        return obj.reviewer == request.user
+
 class ReviewViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsReviewAuthorOrReadOnly]
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
+    pagination_class = ReviewPagination
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -304,5 +323,22 @@ class ReviewViewSet(ModelViewSet):
         return ReviewSerializer
 
     def get_queryset(self):
-        # Users can see reviews they created
-        return Review.objects.filter(reviewer=self.request.user)
+        """
+        Optionally restricts the returned reviews to a given user,
+        by filtering against a `related_object` and `object_type` query parameter in the URL.
+        """
+        queryset = Review.objects.all()
+        related_object = self.request.query_params.get('related_object')
+        object_type = self.request.query_params.get('object_type')
+        
+        if related_object:
+            queryset = queryset.filter(related_object=related_object)
+            
+        if object_type:
+            queryset = queryset.filter(object_type=object_type)
+            
+        # If no specific filter is provided, return only the user's reviews
+        if not related_object and not object_type:
+             return queryset.filter(reviewer=self.request.user)
+             
+        return queryset

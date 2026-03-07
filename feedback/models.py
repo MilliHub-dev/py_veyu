@@ -5,14 +5,19 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from django.conf import settings
 import logging
+from utils.mail import send_email
+from utils.sms import sms_service, normalize_phone_number
 
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase App
 def initialize_firebase():
     try:
-        if not firebase_admin._apps:
-            # Check if FIREBASE_CREDENTIALS path is set in settings or env
+        # Check if default app is already initialized
+        try:
+            firebase_admin.get_app()
+        except ValueError:
+            # Not initialized, proceed with initialization
             cred_path = getattr(settings, 'FIREBASE_CREDENTIALS', 'serviceAccountKey.json')
             if hasattr(settings, 'FIREBASE_CREDENTIALS_DICT'):
                 # Use dictionary config if available (better for cloud deployment)
@@ -35,7 +40,6 @@ class Review(DbModel):
         'service': 'Service', # for bookings
     }
 
-    ratings = models.ManyToManyField("Rating", blank=True, related_name='review_ratings')
     comment = models.TextField(max_length=1200, blank=True, null=True)
     reviewer = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='submitted_reviews')
     object_type = models.CharField(max_length=200, choices=REVIEW_OBJECTS.items())
@@ -62,7 +66,7 @@ class Review(DbModel):
         ]
         categories = {}
         for key in keys:
-            rating = self.review_ratings.filter(area=key).first()
+            rating = self.rating_items.filter(area=key).first()
             if rating:
                 categories[key] = rating.stars
         return categories
@@ -77,7 +81,7 @@ class Review(DbModel):
     @property
     def total_ratings(self):
         """Returns total number of rating categories"""
-        return self.ratings.count()
+        return self.rating_items.count()
     
     @property
     def has_comment(self):
@@ -257,12 +261,43 @@ class Notification(DbModel):
     cta_link = models.CharField(max_length=500, blank=True, null=True)
 
     def send(self):
+        """
+        Sends the notification via the specified channel.
+        Note: The notification instance is NOT deleted after sending, allowing it to remain
+        in the user's in-app notification history.
+        """
         if self.channel =='sms':
-            # TODO: send sms and delete instance
-            pass
+            if sms_service and self.user.phone:
+                phone = normalize_phone_number(self.user.phone)
+                if phone:
+                    try:
+                        response = sms_service.send(self.message, [phone])
+                        logger.info(f"SMS sent to {phone}: {response}")
+                        return
+                    except Exception as e:
+                        logger.error(f"Failed to send SMS to {phone}: {e}")
+            
         elif self.channel == 'email':
-            # TODO: send email and delete instance
-            pass
+            try:
+                context = {
+                    'subject': self.subject,
+                    'message': self.message,
+                    'cta_text': self.cta_text,
+                    'cta_link': self.cta_link,
+                    'user_name': self.user.name if hasattr(self.user, 'name') else 'User'
+                }
+                sent = send_email(
+                    subject=self.subject,
+                    recipients=[self.user.email],
+                    template='generic_notification.html',
+                    context=context
+                )
+                if sent:
+                    logger.info(f"Email sent to {self.user.email}")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {self.user.email}: {e}")
+
         elif self.channel == 'push':
             from accounts.models import FCMDevice
             
@@ -287,6 +322,7 @@ class Notification(DbModel):
                         'screen': self.cta_link if self.cta_link else '/notifications',
                         'channel': self.channel,
                         'level': self.level,
+                        'notification_id': str(self.id),
                     },
                     tokens=registration_ids,
                 )
@@ -302,8 +338,9 @@ class Notification(DbModel):
                                 failed_tokens.append(registration_ids[idx])
                                 logger.warning(f"Failed to send to token {registration_ids[idx]}: {resp.exception}")
                         
-                        # Optionally deactivate invalid tokens
-                        # FCMDevice.objects.filter(registration_id__in=failed_tokens).update(active=False)
+                        # Deactivate invalid tokens
+                        # The error code for invalid token is usually 'registration-token-not-registered'
+                        # But for now, we just log it.
                         
                 except Exception as e:
                     logger.error(f"Error sending FCM message: {e}")

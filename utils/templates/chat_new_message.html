@@ -1,0 +1,32 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}New Message from {{ sender_name }} - {{ app_name|default:'Veyu' }}{% endblock %}
+
+{% block content %}
+    <h1>New Message</h1>
+    
+    <p>Hello {{ recipient_name|default:'there' }},</p>
+    
+    <p>You have received a new message from <strong>{{ sender_name }}</strong> regarding <strong>{{ topic|default:'your inquiry' }}</strong>.</p>
+    
+    <div class="highlight-box" style="text-align: left; background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin: 0; color: #4b5563; font-style: italic;">
+            "{{ message_preview }}"
+        </p>
+    </div>
+    
+    {% if chat_url %}
+        <div class="btn-container">
+            <a href="{{ chat_url }}" class="btn">Reply to Message</a>
+        </div>
+    {% else %}
+        <div class="btn-container">
+            <a href="https://veyu.cc/chat" class="btn">Reply to Message</a>
+        </div>
+    {% endif %}
+    
+    <p>If the button doesn't work, copy and paste this link into your browser:</p>
+    <p><a href="{{ chat_url|default:'https://veyu.cc/chat' }}" style="color: #4f46e5; word-break: break-all;">{{ chat_url|default:'https://veyu.cc/chat' }}</a></p>
+    
+    <p>Best regards,<br>{{ app_name|default:'Veyu' }} Team</p>
+{% endblock %}

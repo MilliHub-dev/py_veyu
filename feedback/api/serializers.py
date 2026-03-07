@@ -95,8 +95,16 @@ class ReviewCreateSerializer(ModelSerializer):
         
         for area, stars in ratings_data.items():
             rating = Rating.objects.create(reviewId=review, area=area, stars=stars)
-            review.ratings.add(rating)
             
+        # Link review to the related object (Dealership, etc.)
+        if review.object_type == 'dealer' and review.related_object:
+            try:
+                from accounts.models import Dealership
+                dealer = Dealership.objects.get(uuid=review.related_object)
+                dealer.reviews.add(review)
+            except Dealership.DoesNotExist:
+                pass
+        
         return review
 
 
