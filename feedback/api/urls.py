@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'tickets', views.SupportTicketViewSet, basename='support-ticket')
+router.register(r'reviews', views.ReviewViewSet, basename='review')
 
 urlpatterns = [
     path('', include(router.urls)),

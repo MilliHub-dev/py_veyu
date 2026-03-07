@@ -13,6 +13,9 @@ from rest_framework.serializers import (
     SerializerMethodField,
     PrimaryKeyRelatedField,
     CharField,
+    DictField,
+    IntegerField,
+    ValidationError,
 )
 
 from django.contrib.auth import get_user_model
@@ -60,6 +63,41 @@ class ReviewSerializer(ModelSerializer):
             if obj.reviewer.mechanic.logo:
                 data['image'] = request.build_absolute_uri(obj.reviewer.mechanic.logo.url)
         return data
+
+
+class ReviewCreateSerializer(ModelSerializer):
+    ratings = DictField(
+        child=IntegerField(min_value=1, max_value=5),
+        write_only=True
+    )
+    
+    class Meta:
+        model = Review
+        fields = ('object_type', 'related_object', 'comment', 'ratings', 'related_order')
+        extra_kwargs = {
+            'related_order': {'required': False},
+            'comment': {'required': False}
+        }
+
+    def validate(self, attrs):
+        ratings = attrs.get('ratings', {})
+        valid_areas = [choice[0] for choice in Rating.REVIEW_AREAS.items()]
+        for area in ratings.keys():
+            if area not in valid_areas:
+                raise ValidationError(f"Invalid rating area: {area}. Valid areas are: {', '.join(valid_areas)}")
+        return attrs
+
+    def create(self, validated_data):
+        ratings_data = validated_data.pop('ratings', {})
+        reviewer = self.context['request'].user
+        
+        review = Review.objects.create(reviewer=reviewer, **validated_data)
+        
+        for area, stars in ratings_data.items():
+            rating = Rating.objects.create(reviewId=review, area=area, stars=stars)
+            review.ratings.add(rating)
+            
+        return review
 
 
 

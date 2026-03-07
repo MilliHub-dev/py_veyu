@@ -6,13 +6,15 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 
-from ..models import SupportTicket, Tag, TicketCategory
+from ..models import SupportTicket, Tag, TicketCategory, Review
 from .serializers import (
     SupportTicketSerializer,
     SupportTicketCreateSerializer,
     SupportTicketUpdateSerializer,
     TagSerializer,
     TicketCategorySerializer,
+    ReviewSerializer,
+    ReviewCreateSerializer,
 )
 from chat.models import ChatRoom
 
@@ -289,3 +291,18 @@ def ticket_stats(request):
     }
     
     return Response(stats)
+
+
+class ReviewViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ReviewCreateSerializer
+        return ReviewSerializer
+
+    def get_queryset(self):
+        # Users can see reviews they created
+        return Review.objects.filter(reviewer=self.request.user)
