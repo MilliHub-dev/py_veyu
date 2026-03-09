@@ -244,9 +244,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 def get_user_serializer(user_type):
-    profile_model = {'customer': Customer, 'mechanic': Mechanic, 'dealer': Dealer,}.get(user_type)
-    model = profile_model
-    UserProfileSerializer.Meta.model = model
+    if user_type == 'dealer':
+        return DealershipSerializer
+    elif user_type == 'mechanic':
+        return MechanicSerializer
+    elif user_type == 'customer':
+        UserProfileSerializer.Meta.model = Customer
+        return UserProfileSerializer
+    
+    # Fallback or default
     return UserProfileSerializer
 
 
