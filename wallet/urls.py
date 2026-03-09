@@ -11,6 +11,9 @@ from .views import (
     GetBanks,
     ResolveAccountNumber,
     GetTransferFees,
+    SetPinView,
+    ChangePinView,
+    VerifyPinView,
 )
 from .views_withdrawal import (
     WithdrawalRequestListCreateView,
@@ -27,6 +30,12 @@ urlpatterns = [
     path('transactions/summary/', UserTransactionSummaryView.as_view(), name='transaction-summary'),
     path('analytics/', TransactionAnalyticsView.as_view(), name='transaction-analytics'),
     path('balance/', Balance.as_view(), name='wallet-balance'),
+    
+    # PIN Management
+    path('pin/set/', SetPinView.as_view(), name='set-pin'),
+    path('pin/change/', ChangePinView.as_view(), name='change-pin'),
+    path('pin/verify/', VerifyPinView.as_view(), name='verify-pin'),
+    
     path('deposit/', Deposit.as_view(), name='wallet-deposit'),
     path('withdraw/', Withdrawal.as_view(), name='wallet-withdraw'),
     path('banks/', GetBanks.as_view(), name='get-banks'),

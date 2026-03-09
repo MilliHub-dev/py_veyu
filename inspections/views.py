@@ -634,13 +634,14 @@ def get_inspection_quote(request):
 @permission_classes([permissions.IsAuthenticated])
 def pay_for_inspection(request, inspection_id):
     """
-    Process payment for an inspection using ONLY Paystack
+    Process payment for an inspection using Paystack or Wallet
     Payment triggers revenue split: dealer gets 60%, platform gets 40%
     """
     from .serializers import InspectionPaymentSerializer
     from wallet.models import Wallet, Transaction
     from wallet.gateway.payment_adapter import PaystackAdapter
     from django.db import transaction as db_transaction
+    from .models_revenue import InspectionRevenueSplit
     import uuid
     
     try:
@@ -669,42 +670,142 @@ def pay_for_inspection(request, inspection_id):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         amount = inspection.inspection_fee
+        payment_method = request.data.get('payment_method', 'paystack')
         
-        # ONLY Paystack payment is allowed for inspections
-        # Generate unique reference
-        uid = str(uuid.uuid4())
-        parts = uid.split('-')
-        reference = f'veyu-inspection-{inspection.id}-' + ''.join(parts[1:3])
-        
-        # Store pending transaction
-        payment_transaction = Transaction.objects.create(
-            sender=request.user.name,
-            recipient='Veyu Inspection Service',
-            type='payment',
-            amount=amount,
-            status='pending',
-            source='bank',
-            tx_ref=reference,
-            narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
-            related_inspection=inspection
-        )
-        
-        # Return payment initialization data for frontend to use with Paystack
-        return Response({
-            'success': True,
-            'data': {
-                'payment_method': 'paystack',
-                'amount': float(amount),
-                'inspection_id': inspection.id,
-                'transaction_id': payment_transaction.id,
-                'reference': reference,
-                'email': request.user.email,
-                'currency': 'NGN',
-                'callback_url': f'{request.build_absolute_uri("/api/v1/inspections/")}{inspection.id}/verify-payment/',
-                'paystack_public_key': 'pk_test_xxxx',  # Frontend should use their own key
-            },
-            'message': 'Initialize Paystack payment on frontend with the provided reference'
-        })
+        if payment_method == 'wallet':
+            # Handle Wallet Payment
+            user_wallet = Wallet.objects.filter(user=request.user).first()
+            if not user_wallet:
+                return Response(
+                    {'error': 'User wallet not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Verify PIN if set
+            if user_wallet.has_pin:
+                pin = request.data.get('pin')
+                if not pin:
+                    return Response(
+                        {'error': 'Wallet PIN required'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                if not user_wallet.check_pin(pin):
+                    return Response(
+                        {'error': 'Incorrect wallet PIN'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            if user_wallet.balance < amount:
+                return Response(
+                    {
+                        'error': 'Insufficient wallet balance',
+                        'available_balance': float(user_wallet.balance),
+                        'required_amount': float(amount)
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            with db_transaction.atomic():
+                # Create transaction
+                reference = f'veyu-inspection-wallet-{inspection.id}-{uuid.uuid4().hex[:8]}'
+                
+                payment_transaction = Transaction.objects.create(
+                    sender=request.user.name,
+                    sender_wallet=user_wallet,
+                    recipient='Veyu Inspection Service',
+                    type='payment',
+                    amount=amount,
+                    status='completed',
+                    source='wallet',
+                    tx_ref=reference,
+                    narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
+                    related_inspection=inspection
+                )
+                
+                # Deduct from wallet
+                user_wallet.apply_transaction(payment_transaction)
+                
+                # Mark inspection as paid
+                inspection.mark_paid(payment_transaction, payment_method='wallet')
+                
+                # Create revenue split and credit dealer wallet
+                revenue_split = InspectionRevenueSplit.create_split(
+                    inspection=inspection,
+                    payment_transaction=payment_transaction
+                )
+                
+                # Generate inspection slip
+                from .slip_service import InspectionSlipService
+                slip_service = InspectionSlipService()
+                slip_url = None
+                try:
+                    slip_file, slip_filename = slip_service.generate_inspection_slip(inspection)
+                    inspection.inspection_slip = slip_file
+                    inspection.save()
+                    slip_url = inspection.inspection_slip.url if inspection.inspection_slip else None
+                except Exception as e:
+                    logger.error(f"Error generating inspection slip: {str(e)}")
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'inspection_id': inspection.id,
+                        'inspection_number': inspection.inspection_number,
+                        'transaction_id': payment_transaction.id,
+                        'amount_paid': float(payment_transaction.amount),
+                        'payment_method': 'wallet',
+                        'payment_status': inspection.payment_status,
+                        'inspection_status': inspection.get_status_display(),
+                        'paid_at': inspection.paid_at,
+                        'reference': reference,
+                        'inspection_slip_url': slip_url,
+                        'revenue_split': {
+                            'dealer_amount': float(revenue_split.dealer_amount),
+                            'dealer_percentage': float(revenue_split.dealer_percentage),
+                            'platform_amount': float(revenue_split.platform_amount),
+                            'platform_percentage': float(revenue_split.platform_percentage),
+                            'dealer_credited': revenue_split.dealer_credited
+                        }
+                    },
+                    'message': 'Payment successful using wallet. Inspection slip generated.'
+                })
+                
+        else:
+            # Handle Paystack Payment (Existing Logic)
+            # Generate unique reference
+            uid = str(uuid.uuid4())
+            parts = uid.split('-')
+            reference = f'veyu-inspection-{inspection.id}-' + ''.join(parts[1:3])
+            
+            # Store pending transaction
+            payment_transaction = Transaction.objects.create(
+                sender=request.user.name,
+                recipient='Veyu Inspection Service',
+                type='payment',
+                amount=amount,
+                status='pending',
+                source='bank',
+                tx_ref=reference,
+                narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
+                related_inspection=inspection
+            )
+            
+            # Return payment initialization data for frontend to use with Paystack
+            return Response({
+                'success': True,
+                'data': {
+                    'payment_method': 'paystack',
+                    'amount': float(amount),
+                    'inspection_id': inspection.id,
+                    'transaction_id': payment_transaction.id,
+                    'reference': reference,
+                    'email': request.user.email,
+                    'currency': 'NGN',
+                    'callback_url': f'{request.build_absolute_uri("/api/v1/inspections/")}{inspection.id}/verify-payment/',
+                    'paystack_public_key': 'pk_test_xxxx',  # Frontend should use their own key
+                },
+                'message': 'Initialize Paystack payment on frontend with the provided reference'
+            })
         
     except Exception as e:
         logger.error(f"Error processing payment for inspection {inspection_id}: {str(e)}")

@@ -15,6 +15,7 @@ class Wallet(DbModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_wallet')
     ledger_balance = models.DecimalField(max_digits=100, decimal_places=2, default=0.00)
     currency = models.CharField(max_length=4, default="NGN")
+    pin = models.CharField(max_length=128, null=True, blank=True)
     transactions = models.ManyToManyField("wallet.Transaction", blank=True, related_name="wallet_transactions")
     
     @property
@@ -40,6 +41,21 @@ class Wallet(DbModel):
         self.transactions.add(trans)
         self.save()
         return f'{trans.amount} processed for {self.user} wallet'
+
+    def set_pin(self, raw_pin):
+        from django.contrib.auth.hashers import make_password
+        self.pin = make_password(raw_pin)
+        self.save()
+
+    def check_pin(self, raw_pin):
+        from django.contrib.auth.hashers import check_password
+        if not self.pin:
+            return False
+        return check_password(raw_pin, self.pin)
+
+    @property
+    def has_pin(self):
+        return bool(self.pin)
 
 
     def transfer(self, amount, recipient_wallet, narration=None):

@@ -97,10 +97,39 @@ class WalletBalanceSerializer(serializers.ModelSerializer):
 
 
 class InitiateDepositSerializer(serializers.Serializer):
-    
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('100.00'))
-    currency = serializers.CharField(max_length=3, default='NGN')
-    gateway_name = serializers.CharField(max_length=11, default='flutterwave')
+    email = serializers.EmailField()
+    
+
+class PinSerializer(serializers.Serializer):
+    pin = serializers.CharField(max_length=4, min_length=4)
+    
+    def validate_pin(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("PIN must contain only digits")
+        return value
+
+class ChangePinSerializer(serializers.Serializer):
+    old_pin = serializers.CharField(max_length=4, min_length=4)
+    new_pin = serializers.CharField(max_length=4, min_length=4)
+    
+    def validate_new_pin(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("PIN must contain only digits")
+        return value
+    
+    def validate_old_pin(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("PIN must contain only digits")
+        return value
+
+class VerifyPinSerializer(serializers.Serializer):
+    pin = serializers.CharField(max_length=4, min_length=4)
+    
+    def validate_pin(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("PIN must contain only digits")
+        return value
 
     
 

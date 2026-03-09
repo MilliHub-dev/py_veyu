@@ -39,9 +39,60 @@ class WalletOverview(APIView):
         user_wallet = get_object_or_404(Wallet, user= user)
         data = {
             'error': False,
-            'data': WalletSerializer(user_wallet).data
+            'data': WalletSerializer(user_wallet).data,
+            'has_pin': user_wallet.has_pin
         }
         return Response(data)
+
+
+class SetPinView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(operation_summary="Set wallet PIN for the first time", request_body=PinSerializer)
+    def post(self, request):
+        wallet = get_object_or_404(Wallet, user=request.user)
+        if wallet.has_pin:
+            return Response({'error': 'PIN already set. Use change-pin endpoint.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = PinSerializer(data=request.data)
+        if serializer.is_valid():
+            wallet.set_pin(serializer.validated_data['pin'])
+            return Response({'message': 'PIN set successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ChangePinView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(operation_summary="Change wallet PIN", request_body=ChangePinSerializer)
+    def post(self, request):
+        wallet = get_object_or_404(Wallet, user=request.user)
+        if not wallet.has_pin:
+            return Response({'error': 'PIN not set. Use set-pin endpoint.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = ChangePinSerializer(data=request.data)
+        if serializer.is_valid():
+            if not wallet.check_pin(serializer.validated_data['old_pin']):
+                return Response({'error': 'Incorrect old PIN'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            wallet.set_pin(serializer.validated_data['new_pin'])
+            return Response({'message': 'PIN changed successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyPinView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(operation_summary="Verify wallet PIN", request_body=VerifyPinSerializer)
+    def post(self, request):
+        wallet = get_object_or_404(Wallet, user=request.user)
+        if not wallet.has_pin:
+            return Response({'error': 'PIN not set'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = VerifyPinSerializer(data=request.data)
+        if serializer.is_valid():
+            if wallet.check_pin(serializer.validated_data['pin']):
+                return Response({'valid': True}, status=status.HTTP_200_OK)
+            return Response({'valid': False, 'error': 'Incorrect PIN'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class Transfer(APIView):
@@ -50,6 +101,15 @@ class Transfer(APIView):
 
     @swagger_auto_schema(operation_summary="Endpoint for wallet to wallet transfer")
     def post(self, request):
+        # Validate PIN if set
+        sender_wallet = get_object_or_404(Wallet, user=request.user)
+        if sender_wallet.has_pin:
+            pin = request.data.get('pin')
+            if not pin:
+                return Response({'error': 'PIN required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not sender_wallet.check_pin(pin):
+                return Response({'error': 'Incorrect PIN'}, status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = TransferSerializer(data=request.data)
         if serializer.is_valid():
             recipient_email = serializer.validated_data['recipient']
@@ -315,6 +375,15 @@ class Withdrawal(APIView):
         data = request.data
         user = request.user
         user_wallet = get_object_or_404(Wallet, user=user)
+        
+        # Verify PIN if set
+        if user_wallet.has_pin:
+            pin = request.data.get('pin')
+            if not pin:
+                return Response({'error': 'PIN required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user_wallet.check_pin(pin):
+                return Response({'error': 'Incorrect PIN'}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = WithdrawalSerializer(data=data)
         if serializer.is_valid():
             amount = serializer.validated_data['amount']
