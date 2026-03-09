@@ -398,9 +398,9 @@ class InspectionStatsSerializer(serializers.Serializer):
 class InspectionPaymentSerializer(serializers.Serializer):
     """Serializer for inspection payment requests"""
     payment_method = serializers.ChoiceField(
-        choices=['wallet', 'bank'],
-        default='wallet',
-        help_text="Payment method: wallet or bank"
+        choices=['wallet', 'bank', 'paystack'],
+        default='paystack',
+        help_text="Payment method: wallet, bank, or paystack"
     )
     amount = serializers.DecimalField(
         max_digits=10,
