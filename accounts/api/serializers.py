@@ -348,17 +348,20 @@ class MechanicSerializer(ModelSerializer):
 
     def get_distance(self, obj):
         coords = self.context.get('coords', None)
-        if coords and obj.location:
+        if coords and obj.location and obj.location.lat is not None and obj.location.lng is not None:
             # if user coords is present in context and mech has set location
             # coords should be a tuple (lat, lng)
             # e.g MechanicSerializer(qs, context={'request': request, 'coords': (lat, lng)})
-            dist = haversine(
-                float(coords[0]),
-                float(coords[1]),
-                float(obj.location.lat),
-                float(obj.location.lng),
-            )
-            return f"{dist}km"
+            try:
+                dist = haversine(
+                    float(coords[0]),
+                    float(coords[1]),
+                    float(obj.location.lat),
+                    float(obj.location.lng),
+                )
+                return f"{dist}km"
+            except (ValueError, TypeError):
+                return None
         return None
 
 

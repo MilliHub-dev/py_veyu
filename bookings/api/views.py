@@ -85,7 +85,7 @@ class MechanicListView(ListAPIView):
 
         for mech in mechanics:
             print("Mech", mech)
-            if mech.location:
+            if mech.location and mech.location.lat is not None and mech.location.lng is not None:
                 dist = haversine(
                     float(user_lat),
                     float(user_lng),
@@ -111,11 +111,14 @@ class MechanicListView(ListAPIView):
 
     def get(self, request, *args, **kwargs):
         try:
-            lat = float(request.GET.get('lat', None))
-            lng = float(request.GET.get('lng', None))
+            lat_raw = request.GET.get('lat')
+            lng_raw = request.GET.get('lng')
+            
+            lat = float(lat_raw) if lat_raw else None
+            lng = float(lng_raw) if lng_raw else None
             
             ctx = {'request': request}
-            if lat and lng:
+            if lat is not None and lng is not None:
                 ctx['coords'] = (lat, lng)
 
             queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
