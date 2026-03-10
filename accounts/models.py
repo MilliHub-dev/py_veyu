@@ -681,10 +681,28 @@ class Mechanic(UserProfile):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.business_name or self.user.name} (Mechanic)"
+        business_name = (self.business_name or "").strip()
+        if business_name:
+            return f"{business_name} (Mechanic)"
+        try:
+            user = self.user
+        except Exception:
+            return f"Mechanic #{self.pk}"
+        name = getattr(user, "name", None) or getattr(user, "email", None) or f"User #{getattr(user, 'pk', 'unknown')}"
+        return f"{name} (Mechanic)"
     
     def __repr__(self):
-        return f"<Mechanic: {self.business_name or self.user.email} - {self.get_level_display()}>"
+        business_name = (self.business_name or "").strip()
+        try:
+            user = self.user
+        except Exception:
+            user = None
+        ident = business_name or getattr(user, "email", None) or getattr(user, "name", None) or f"Mechanic #{self.pk}"
+        try:
+            level = self.get_level_display()
+        except Exception:
+            level = self.level
+        return f"<Mechanic: {ident} - {level}>"
     
     @property
     def total_services(self):

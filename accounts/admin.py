@@ -602,7 +602,10 @@ class MechanicAdmin(admin.ModelAdmin):
     )
     
     def user_email(self, obj):
-        return obj.user.email
+        try:
+            return obj.user.email
+        except Exception:
+            return ''
     user_email.short_description = 'Email'
     user_email.admin_order_field = 'user__email'
     
