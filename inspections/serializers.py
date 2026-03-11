@@ -165,6 +165,13 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
 class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating vehicle inspections"""
     photos = InspectionPhotoSerializer(many=True, required=False)
+    exterior_data = serializers.JSONField(required=False, default=dict)
+    interior_data = serializers.JSONField(required=False, default=dict)
+    engine_data = serializers.JSONField(required=False, default=dict)
+    mechanical_data = serializers.JSONField(required=False, default=dict)
+    safety_data = serializers.JSONField(required=False, default=dict)
+    documentation_data = serializers.JSONField(required=False, default=dict)
+    recommended_actions = serializers.ListField(required=False, default=list)
     
     # User details fields (write-only)
     first_name = serializers.CharField(write_only=True, required=False)
@@ -196,21 +203,23 @@ class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Validate inspection data"""
-        # Combine all inspection data for validation
-        inspection_data = {}
-        for field in ['exterior_data', 'interior_data', 'engine_data', 'mechanical_data', 'safety_data']:
-            if field in data:
-                section_name = field.replace('_data', '')
-                inspection_data[section_name] = data[field]
-        
-        # Validate inspection data structure
-        is_valid, errors = InspectionValidationService.validate_inspection_data(inspection_data)
-        if not is_valid:
-            raise serializers.ValidationError({'inspection_data': errors})
-        
-        # Auto-calculate overall rating if not provided
-        if not data.get('overall_rating'):
-            data['overall_rating'] = InspectionValidationService.calculate_overall_rating(inspection_data)
+        section_fields = ['exterior_data', 'interior_data', 'engine_data', 'mechanical_data', 'safety_data']
+        for field in section_fields + ['documentation_data']:
+            data[field] = data.get(field) or {}
+
+        has_any_section_data = any(bool(data.get(field)) for field in section_fields)
+        if has_any_section_data:
+            inspection_data = {
+                field.replace('_data', ''): data.get(field) or {}
+                for field in section_fields
+            }
+
+            is_valid, errors = InspectionValidationService.validate_inspection_data(inspection_data)
+            if not is_valid:
+                raise serializers.ValidationError({'inspection_data': errors})
+
+            if not data.get('overall_rating'):
+                data['overall_rating'] = InspectionValidationService.calculate_overall_rating(inspection_data)
         
         return data
     
