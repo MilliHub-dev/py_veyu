@@ -447,3 +447,36 @@ class InspectionTemplate(DbModel):
         ordering = ['category', 'name']
         verbose_name = 'Inspection Template'
         verbose_name_plural = 'Inspection Templates'
+
+
+class InspectionFeeSetting(DbModel):
+    pre_purchase_fee = models.DecimalField(max_digits=10, decimal_places=2, default=50000.00)
+    pre_rental_fee = models.DecimalField(max_digits=10, decimal_places=2, default=30000.00)
+    maintenance_fee = models.DecimalField(max_digits=10, decimal_places=2, default=25000.00)
+    insurance_fee = models.DecimalField(max_digits=10, decimal_places=2, default=40000.00)
+    is_active = models.BooleanField(default=True)
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                'pre_purchase_fee': 50000.00,
+                'pre_rental_fee': 30000.00,
+                'maintenance_fee': 25000.00,
+                'insurance_fee': 40000.00,
+                'is_active': True,
+            },
+        )
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "Inspection Fee Settings"
+
+    class Meta:
+        verbose_name = 'Inspection Fee Setting'
+        verbose_name_plural = 'Inspection Fee Settings'

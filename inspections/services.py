@@ -844,7 +844,24 @@ class InspectionFeeService:
         Returns:
             Calculated fee amount
         """
-        base_fee = cls.BASE_FEES.get(inspection_type, 30000.00)
+        base_fee = None
+        try:
+            from .models import InspectionFeeSetting
+
+            fee_setting = InspectionFeeSetting.get_solo()
+            if fee_setting and fee_setting.is_active:
+                fee_map = {
+                    'pre_purchase': fee_setting.pre_purchase_fee,
+                    'pre_rental': fee_setting.pre_rental_fee,
+                    'maintenance': fee_setting.maintenance_fee,
+                    'insurance': fee_setting.insurance_fee,
+                }
+                base_fee = fee_map.get(inspection_type)
+        except Exception:
+            base_fee = None
+
+        if base_fee is None:
+            base_fee = cls.BASE_FEES.get(inspection_type, 30000.00)
         
         # Future: Add vehicle-based adjustments
         # if vehicle:

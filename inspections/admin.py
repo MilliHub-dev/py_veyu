@@ -8,7 +8,8 @@ from .models import (
     InspectionPhoto,
     InspectionDocument,
     DigitalSignature,
-    InspectionTemplate
+    InspectionTemplate,
+    InspectionFeeSetting,
 )
 # Import revenue admin configurations
 from .admin_revenue import (
@@ -428,9 +429,34 @@ class InspectionTemplateAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related('created_by')
 
 
+@admin.register(InspectionFeeSetting)
+class InspectionFeeSettingAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'is_active',
+        'pre_purchase_fee',
+        'pre_rental_fee',
+        'maintenance_fee',
+        'insurance_fee',
+        'last_updated',
+    ]
+
+    fieldsets = (
+        ('Status', {'fields': ('is_active',)}),
+        ('Fees (NGN)', {'fields': ('pre_purchase_fee', 'pre_rental_fee', 'maintenance_fee', 'insurance_fee')}),
+        ('Timestamps', {'fields': ('date_created', 'last_updated'), 'classes': ('collapse',)}),
+    )
+
+    readonly_fields = ['date_created', 'last_updated']
+
+    def has_add_permission(self, request):
+        return not InspectionFeeSetting.objects.exists()
+
+
 # Register models with custom Veyu admin site
 veyu_admin.register(VehicleInspection, VehicleInspectionAdmin)
 veyu_admin.register(InspectionPhoto, InspectionPhotoAdmin)
 veyu_admin.register(InspectionDocument, InspectionDocumentAdmin)
 veyu_admin.register(DigitalSignature, DigitalSignatureAdmin)
 veyu_admin.register(InspectionTemplate, InspectionTemplateAdmin)
+veyu_admin.register(InspectionFeeSetting, InspectionFeeSettingAdmin)
