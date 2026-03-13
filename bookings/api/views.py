@@ -192,7 +192,7 @@ class MechanicSearchView(ListAPIView):
 
 class MechanicProfileView(APIView):
     allowed_methods = ['GET', 'POST']
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     serializer_class = MechanicSerializer
     paystack = PaystackAdapter()
     kwargs = ['mech_id']
@@ -207,7 +207,17 @@ class MechanicProfileView(APIView):
             return Response({'error': True, 'message': "Required mech_id param missing."}, 400)
 
         try:
-            mech = MechanicSerializer(Mechanic.me(mech_id), context={'request': request}).data
+            mechanic = Mechanic.me(mech_id)
+            if not mechanic:
+                return Response(
+                    {
+                        'error': True,
+                        'message': 'Mechanic profile not found. Please complete your mechanic profile setup.'
+                    },
+                    404
+                )
+
+            mech = MechanicSerializer(mechanic, context={'request': request}).data
             data = {
                 'error': False,
                 'message': 'Found mechanic',
