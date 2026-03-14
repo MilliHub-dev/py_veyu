@@ -382,6 +382,9 @@ class ListingSerializer(ModelSerializer):
     
     def get_total_views(self, obj):
         """Returns total number of viewers"""
+        # Optimization: Use annotated count if available
+        if hasattr(obj, 'total_views_count'):
+            return obj.total_views_count
         return obj.viewers.count()
     
     def get_date_listed(self, obj):
@@ -390,6 +393,11 @@ class ListingSerializer(ModelSerializer):
     
     def get_total_reviews(self, obj):
         """Returns total number of reviews for this listing"""
+        # Optimization: Use reviews from context if available
+        reviews_by_vehicle = self.context.get('vehicle_reviews')
+        if reviews_by_vehicle is not None:
+            return len(reviews_by_vehicle.get(str(obj.uuid), []))
+            
         from feedback.models import Review
         return Review.objects.filter(
             object_type='vehicle',
@@ -398,6 +406,15 @@ class ListingSerializer(ModelSerializer):
     
     def get_average_rating(self, obj):
         """Returns average rating from all reviews"""
+        # Optimization: Use reviews from context if available
+        reviews_by_vehicle = self.context.get('vehicle_reviews')
+        if reviews_by_vehicle is not None:
+            reviews = reviews_by_vehicle.get(str(obj.uuid), [])
+            if not reviews:
+                return 0.0
+            total_rating = sum(review.avg_rating for review in reviews)
+            return round(total_rating / len(reviews), 1)
+
         from feedback.models import Review
         reviews = Review.objects.filter(
             object_type='vehicle',

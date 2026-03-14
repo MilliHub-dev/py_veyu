@@ -286,10 +286,27 @@ class MechanicSerializer(ModelSerializer):
         )
 
     def get_reviews(self, obj):
+        # Optimization: Use reviews from context if available (batch fetched in view)
+        reviews_by_mech = self.context.get('mechanic_reviews')
+        if reviews_by_mech is not None:
+            reviews = reviews_by_mech.get(str(obj.uuid), [])
+            return ReviewSerializer(reviews, many=True, context=self.context).data
+            
+        # Fallback for single item or non-optimized views
         reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
         return ReviewSerializer(reviews, many=True, context=self.context).data
 
     def get_avg_rating(self, obj):
+        # Optimization: Use reviews from context if available
+        reviews_by_mech = self.context.get('mechanic_reviews')
+        if reviews_by_mech is not None:
+            reviews = reviews_by_mech.get(str(obj.uuid), [])
+            if not reviews:
+                return 0
+            total_rating = sum(review.avg_rating for review in reviews)
+            return round(total_rating / len(reviews), 1)
+
+        # Fallback
         reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
         if not reviews.exists():
             return 0  # Avoid division by zero
@@ -298,7 +315,13 @@ class MechanicSerializer(ModelSerializer):
         return round(total_rating / reviews.count(), 1)
 
     def get_ratings(self, obj):
-        reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
+        # Optimization: Use reviews from context if available
+        reviews_by_mech = self.context.get('mechanic_reviews')
+        if reviews_by_mech is not None:
+            reviews = reviews_by_mech.get(str(obj.uuid), [])
+        else:
+            reviews = Review.objects.filter(object_type='mechanic', related_object=obj.uuid)
+            
         ratings = {}
         
         # Aggregate ratings from all reviews
@@ -324,7 +347,10 @@ class MechanicSerializer(ModelSerializer):
         request = self.context.get('request', None)
         if obj.logo:
             if request:
-                return request.build_absolute_uri(obj.logo.url)
+                try:
+                    return request.build_absolute_uri(obj.logo.url)
+                except Exception:
+                    return obj.logo.url
             return obj.logo.url
         return ''
 
@@ -332,8 +358,16 @@ class MechanicSerializer(ModelSerializer):
         return obj.get_level_display()
 
     def get_price_start(self, obj):
-        amt = obj.services.filter(charge__gt=0).order_by('charge').first().charge
-        return amt
+        # Optimization: Use prefetched services instead of a new query
+        services = obj.services.all()
+        if not services:
+            return 0
+        
+        # Find the minimum charge among non-zero charges
+        valid_charges = [s.charge for s in services if s.charge and s.charge > 0]
+        if not valid_charges:
+            return 0
+        return min(valid_charges)
 
     def get_user(self, obj):
         account = obj.user  # Get the related account instance

@@ -3,7 +3,7 @@ import requests
 from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
 import decimal
-from django.db.models import Q
+from django.db.models import Q, Count
 from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
@@ -242,7 +242,60 @@ def django_date(date_str: str) -> str:
     except ValueError:
         raise ValueError('Invalid date format. Expected DD/MM/YYYY.')
 
-# ... rest of your code ...
+
+def get_optimized_listing_response(view, request, queryset):
+    """
+    Helper to optimize listing responses with annotations, 
+    select_related, and batch review fetching.
+    """
+    # 1. Annotate and select related objects for all items in queryset
+    queryset = queryset.annotate(
+        total_views_count=Count('viewers')
+    ).select_related(
+        'vehicle__dealer__user',
+        'vehicle__dealer__location'
+    )
+    
+    # 2. Paginate the optimized queryset
+    paginated_qs = view.paginate_queryset(queryset)
+    if paginated_qs is None:
+        return Response({'error': False, 'data': {'results': []}}, 200)
+    
+    # 3. Batch fetch reviews for the current page (N+1 fix)
+    vehicle_uuids = [listing.uuid for listing in paginated_qs]
+    from feedback.models import Review
+    reviews = Review.objects.filter(
+        object_type='vehicle',
+        related_object__in=vehicle_uuids
+    ).prefetch_related('rating_items')
+    
+    reviews_by_vehicle = {}
+    for review in reviews:
+        v_uuid = str(review.related_object)
+        if v_uuid not in reviews_by_vehicle:
+            reviews_by_vehicle[v_uuid] = []
+        reviews_by_vehicle[v_uuid].append(review)
+        
+    # 4. Serialize with context
+    context = {'request': request, 'vehicle_reviews': reviews_by_vehicle}
+    serializer = view.serializer_class(paginated_qs, many=True, context=context)
+
+    # 5. Return standardized response
+    return Response({
+        'error': False,
+        'message': '',
+        'data': {
+            'pagination': {
+                'offset': view.paginator.offset,
+                'limit': view.paginator.limit,
+                'count': view.paginator.count,
+                'next': view.paginator.get_next_link(),
+                'previous': view.paginator.get_previous_link(),
+            },
+            'results': serializer.data
+        }
+    }, 200)
+
 
 class ListingCountsView(APIView):
     allowed_methods = ['GET']
@@ -332,28 +385,8 @@ class ListingSearchView(ListAPIView):
         responses={200: EnvelopeListSchema}
     )
     def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(
-            self.filter_queryset(
-                self.get_queryset()
-            )
-        )
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'results': serializer.data
-            }
-        }
-        return Response(data, 200)
+        queryset = self.filter_queryset(self.get_queryset())
+        return get_optimized_listing_response(self, request, queryset)
 
 class AllListingsView(ListAPIView):
     allowed_methods = ['GET']
@@ -395,23 +428,7 @@ class AllListingsView(ListAPIView):
                 queryset = queryset.order_by(ordering)
             except Exception:
                 pass
-        queryset = self.paginate_queryset(queryset)
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'results': serializer.data
-            }
-        }
-        return Response(data, 200)
+        return get_optimized_listing_response(self, request, queryset)
 
 class FeaturedListingsView(ListAPIView):
     allowed_methods = ['GET']
@@ -442,23 +459,8 @@ class FeaturedListingsView(ListAPIView):
         responses={200: EnvelopeListSchema}
     )
     def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(self.get_queryset())
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'results': serializer.data
-            }
-        }
-        return Response(data, 200)
+        queryset = self.filter_queryset(self.get_queryset())
+        return get_optimized_listing_response(self, request, queryset)
 
 class RentListingView(ListAPIView):
     allowed_methods = ['GET']
@@ -500,28 +502,8 @@ class RentListingView(ListAPIView):
         responses={200: EnvelopeListSchema}
     )
     def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(
-            self.filter_queryset(
-                self.get_queryset()
-            )
-        )
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'results': serializer.data
-            }
-        }
-        return Response(data, 200)
+        queryset = self.filter_queryset(self.get_queryset())
+        return get_optimized_listing_response(self, request, queryset)
 
 class BuyListingView(ListAPIView):
     allowed_methods = ['GET']
@@ -554,28 +536,8 @@ class BuyListingView(ListAPIView):
         responses={200: EnvelopeListSchema}
     )
     def get(self, request, *args, **kwargs):
-        queryset = self.paginate_queryset(
-            self.filter_queryset(
-                self.get_queryset()
-            )
-        )
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-
-        data = {
-            'error': False,
-            'message': '',
-            'data': {
-                'pagination': {
-                    'offset': self.paginator.offset,
-                    'limit': self.paginator.limit,
-                    'results_count': self.paginator.count,
-                    'next': self.paginator.get_next_link(),
-                    'previous': self.paginator.get_previous_link(),
-                },
-                'results': serializer.data
-            }
-        }
-        return Response(data, 200)
+        queryset = self.filter_queryset(self.get_queryset())
+        return get_optimized_listing_response(self, request, queryset)
 
 class RentListingDetailView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ['GET', 'PUT', 'DELETE']

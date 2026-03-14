@@ -72,34 +72,51 @@ class MechanicListView(ListAPIView):
 
     def get_queryset(self):
         request = self.request
-        if not request.GET.get('lat') or not request.GET.get('lng'):
-            return Mechanic.objects.all()
+        
+        # Base queryset with optimization for related objects
+        queryset = Mechanic.objects.select_related('user', 'location').prefetch_related('services')
 
-        user_lat = float(request.GET.get('lat'))
-        user_lng = float(request.GET.get('lng'))
+        lat_raw = request.GET.get('lat')
+        lng_raw = request.GET.get('lng')
 
-        print("Getting Mechanics closest to", (user_lat, user_lng))
+        if not lat_raw or not lng_raw:
+            return queryset
 
-        mechanics = Mechanic.objects.all()
-        results = [] # results that are farther than 10km
+        try:
+            user_lat = float(lat_raw)
+            user_lng = float(lng_raw)
+        except (ValueError, TypeError):
+            return queryset
 
-        for mech in mechanics:
-            print("Mech", mech)
+        # 1. Bounding Box Optimization (Database Level)
+        # Roughly 1 degree = 111km. 30km is approx 0.27 degrees.
+        # This drastically reduces the O(n) loop in Python.
+        delta = 0.3 
+        
+        queryset = queryset.filter(
+            location__lat__gte=user_lat - delta,
+            location__lat__lte=user_lat + delta,
+            location__lng__gte=user_lng - delta,
+            location__lng__lte=user_lng + delta
+        )
+
+        # 2. Precise Haversine Filtering (Python Level)
+        # We only loop through mechanics within the bounding box
+        exclude_uuids = []
+        for mech in queryset:
             if mech.location and mech.location.lat is not None and mech.location.lng is not None:
                 dist = haversine(
-                    float(user_lat),
-                    float(user_lng),
+                    user_lat,
+                    user_lng,
                     float(mech.location.lat),
                     float(mech.location.lng),
                 )
-                print(f"Distance of {mech.business_name} is {dist}km")
-
-                if dist > 30:  # 10km radius
-                    results.append(mech.uuid)
+                if dist > 30:
+                    exclude_uuids.append(mech.uuid)
             else:
-                results.append(mech.uuid)
+                exclude_uuids.append(mech.uuid)
 
-        return mechanics.exclude(uuid__in=results)
+        return queryset.exclude(uuid__in=exclude_uuids)
                 # results.append({
                 #     "id": m.id,
                 #     "name": m.name,
@@ -122,6 +139,26 @@ class MechanicListView(ListAPIView):
                 ctx['coords'] = (lat, lng)
 
             queryset = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+            
+            # Optimization: Fetch all reviews for these mechanics in one batch
+            # instead of doing it per-item in the serializer (N+1 fix)
+            mechanic_uuids = [m.uuid for m in queryset]
+            from feedback.models import Review
+            reviews = Review.objects.filter(
+                object_type='mechanic', 
+                related_object__in=mechanic_uuids
+            ).select_related('reviewer').prefetch_related('rating_items')
+            
+            # Group reviews by mechanic uuid
+            reviews_by_mech = {}
+            for review in reviews:
+                mech_uuid = str(review.related_object)
+                if mech_uuid not in reviews_by_mech:
+                    reviews_by_mech[mech_uuid] = []
+                reviews_by_mech[mech_uuid].append(review)
+            
+            ctx['mechanic_reviews'] = reviews_by_mech
+
             serializer = self.serializer_class(queryset, many=True, context=ctx)
             data = {
                 'error': False,
