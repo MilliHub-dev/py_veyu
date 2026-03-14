@@ -771,8 +771,6 @@ def pay_for_inspection(request, inspection_id):
                 })
                 
         else:
-            # Handle Paystack Payment (Existing Logic)
-            # Generate unique reference
             uid = str(uuid.uuid4())
             parts = uid.split('-')
             reference = f'veyu-inspection-{inspection.id}-' + ''.join(parts[1:3])
@@ -789,8 +787,15 @@ def pay_for_inspection(request, inspection_id):
                 narration=f'Payment for {inspection.get_inspection_type_display()} - Inspection #{inspection.id}',
                 related_inspection=inspection
             )
+
+            from wallet.gateway.payment_adapter import PaystackAdapter
+            public_key = PaystackAdapter.public_key
+            if not public_key:
+                return Response(
+                    {'error': 'Paystack is not configured'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
-            # Return payment initialization data for frontend to use with Paystack
             return Response({
                 'success': True,
                 'data': {
@@ -802,7 +807,7 @@ def pay_for_inspection(request, inspection_id):
                     'email': request.user.email,
                     'currency': 'NGN',
                     'callback_url': f'{request.build_absolute_uri("/api/v1/inspections/")}{inspection.id}/verify-payment/',
-                    'paystack_public_key': 'pk_test_xxxx',  # Frontend should use their own key
+                    'paystack_public_key': public_key,
                 },
                 'message': 'Initialize Paystack payment on frontend with the provided reference'
             })

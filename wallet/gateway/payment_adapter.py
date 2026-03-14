@@ -236,13 +236,9 @@ class FlutterwaveAdapter(PaymentGateway):
 
 
 class PaystackAdapter(PaymentGateway):
-    secret_key=os.environ['PAYSTACK_LIVE_SECRET_KEY']
-    public_key=os.environ['PAYSTACK_LIVE_PUBLIC_KEY']
-    if settings.DEBUG:
-        public_key=os.environ['PAYSTACK_TEST_PUBLIC_KEY']
-        secret_key=os.environ['PAYSTACK_TEST_SECRET_KEY']
-
-    client = Paystack(secret_key=secret_key)
+    secret_key = os.environ.get('PAYSTACK_LIVE_SECRET_KEY')
+    public_key = os.environ.get('PAYSTACK_LIVE_PUBLIC_KEY')
+    client = Paystack(secret_key=secret_key) if secret_key else None
     countries = [
         'nigeria',
         'ghana',
