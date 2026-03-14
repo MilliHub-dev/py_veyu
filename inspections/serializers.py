@@ -186,13 +186,14 @@ class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleInspection
         fields = [
-            'vehicle', 'inspector', 'customer', 'dealer', 'inspection_type',
+            'id', 'inspection_number', 'inspection_fee', 'vehicle', 'inspector', 'customer', 'dealer', 'inspection_type',
             'exterior_data', 'interior_data', 'engine_data', 'mechanical_data',
             'safety_data', 'documentation_data', 'inspector_notes',
             'recommended_actions', 'overall_rating', 'scheduled_date', 'photos',
             'first_name', 'last_name', 'phone_number', 'state', 'lga',
             'address', 'date_of_birth', 'postal_code'
         ]
+        read_only_fields = ['id', 'inspection_number', 'inspection_fee']
     
     def validate_scheduled_date(self, value):
         """Validate scheduled date is in the future"""
