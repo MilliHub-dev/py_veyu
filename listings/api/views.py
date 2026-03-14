@@ -558,25 +558,52 @@ class RentListingDetailView(RetrieveUpdateDestroyAPIView):
         responses={200: DetailEnvelopeSchema}
     )
     def get(self, request, *args, **kwargs):
-        listing = Listing.objects.get(uuid=self.kwargs['uuid'])
+        # 1. Optimize the main listing fetch
+        listing = self.get_queryset().select_related(
+            'vehicle__dealer__user',
+            'vehicle__dealer__location'
+        ).prefetch_related(
+            'viewers'
+        ).get(uuid=self.kwargs['uuid'])
 
-        if not request.user in listing.viewers.all():
-            listing.viewers.add(request.user,)
-            listing.save()
+        # 2. Add viewer in the background (no need to wait for save if user already in list)
+        if request.user.is_authenticated and not listing.viewers.filter(id=request.user.id).exists():
+            listing.viewers.add(request.user)
+            # No need to call listing.save() for ManyToMany add()
 
+        # 3. Optimize recommended listings fetch (limit to 6 items)
         small_change = (decimal.Decimal(25/100) * listing.price)
-
-        recommended = self.queryset.filter(
+        recommended_qs = self.queryset.filter(
             Q(price__gte=(listing.price - small_change)) |
             Q(price__lte=(listing.price + small_change)) |
             Q(vehicle__brand__iexact=listing.vehicle.brand) |
             Q(payment_cycle__iexact=listing.payment_cycle)
-            # Q(vehicle__dealer=listing.vehicle.dealer)
-            # Q(price=listing.price) |
-        ).exclude(uuid=listing.uuid).distinct()
+        ).exclude(uuid=listing.uuid).select_related(
+            'vehicle__dealer__user'
+        ).distinct()[:6]
 
-        serializer = self.serializer_class(listing, context={'request': request})
-        recommended = self.serializer_class(recommended, many=True, context={'request': request})
+        # 4. Batch fetch reviews for the recommended listings
+        rec_uuids = [l.uuid for l in recommended_qs]
+        all_uuids = rec_uuids + [listing.uuid]
+        
+        from feedback.models import Review
+        reviews = Review.objects.filter(
+            object_type='vehicle',
+            related_object__in=all_uuids
+        ).prefetch_related('rating_items')
+        
+        reviews_by_vehicle = {}
+        for review in reviews:
+            v_uuid = str(review.related_object)
+            if v_uuid not in reviews_by_vehicle:
+                reviews_by_vehicle[v_uuid] = []
+            reviews_by_vehicle[v_uuid].append(review)
+
+        # 5. Serialize with context
+        context = {'request': request, 'vehicle_reviews': reviews_by_vehicle}
+        serializer = self.serializer_class(listing, context=context)
+        recommended = self.serializer_class(recommended_qs, many=True, context=context)
+        
         data = {
             'error': False,
             'message': '',
@@ -615,26 +642,56 @@ class BuyListingDetailView(RetrieveAPIView):
         responses={200: DetailEnvelopeSchema}
     )
     def get(self, request, *args, **kwargs):
-        listing = self.get_object()
+        # 1. Fetch main listing with optimized relations
+        listing = self.get_queryset().select_related(
+            'vehicle__dealer__user',
+            'vehicle__dealer__location'
+        ).prefetch_related(
+            'viewers'
+        ).get(uuid=self.kwargs['uuid'])
 
-        if not request.user in listing.viewers.all():
-            listing.viewers.add(request.user,)
-            listing.save()
+        # 2. Add viewer without triggering full model save
+        if request.user.is_authenticated and not listing.viewers.filter(id=request.user.id).exists():
+            listing.viewers.add(request.user)
 
+        # 3. Optimize recommended listings fetch (limit to 6)
         small_change = (decimal.Decimal(7.5/100) * listing.price)
-
-        recommended = self.queryset.filter(
+        recommended_qs = self.queryset.filter(
             Q(vehicle__brand__iexact=listing.vehicle.brand) |
             Q(price__gte=(listing.price - small_change)) |
             Q(price__lte=(listing.price + small_change))
-        ).exclude(uuid=listing.uuid).distinct()
+        ).exclude(uuid=listing.uuid).select_related(
+            'vehicle__dealer__user'
+        ).distinct()[:6]
+
+        # 4. Batch fetch reviews for the current listing + recommendations
+        rec_uuids = [l.uuid for l in recommended_qs]
+        all_uuids = rec_uuids + [listing.uuid]
+        
+        from feedback.models import Review
+        reviews = Review.objects.filter(
+            object_type='vehicle',
+            related_object__in=all_uuids
+        ).prefetch_related('rating_items')
+        
+        reviews_by_vehicle = {}
+        for review in reviews:
+            v_uuid = str(review.related_object)
+            if v_uuid not in reviews_by_vehicle:
+                reviews_by_vehicle[v_uuid] = []
+            reviews_by_vehicle[v_uuid].append(review)
+
+        # 5. Serialize with context
+        context = {'request': request, 'vehicle_reviews': reviews_by_vehicle}
+        serializer = self.serializer_class(listing, context=context)
+        recommended = self.serializer_class(recommended_qs, many=True, context=context)
 
         data = {
             'error': False,
             'message': '',
             'data': {
-                'recommended': self.serializer_class(recommended, context={'request': request}, many=True).data,
-                'listing': self.serializer_class(listing, context={'request': request}).data
+                'recommended': recommended.data,
+                'listing': serializer.data
             }
         }
         return Response(data=data, status=200, content_type="text/json")
