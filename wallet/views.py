@@ -420,11 +420,33 @@ class Withdrawal(APIView):
             response = withdrawal_gateway.initiate_withdrawal(amount=amount, account_details=account_details, narration=narration, reference=reference)
             transaction_status = response["status"]
             if transaction_status == 'success':
-                user_wallet.withdraw(amount=amount, transaction_status=transaction_status, account_details=account_details, reference=reference)
-                return Response(response, status=status.HTTP_200_OK)
+                transaction = Transaction.objects.create(
+                    sender=request.user.name or request.user.email,
+                    sender_wallet=user_wallet,
+                    type='withdraw',
+                    amount=amount,
+                    status='pending',
+                    recipient=account_number,
+                    narration=narration,
+                    tx_ref=reference,
+                    source='bank',
+                )
+                user_wallet.transactions.add(transaction)
+                return Response({'success': True, 'data': response.get('data', response), 'transaction_id': transaction.id}, status=status.HTTP_200_OK)
             elif transaction_status == 'error':
-                Transaction.objects.create(wallet=user_wallet, type=f'withdrwal', amount=amount, status=transaction_status, recipient= account_details,reference=reference)
-                return Response(response, status=status.HTTP_200_OK)
+                transaction = Transaction.objects.create(
+                    sender=request.user.name or request.user.email,
+                    sender_wallet=user_wallet,
+                    type='withdraw',
+                    amount=amount,
+                    status='failed',
+                    recipient=account_number,
+                    narration=narration,
+                    tx_ref=reference,
+                    source='bank',
+                )
+                user_wallet.transactions.add(transaction)
+                return Response({'success': False, 'data': response, 'transaction_id': transaction.id}, status=status.HTTP_400_BAD_REQUEST)
         else: 
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
