@@ -249,38 +249,55 @@ class PaystackAdapter(PaymentGateway):
     def initiate_deposit(self, amount, currency, customer_details, notes):pass
 
     def initiate_withdrawal(self, amount, account_details, narration, reference):
+        secret_key = self.secret_key
+        if not secret_key:
+            return {'status': 'error', 'message': 'Paystack is not configured'}
+
+        headers = {
+            'Authorization': f'Bearer {secret_key}',
+            'Content-Type': 'application/json',
+        }
+
         try:
-            # 1. Create Transfer Recipient
-            recipient_data = self.client.transfer_recipient.create(
-                type="nuban",
-                name=account_details.get('account_name', 'Beneficiary'),
-                account_number=account_details['account_number'],
-                bank_code=account_details['bank_code'],
-                currency="NGN"
+            recipient_payload = {
+                'type': 'nuban',
+                'name': account_details.get('account_name') or 'Beneficiary',
+                'account_number': account_details.get('account_number'),
+                'bank_code': account_details.get('bank_code'),
+                'currency': 'NGN',
+            }
+            recipient_resp = requests.post(
+                'https://api.paystack.co/transferrecipient',
+                headers=headers,
+                json=recipient_payload,
+                timeout=30,
             )
-            
-            if not recipient_data['status']:
+            recipient_data = recipient_resp.json()
+            if not recipient_data.get('status'):
                 return {'status': 'error', 'message': recipient_data.get('message', 'Failed to create recipient')}
-                
-            recipient_code = recipient_data['data']['recipient_code']
-            
-            # 2. Initiate Transfer
-            # Paystack expects amount in kobo
-            amount_kobo = int(float(amount) * 100)
-            
-            transfer_data = self.client.transfer.initiate(
-                source="balance",
-                reason=narration,
-                amount=amount_kobo,
-                recipient=recipient_code,
-                reference=reference
+
+            recipient_code = (recipient_data.get('data') or {}).get('recipient_code')
+            if not recipient_code:
+                return {'status': 'error', 'message': 'Failed to create recipient'}
+
+            amount_kobo = int(Decimal(str(amount)) * 100)
+            transfer_payload = {
+                'source': 'balance',
+                'reason': narration,
+                'amount': amount_kobo,
+                'recipient': recipient_code,
+                'reference': reference,
+            }
+            transfer_resp = requests.post(
+                'https://api.paystack.co/transfer',
+                headers=headers,
+                json=transfer_payload,
+                timeout=30,
             )
-            
-            if transfer_data['status']:
-                return {'status': 'success', 'data': transfer_data['data']}
-            else:
-                return {'status': 'error', 'message': transfer_data.get('message', 'Transfer failed')}
-                
+            transfer_data = transfer_resp.json()
+            if transfer_data.get('status'):
+                return {'status': 'success', 'data': transfer_data.get('data', transfer_data)}
+            return {'status': 'error', 'message': transfer_data.get('message', 'Transfer failed')}
         except Exception as error:
             return {'status': 'error', 'message': str(error)}
 

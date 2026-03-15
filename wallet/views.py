@@ -244,27 +244,40 @@ class TransactionsView(APIView):
         total_sent = all_user_transactions.filter(
             type='transfer_out', status='completed'
         ).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        data = {
-            'error': False,
-            'summary': {
-                'total_deposits': float(total_deposits),
-                'total_withdrawals': float(total_withdrawals),
-                'total_payments': float(total_payments),
-                'total_received': float(total_received),
-                'total_sent': float(total_sent),
-                'current_balance': float(wallet.balance),
-                'ledger_balance': float(wallet.ledger_balance),
-            },
-            'pagination': {
-                'total': total_count,
-                'limit': limit,
-                'offset': offset,
-                'has_more': (offset + limit) < total_count
-            },
-            'transactions': TransactionSerializer(transactions, many=True).data
+        summary = {
+            'total_deposits': float(total_deposits),
+            'total_withdrawals': float(total_withdrawals),
+            'total_payments': float(total_payments),
+            'total_received': float(total_received),
+            'total_sent': float(total_sent),
+            'current_balance': float(wallet.balance),
+            'ledger_balance': float(wallet.ledger_balance),
         }
-        return Response(data, 200)
+
+        pagination = {
+            'total': total_count,
+            'limit': limit,
+            'offset': offset,
+            'has_more': (offset + limit) < total_count
+        }
+
+        results = TransactionSerializer(transactions, many=True).data
+
+        return Response(
+            {
+                'error': False,
+                'message': '',
+                'data': {
+                    'summary': summary,
+                    'pagination': pagination,
+                    'results': results,
+                },
+                'summary': summary,
+                'pagination': pagination,
+                'transactions': results,
+            },
+            200
+        )
 
 
 
@@ -407,11 +420,11 @@ class Withdrawal(APIView):
             account_name = serializer.validated_data['account_name']
             bank_code = serializer.validated_data['bank_code']
             account_details = {'account_number': account_number, 'bank_code': bank_code, 'account_name': account_name}
-            narration = 'Withdrawal from motta wallet'
+            narration = 'Withdrawal from Veyu wallet'
             
             uid = str(uuid.uuid4())
             parts = uid.split('-')
-            reference = 'motta-' + ''.join(parts[1:])
+            reference = 'veyu-withdraw-' + ''.join(parts[1:])
 
             if user_wallet.balance < amount:
                 return Response({'error': 'Insufficient funds'}, status=status.HTTP_403_FORBIDDEN)
