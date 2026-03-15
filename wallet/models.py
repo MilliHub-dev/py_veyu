@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models.signals import post_save
@@ -233,7 +234,9 @@ class Transaction(DbModel):
     @property
     def days_old(self):
         """Returns days since transaction"""
-        return (now().date() - self.date_created.date()).days
+        if not self.date_created:
+            return 0
+        return (timezone.now().date() - self.date_created.date()).days
     
     @property
     def transaction_direction(self):
