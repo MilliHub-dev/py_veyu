@@ -748,8 +748,9 @@ class Mechanic(UserProfile):
         verbose_name = 'Mechanic Profile'
         verbose_name_plural = 'Mechanic Profiles'
 
+    @property
     def rating(self):
-        return self.average_rating()
+        return self.average_rating
     
     @property
     def business_verification_status(self):

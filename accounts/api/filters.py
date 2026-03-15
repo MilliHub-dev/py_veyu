@@ -61,7 +61,8 @@ class MechanicFilter(FilterSet):
 
         # Add each service title to the Q object as an OR condition
         for service_title in service_list:
-            q |= Q(services__service__title__iexact=service_title)
+            if service_title:
+                q |= Q(services__service__title__icontains=service_title)
 
         # Filter mechanics who offer at least one of the specified services
         return queryset.filter(q).distinct()

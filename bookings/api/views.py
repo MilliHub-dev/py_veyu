@@ -92,31 +92,39 @@ class MechanicListView(ListAPIView):
         # Roughly 1 degree = 111km. 30km is approx 0.27 degrees.
         # This drastically reduces the O(n) loop in Python.
         delta = 0.3 
-        
-        queryset = queryset.filter(
+
+        # 2. Precise Haversine Filtering (Python Level)
+        # Only loop through mechanics that actually have coordinates.
+        coords_qs = queryset.filter(location__lat__isnull=False, location__lng__isnull=False)
+        coords_qs = coords_qs.filter(
             location__lat__gte=user_lat - delta,
             location__lat__lte=user_lat + delta,
             location__lng__gte=user_lng - delta,
             location__lng__lte=user_lng + delta
         )
 
-        # 2. Precise Haversine Filtering (Python Level)
-        # We only loop through mechanics within the bounding box
         exclude_uuids = []
-        for mech in queryset:
-            if mech.location and mech.location.lat is not None and mech.location.lng is not None:
-                dist = haversine(
-                    user_lat,
-                    user_lng,
-                    float(mech.location.lat),
-                    float(mech.location.lng),
-                )
-                if dist > 30:
-                    exclude_uuids.append(mech.uuid)
-            else:
+        near_uuids = []
+        for mech in coords_qs:
+            dist = haversine(
+                user_lat,
+                user_lng,
+                float(mech.location.lat),
+                float(mech.location.lng),
+            )
+            if dist > 30:
                 exclude_uuids.append(mech.uuid)
+            else:
+                near_uuids.append(mech.uuid)
 
-        return queryset.exclude(uuid__in=exclude_uuids)
+        # Include:
+        # - mechanics within 30km (near_uuids)
+        # - mechanics without coordinates (fallback to location text filtering on frontend)
+        return queryset.filter(
+            Q(uuid__in=near_uuids)
+            | Q(location__lat__isnull=True)
+            | Q(location__lng__isnull=True)
+        ).exclude(uuid__in=exclude_uuids)
                 # results.append({
                 #     "id": m.id,
                 #     "name": m.name,
