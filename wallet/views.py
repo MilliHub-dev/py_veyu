@@ -166,15 +166,14 @@ class TransactionsView(APIView):
         ]
     )
     def get(self, request):
-        from django.db.models import Q
         from datetime import datetime
         
         wallet = Wallet.objects.get(user=request.user)
         
-        # Get all transactions related to user's wallet
-        transactions = Transaction.objects.filter(
-            Q(sender_wallet=wallet) | Q(recipient_wallet=wallet)
-        ).select_related(
+        # Get transaction history for this wallet.
+        # Use the wallet<->transactions M2M so the user only sees transactions
+        # that were applied to their wallet (prevents "transfer_in" showing for the sender).
+        transactions = wallet.transactions.select_related(
             'sender_wallet__user',
             'recipient_wallet__user',
             'related_order',
@@ -221,9 +220,7 @@ class TransactionsView(APIView):
         
         # Calculate summary statistics
         from django.db.models import Sum
-        all_user_transactions = Transaction.objects.filter(
-            Q(sender_wallet=wallet) | Q(recipient_wallet=wallet)
-        )
+        all_user_transactions = wallet.transactions.all()
         
         total_deposits = all_user_transactions.filter(
             type='deposit', status='completed'
