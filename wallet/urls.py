@@ -40,6 +40,7 @@ urlpatterns = [
     path('withdraw/', Withdrawal.as_view(), name='wallet-withdraw'),
     path('banks/', GetBanks.as_view(), name='get-banks'),
     path('resolve-account/', ResolveAccountNumber.as_view(), name='resolve-account'),
+    path('resolve-account', ResolveAccountNumber.as_view(), name='resolve-account-noslash'),
     path('transfer-fees/', GetTransferFees.as_view(), name='transfer-fees'),
     
     # Withdrawal requests for business accounts

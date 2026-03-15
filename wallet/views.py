@@ -355,6 +355,22 @@ class ResolveAccountNumber(APIView):
         else:
             return Response(seralizer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(operation_summary="Endpoint for resolving account number (query params)")
+    def get(self, request: Request):
+        seralizer = ResolveAccountNumberSerializer(
+            data={
+                'account_number': request.GET.get('account_number'),
+                'bank_code': request.GET.get('bank_code'),
+            }
+        )
+
+        if seralizer.is_valid():
+            account_details = seralizer.validated_data
+            gateway = PaystackAdapter()
+            response = gateway.resolve(account_details)
+            return Response(response)
+        return Response(seralizer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class GetBanks(APIView):
     permission_classes = [AllowAny]
