@@ -273,6 +273,7 @@ class MechanicSerializer(ModelSerializer):
     distance = SerializerMethodField()
     avg_rating = SerializerMethodField()
     ratings = SerializerMethodField()
+    jobs_done = SerializerMethodField()
 
     class Meta:
         model = Mechanic
@@ -282,7 +283,7 @@ class MechanicSerializer(ModelSerializer):
             "job_history","reviews", 'logo', 'level', 'business_name', 'slug', 'headline',
             'verified_business', 'verification_status', 'account_status', 'distance',
             'about', 'rating', 'contact_email', 'contact_phone', 'business_type', 'price_start',
-            'avg_rating', 'ratings'
+            'avg_rating', 'ratings', 'jobs_done'
         )
 
     def get_reviews(self, obj):
@@ -342,6 +343,9 @@ class MechanicSerializer(ModelSerializer):
         }
 
         return avg_ratings
+
+    def get_jobs_done(self, obj):
+        return obj.job_history.filter(booking_status='completed').count()
 
     def get_logo(self, obj):
         request = self.context.get('request', None)
