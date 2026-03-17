@@ -106,6 +106,7 @@ class ViewBookingSerializer(ModelSerializer):
         fields = [
             'uuid', 'started', 'ended', 'review', 'rating',
             'customer', 'mechanic', 'status', 'date_created', 'services',
+            'payment_method', 'payment_status', 'amount_paid', 'paid_at',
         ]
 
     def get_started(self, obj):

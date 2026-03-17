@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
 from django.db.models import Q
+import uuid
 from rest_framework.response import Response
 from django.db.models import QuerySet
 from django.contrib.auth import authenticate, login, logout
@@ -286,50 +287,122 @@ class MechanicProfileView(APIView):
         
         customer = Customer.objects.get(user=request.user)
         mech = Mechanic.me(mech_id)
-        transaction = self.paystack.verify_transaction(data['transaction_id'])
-        if transaction['status'] and transaction['data']['status'] == 'success':
+        payment_method = data.get('payment_method', 'paystack')
+        services_requested = data.get('services') or []
+        if not isinstance(services_requested, list) or not services_requested:
+            return Response({'error': True, 'message': 'services must be a non-empty list'}, status=400)
 
-            # create the booking request
-            booking = ServiceBooking.objects.create(
-                customer=customer,
-                mechanic=mech,
-                problem_description=data['problem_description'],
+        problem_description = data.get('problem_description')
+        if not problem_description:
+            return Response({'error': True, 'message': 'problem_description is required'}, status=400)
+
+        service_offerings = []
+        for srvc in services_requested:
+            try:
+                service_offerings.append(mech.services.get(service__title=srvc))
+            except Exception:
+                return Response({'error': True, 'message': f'Invalid service: {srvc}'}, status=400)
+
+        sub_total = sum([float(s.charge or 0) for s in service_offerings])
+
+        from django.utils import timezone
+        from django.db import transaction as db_transaction
+        from wallet.models import Wallet, Transaction
+        from decimal import Decimal
+
+        payment_transaction = None
+        payment_status = 'pending'
+
+        if payment_method in ['paystack', 'bank']:
+            transaction_id = data.get('transaction_id')
+            if not transaction_id:
+                return Response({'error': True, 'message': 'transaction_id is required for paystack payments'}, status=400)
+            verify = self.paystack.verify_transaction(transaction_id)
+            if not (verify.get('status') and (verify.get('data') or {}).get('status') == 'success'):
+                message = verify.get('message') or 'Unable to verify payment'
+                return Response({'error': True, 'message': f'Payment failed: {message}'}, status=402)
+
+            paid_amount = ((verify.get('data') or {}).get('amount') or 0) / 100
+            if paid_amount < sub_total:
+                return Response({'error': True, 'message': 'Amount paid is less than required'}, status=402)
+
+            payment_transaction = Transaction.objects.create(
+                sender=request.user.name or request.user.email,
+                recipient=mech.business_name or mech.user.name,
+                type='payment',
+                source='bank',
+                amount=Decimal(str(sub_total)),
+                status='completed',
+                tx_ref=str(transaction_id)[:40],
+                narration=f'Mechanic booking payment - {mech.business_name or mech.user.name}'[:200],
             )
-            booking.save(using=None)
+            payment_status = 'paid'
 
-            for srvc in data['services']:
-                service = mech.services.get(service__title=srvc)
-                booking.services.add(service,)
-            booking.save()
+        elif payment_method == 'wallet':
+            user_wallet = Wallet.objects.filter(user=request.user).first()
+            if not user_wallet:
+                return Response({'error': True, 'message': 'User wallet not found'}, status=404)
 
-            # TODO : create and send a notification to the mech on the new request
-            # NOTE : add the booking_request to mech status defaults to 'requested'
-            # mech.job_history.add(booking,)
-            # customer.service_history.add(booking,)
-            
-            # # save changes
-            # mech.save()
-            # customer.save()
+            if user_wallet.has_pin:
+                pin = data.get('pin')
+                if not pin:
+                    return Response({'error': True, 'message': 'Wallet PIN required'}, status=400)
+                if not user_wallet.check_pin(pin):
+                    return Response({'error': True, 'message': 'Incorrect wallet PIN'}, status=400)
 
-            on_booking_requested.send(
-                booking,
-                customer=customer,
-                services=data['services'],
-                mechanic=mech
-            )
-            
-            response = {
-                'error': False,
-                'message': 'Successfully sent a booking request',
-                'data': self.serializer_class(booking).data
-            }
-            return Response(response, 200)
+            if float(user_wallet.balance) < sub_total:
+                return Response({'error': True, 'message': 'Insufficient wallet balance'}, status=400)
+
+            with db_transaction.atomic():
+                uid = str(uuid.uuid4()).replace('-', '')
+                tx_ref = f'veyu-booking-{uid[:24]}'
+                payment_transaction = Transaction.objects.create(
+                    sender=request.user.name or request.user.email,
+                    sender_wallet=user_wallet,
+                    recipient=mech.business_name or mech.user.name,
+                    type='payment',
+                    source='wallet',
+                    amount=Decimal(str(sub_total)),
+                    status='completed',
+                    tx_ref=tx_ref[:40],
+                    narration=f'Mechanic booking payment - {mech.business_name or mech.user.name}'[:200],
+                )
+                user_wallet.apply_transaction(payment_transaction)
+            payment_status = 'paid'
+
+        elif payment_method == 'cash':
+            payment_status = 'pending'
+        else:
+            return Response({'error': True, 'message': 'Invalid payment_method. Use paystack, wallet, or cash.'}, status=400)
+
+        booking = ServiceBooking.objects.create(
+            customer=customer,
+            mechanic=mech,
+            problem_description=problem_description,
+            payment_method=payment_method,
+            payment_status=payment_status,
+            amount_paid=Decimal(str(sub_total)) if payment_status == 'paid' else Decimal('0.00'),
+            paid_at=timezone.now() if payment_status == 'paid' else None,
+            payment_transaction=payment_transaction,
+        )
+
+        for service in service_offerings:
+            booking.services.add(service)
+        booking.save()
+
+        on_booking_requested.send(
+            booking,
+            customer=customer,
+            services=services_requested,
+            mechanic=mech
+        )
         
         response = {
-            'error': True,
-            'message': f'Payment failed: {transaction["message"]}',
+            'error': False,
+            'message': 'Successfully sent a booking request',
+            'data': ViewBookingSerializer(booking, context={'request': request}).data
         }
-        return Response(response, 500)
+        return Response(response, 200)
 
 
 class MechanicServiceHistory(ListAPIView):

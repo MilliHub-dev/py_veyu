@@ -58,6 +58,11 @@ class ServiceBooking(DbModel):
     ended_on = models.DateTimeField(blank=True, null=True) # date of service completion
     completed_date = models.DateTimeField(blank=True, null=True) # date of service payout approval
     conversation = models.ForeignKey('chat.ChatRoom', on_delete=models.SET_NULL, blank=True, null=True, related_name='service_conversation')
+    payment_method = models.CharField(max_length=20, default='paystack')
+    payment_status = models.CharField(max_length=20, default='pending')
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    paid_at = models.DateTimeField(blank=True, null=True)
+    payment_transaction = models.ForeignKey('wallet.Transaction', blank=True, null=True, on_delete=models.SET_NULL, related_name='booking_payments')
 
     def __str__(self) -> str:
         return f"Booking #{self.id}: {self.get_booking_status_display()} - {self.get_type_display()} for {self.customer.user.name}"
