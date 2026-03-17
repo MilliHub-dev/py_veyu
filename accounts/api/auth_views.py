@@ -176,7 +176,7 @@ class EnhancedSignUpView(APIView):
             
             response_data = {
                 'error': False,
-                'message': 'Account created successfully. Please check your email to verify your account.',
+                'message': 'Account created successfully.',
                 'data': {
                     'user': AccountSerializer(user).data,
                     'tokens': tokens,
@@ -263,26 +263,21 @@ class EnhancedSignUpView(APIView):
         return user
 
     def _send_welcome_emails(self, user: Account) -> Dict[str, bool]:
-        """Send only verification email during signup."""
         try:
-            # Generate and save email verification OTP with consistent parameters
-            otp = OTP.objects.create(
-                valid_for=user,
-                channel='email',
-                purpose='verification',
-                expires_at=timezone.now() + timedelta(minutes=10)
-            )
-            verification_code = otp.code
-            
-            # Send only verification email (welcome email removed to avoid duplicates)
-            verification_sent = send_verification_email(user, verification_code)
-            
+            from utils.async_email import send_welcome_email_async
+            welcome_sent = False
+            if user.welcome_email_sent_at is None:
+                send_welcome_email_async(user)
+                user.welcome_email_sent_at = timezone.now()
+                user.save(update_fields=['welcome_email_sent_at'])
+                welcome_sent = True
+
             return {
-                'verification_sent': verification_sent,
-                'welcome_sent': True  # Set to True for backward compatibility
+                'verification_sent': False,
+                'welcome_sent': welcome_sent
             }
         except Exception as e:
-            logger.error(f"Failed to send verification email for {user.email}: {str(e)}")
+            logger.error(f"Failed to send welcome email for {user.email}: {str(e)}")
             return {
                 'verification_sent': False,
                 'welcome_sent': False
@@ -383,9 +378,14 @@ class EnhancedSignUpView(APIView):
                 
                 # Generate JWT tokens
                 tokens = TokenManager.create_tokens_for_user(user)
-                
-                # Skip welcome email to avoid duplicates (verification email is primary)
-                welcome_sent = True  # Set to True for backward compatibility
+
+                from utils.async_email import send_welcome_email_async
+                welcome_sent = False
+                if user.welcome_email_sent_at is None:
+                    send_welcome_email_async(user)
+                    user.welcome_email_sent_at = timezone.now()
+                    user.save(update_fields=['welcome_email_sent_at'])
+                    welcome_sent = True
                 
                 response_data = {
                     'error': False,

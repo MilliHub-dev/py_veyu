@@ -202,32 +202,14 @@ class SignUpView(generics.CreateAPIView):
                     if phone_number and customer.phone_number != phone_number:
                         customer.phone_number = phone_number
                         customer.save()
-                
-                # Generate and save email verification OTP with consistent parameters
-                otp = OTP.objects.create(
-                    valid_for=user,
-                    channel='email',
-                    purpose='verification',
-                    expires_at=timezone.now() + timedelta(minutes=10)
-                )
-                verification_code = otp.code
-                
-                # Log OTP creation for debugging
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"📧 OTP created for user {user.email}: {verification_code}")
 
-                # Send only verification email asynchronously (non-blocking)
-                try:
-                    send_verification_email_async(user, verification_code)
-                    logger.info(f"📧 Verification email queued for {user.email}")
-                    verification_sent = True
-                except Exception as e:
-                    logger.error(f"❌ Failed to queue verification email for {user.email}: {e}")
-                    verification_sent = False
-                
-                # Emails are sent in background, so we assume success for response
-                welcome_sent = True  # Set to True for backward compatibility, but no welcome email sent
+                from utils.async_email import send_welcome_email_async
+                welcome_sent = False
+                if user.welcome_email_sent_at is None:
+                    send_welcome_email_async(user)
+                    user.welcome_email_sent_at = timezone.now()
+                    user.save(update_fields=['welcome_email_sent_at'])
+                    welcome_sent = True
                 
                 # Create OTP for phone verification if phone number exists (but don't send duplicate email)
                 phone_number = data.get('phone_number', '')
@@ -251,14 +233,14 @@ class SignUpView(generics.CreateAPIView):
                 user_data = {
                     "token": str(user.api_token),
                     "email_verified": user.verified_email,
-                    "verification_sent": verification_sent,
+                    "verification_sent": False,
                     "welcome_email_sent": welcome_sent
                 }
                 user_data.update(AccountSerializer(user).data)
                 
                 return Response({
                     'error': False,
-                    'message': 'Account created successfully. Please check your email to verify your account.',
+                    'message': 'Account created successfully.',
                     'data': user_data
                 }, status=201)
             elif action == 'setup-business-profile':

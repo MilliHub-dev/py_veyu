@@ -135,6 +135,8 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
     
     def get_inspector(self, obj):
         """Get inspector information"""
+        if not obj.inspector:
+            return None
         return {
             'id': obj.inspector.id,
             'name': obj.inspector.name,
@@ -143,6 +145,8 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
     
     def get_customer(self, obj):
         """Get customer information"""
+        if not obj.customer:
+            return None
         return {
             'id': obj.customer.id,
             'name': obj.customer.user.name,
@@ -151,6 +155,8 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
     
     def get_dealer(self, obj):
         """Get dealer information"""
+        if not obj.dealer:
+            return None
         return {
             'id': obj.dealer.id,
             'name': obj.dealer.business_name or obj.dealer.user.name,
