@@ -53,16 +53,43 @@ def handle_booking_request(sender, **kwargs):
     mech_notification.save()
     mech_notification.send()
 
+    from django.conf import settings
+    from django.utils import timezone
+
+    booking = sender
+    booking_dt = getattr(booking, 'date_created', None) or timezone.now()
+    provider_name = getattr(mechanic, 'business_name', None) or getattr(mechanic.user, 'name', None) or 'mechanic'
+    service_name = services_text
+    booking_reference = getattr(booking, 'uuid', None) or getattr(booking, 'id', None) or ''
+    currency = '₦'
+    amount = ''
+    try:
+        amount = f"{float(getattr(booking, 'sub_total', 0) or 0):,.2f}"
+    except Exception:
+        amount = ''
+
+    booking_url = None
+    frontend_url = getattr(settings, 'FRONTEND_URL', None)
+    if frontend_url:
+        booking_url = f"{frontend_url.rstrip('/')}/bookings/{booking_reference}"
+
     threading.Thread(
         target=send_email,
         kwargs={
             'subject':"Booking Request Sent!",
-            'template':'utils/templates/new_booking.html',
+            'template':'new_booking.html',
             'context': {
-                'booking': sender,
-                'customer': kwargs['customer'],
-                'mechanic': kwargs['mechanic'],
-                'services': kwargs['services']
+                'app_name': 'Veyu',
+                'user_name': customer.user.name or 'there',
+                'booking_reference': booking_reference,
+                'service_name': service_name,
+                'provider_name': provider_name,
+                'booking_date': booking_dt.strftime('%B %d, %Y'),
+                'booking_time': booking_dt.strftime('%I:%M %p'),
+                'status': getattr(booking, 'booking_status', None) or 'confirmed',
+                'currency': currency,
+                'amount': amount,
+                'booking_url': booking_url,
             },
             'recipients':[
                 kwargs['customer'].user.email,

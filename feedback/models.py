@@ -16,18 +16,27 @@ def initialize_firebase():
         # Check if default app is already initialized
         try:
             firebase_admin.get_app()
+            return True
         except ValueError:
             # Not initialized, proceed with initialization
-            cred_path = getattr(settings, 'FIREBASE_CREDENTIALS', 'serviceAccountKey.json')
-            if hasattr(settings, 'FIREBASE_CREDENTIALS_DICT'):
+            cred_dict = getattr(settings, 'FIREBASE_CREDENTIALS_DICT', None)
+            if cred_dict:
                 # Use dictionary config if available (better for cloud deployment)
-                cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_DICT)
+                cred = credentials.Certificate(cred_dict)
             else:
                 # Fallback to file path
+                import os
+                cred_path = getattr(settings, 'FIREBASE_CREDENTIALS', 'serviceAccountKey.json')
+                if not os.path.isabs(cred_path):
+                    base_dir = getattr(settings, 'BASE_DIR', None)
+                    if base_dir:
+                        cred_path = os.path.join(str(base_dir), cred_path)
                 cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
+            return True
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {e}")
+        return False
 
 # Create your models here.
 class Review(DbModel):
@@ -302,7 +311,8 @@ class Notification(DbModel):
             from accounts.models import FCMDevice
             
             # Initialize Firebase if needed
-            initialize_firebase()
+            if not initialize_firebase():
+                return
             
             devices = FCMDevice.objects.filter(user=self.user, active=True)
             if devices.exists():

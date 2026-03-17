@@ -1,4 +1,6 @@
 import os
+import base64
+import json
 from pathlib import Path
 from environ import Env
 from decouple import config, Csv
@@ -101,7 +103,7 @@ ACCOUNT_LOCKOUT_MAX_ATTEMPTS = 5
 
 # Firebase Cloud Messaging (FCM) Settings
 # Path to your serviceAccountKey.json file
-FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, 'serviceAccountKey.json')
+FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS_PATH') or os.path.join(BASE_DIR, 'serviceAccountKey.json')
 # Alternatively, you can use a dictionary from environment variables
 # FIREBASE_CREDENTIALS_DICT = {
 #     "type": "service_account",
@@ -115,6 +117,26 @@ FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 #     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
 #     "client_x509_cert_url": env('FIREBASE_CLIENT_CERT_URL'),
 # }
+FIREBASE_CREDENTIALS_DICT = None
+_firebase_creds_b64 = os.environ.get('FIREBASE_CREDENTIALS_BASE64')
+_firebase_creds_json = os.environ.get('FIREBASE_CREDENTIALS_JSON')
+if _firebase_creds_b64:
+    FIREBASE_CREDENTIALS_DICT = json.loads(base64.b64decode(_firebase_creds_b64).decode('utf-8'))
+elif _firebase_creds_json:
+    FIREBASE_CREDENTIALS_DICT = json.loads(_firebase_creds_json)
+elif os.environ.get('FIREBASE_PROJECT_ID') and os.environ.get('FIREBASE_PRIVATE_KEY') and os.environ.get('FIREBASE_CLIENT_EMAIL'):
+    FIREBASE_CREDENTIALS_DICT = {
+        "type": "service_account",
+        "project_id": os.environ.get('FIREBASE_PROJECT_ID'),
+        "private_key_id": os.environ.get('FIREBASE_PRIVATE_KEY_ID'),
+        "private_key": os.environ.get('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
+        "client_email": os.environ.get('FIREBASE_CLIENT_EMAIL'),
+        "client_id": os.environ.get('FIREBASE_CLIENT_ID'),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": os.environ.get('FIREBASE_CLIENT_CERT_URL'),
+    }
 ACCOUNT_LOCKOUT_DURATION_MINUTES = 30
 
 # Rate Limiting Settings
