@@ -2239,20 +2239,42 @@ class NotificationView(APIView):
     serializer_class =  NotificationSerializer
 
     def get(self, request):
-        notifications = Notification.objects.filter(user=request.user)
-        notifications = Notification.objects.filter(user=request.user, read=False)
-        data = {
-            'error': False,
-            'data': NotificationSerializer(notifications, many=True).data
-        }
-        return Response(data, 200)
+        unread_only_raw = request.GET.get('unread_only', 'false')
+        unread_only = str(unread_only_raw).lower() in ['true', '1', 'yes', 'on']
+
+        qs = Notification.objects.filter(user=request.user).order_by('-date_created')
+        unread_count = qs.filter(read=False).count()
+        if unread_only:
+            qs = qs.filter(read=False)
+
+        paginator = OffsetPaginator(default_limit=50)
+        page = paginator.paginate_queryset(qs, request, view=self)
+
+        return Response(
+            {
+                'error': False,
+                'message': '',
+                'data': {
+                    'unread_count': unread_count,
+                    'pagination': {
+                        'offset': paginator.offset,
+                        'limit': paginator.limit,
+                        'count': paginator.count,
+                        'next': paginator.get_next_link(),
+                        'previous': paginator.get_previous_link()
+                    },
+                    'results': NotificationSerializer(page, many=True).data
+                }
+            },
+            200
+        )
 
     def post(self, request):
         import logging
         logger = logging.getLogger(__name__)
         
         # Get notification_id from request data
-        notification_id = request.data.get('notification_id')
+        notification_id = request.data.get('notification_id') or request.data.get('uuid')
         
         if not notification_id:
             logger.error(f"Missing notification_id in request. Received data: {request.data}")
@@ -2263,15 +2285,36 @@ class NotificationView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            notifications = Notification.objects.filter(user=request.user)
+            notifications = Notification.objects.filter(user=request.user).order_by('-date_created')
             notification = notifications.get(uuid=notification_id)
             notification.mark_as_read()
-            
-            data = {
-                'error': False,
-                'data': NotificationSerializer(notifications.filter(read=False), many=True).data
-            }
-            return Response(data, 200)
+
+            unread_only_raw = request.GET.get('unread_only', 'true')
+            unread_only = str(unread_only_raw).lower() in ['true', '1', 'yes', 'on']
+            unread_count = notifications.filter(read=False).count()
+
+            qs = notifications.filter(read=False) if unread_only else notifications
+            paginator = OffsetPaginator(default_limit=50)
+            page = paginator.paginate_queryset(qs, request, view=self)
+
+            return Response(
+                {
+                    'error': False,
+                    'message': '',
+                    'data': {
+                        'unread_count': unread_count,
+                        'pagination': {
+                            'offset': paginator.offset,
+                            'limit': paginator.limit,
+                            'count': paginator.count,
+                            'next': paginator.get_next_link(),
+                            'previous': paginator.get_previous_link()
+                        },
+                        'results': NotificationSerializer(page, many=True).data
+                    }
+                },
+                200
+            )
         except Notification.DoesNotExist:
             return Response({
                 'error': True,
