@@ -854,7 +854,13 @@ def verify_inspection_payment(request, inspection_id):
         gateway = PaystackAdapter()
         verification_response = gateway.verify_transaction(reference)
         
-        if verification_response.get('status') == 'success':
+        # Paystack returns {status: True, message: "Verification successful", data: {status: "success", ...}}
+        is_successful = (
+            verification_response.get('status') is True and 
+            verification_response.get('data', {}).get('status') == 'success'
+        )
+        
+        if is_successful:
             # Payment successful
             with db_transaction.atomic():
                 # Get the pending transaction
@@ -865,8 +871,25 @@ def verify_inspection_payment(request, inspection_id):
                 ).first()
                 
                 if not payment_transaction:
+                    # Check if already completed
+                    payment_transaction = Transaction.objects.filter(
+                        tx_ref=reference,
+                        related_inspection=inspection,
+                        status='completed'
+                    ).first()
+                    
+                    if payment_transaction:
+                        return Response({
+                            'success': True,
+                            'message': 'Payment already verified',
+                            'data': {
+                                'inspection_id': inspection.id,
+                                'payment_status': inspection.payment_status
+                            }
+                        })
+                    
                     return Response(
-                        {'error': 'Transaction not found'},
+                        {'error': 'Transaction not found or already processed'},
                         status=status.HTTP_404_NOT_FOUND
                     )
                 
@@ -923,7 +946,9 @@ def verify_inspection_payment(request, inspection_id):
             return Response({
                 'success': False,
                 'error': 'Payment verification failed',
-                'message': verification_response.get('message', 'Unable to verify payment')
+                'message': verification_response.get('message', 'Unable to verify payment'),
+                'paystack_status': verification_response.get('status'),
+                'paystack_data_status': verification_response.get('data', {}).get('status')
             }, status=status.HTTP_400_BAD_REQUEST)
         
     except Exception as e:
