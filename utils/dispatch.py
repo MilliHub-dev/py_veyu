@@ -156,6 +156,10 @@ def notify_motaa_staff_of_listing_creation(sender, **kwargs):
 @receiver(on_inspection_created)
 def handle_inspection_created(sender, **kwargs):
     customer = sender
+    dealer = kwargs.get('dealer')
+    order = kwargs.get('order')
+    customer_cta_link = f"/orders/{order.uuid}" if order else '/inspections'
+
     # Format the date and time for better readability
     from datetime import datetime
     try:
@@ -170,8 +174,18 @@ def handle_inspection_created(sender, **kwargs):
         message=f"Your vehicle inspection has been scheduled for {formatted_date} at {kwargs['time']}. The inspector will contact you before the appointment.",
         level='info',
         cta_text='View Details',
-        cta_link='/inspections',
+        cta_link=customer_cta_link,
     )
+
+    if dealer and getattr(dealer, 'user', None):
+        create_and_send_user_notifications(
+            user=dealer.user,
+            subject="New Inspection Booking",
+            message=f"An inspection has been booked for {formatted_date} at {kwargs['time']}. Please prepare for the customer visit.",
+            level='info',
+            cta_text='View Order',
+            cta_link=customer_cta_link,
+        )
 
 
 @receiver(otp_requested)

@@ -1177,12 +1177,19 @@ class BookInspectionView(APIView):
             inspection.save()
             
             # Trigger inspection created signal for notification
-            on_inspection_created.send(customer, date=date_str, time=time)
+            on_inspection_created.send(
+                customer,
+                date=date_str,
+                time=time,
+                dealer=listing.vehicle.dealer,
+                order=order,
+            )
             
             # Send inspection scheduled email using the new template
             try:
                 from accounts.utils.email_notifications import send_inspection_scheduled
                 from datetime import datetime, time as dt_time
+                dealer_user = listing.vehicle.dealer.user
                 
                 # Parse the date string to a datetime object for formatting
                 try:
@@ -1224,6 +1231,7 @@ class BookInspectionView(APIView):
                 }
                 
                 send_inspection_scheduled(request.user, inspection_details)
+                send_inspection_scheduled(dealer_user, inspection_details)
                 
             except Exception as e:
                 import logging
@@ -1235,7 +1243,7 @@ class BookInspectionView(APIView):
                 from utils.mail import send_email
                 send_email(
                     subject="Inspection Scheduled",
-                    recipients=[request.user.email],
+                    recipients=[request.user.email, listing.vehicle.dealer.user.email],
                     template="utils/templates/inspection_scheduled.html",
                     context={
                         "customer_name": request.user.first_name or request.user.email,
@@ -1302,7 +1310,8 @@ class BookInspectionView(APIView):
                 'success': True,
                 'message': 'Inspection Scheduled',
                 'slip_reference': slip_reference,
-                'inspection_slip': inspection_slip
+                'inspection_slip': inspection_slip,
+                'order': OrderSerializer(order, context={'request': request}).data,
             }, status=status.HTTP_200_OK)
         except KeyError as error:
             import logging
