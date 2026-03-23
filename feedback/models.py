@@ -392,6 +392,50 @@ class Notification(DbModel):
         verbose_name_plural = 'Notifications'
         
 
+def create_and_send_user_notifications(
+    *,
+    user,
+    subject,
+    message,
+    level='info',
+    cta_text=None,
+    cta_link=None,
+    create_in_app=True,
+    send_push=True,
+):
+    """
+    Create an in-app notification record and optionally dispatch a push notification.
+
+    Returns a list of created Notification instances.
+    """
+    notifications = []
+
+    notification_kwargs = {
+        'user': user,
+        'subject': subject,
+        'message': message,
+        'level': level,
+        'cta_text': cta_text,
+        'cta_link': cta_link,
+    }
+
+    if create_in_app:
+        notifications.append(
+            Notification.objects.create(
+                channel='in-app',
+                **notification_kwargs,
+            )
+        )
+
+    if send_push:
+        push_notification = Notification.objects.create(
+            channel='push',
+            **notification_kwargs,
+        )
+        push_notification.send()
+        notifications.append(push_notification)
+
+    return notifications
 
 
 

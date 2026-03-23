@@ -1,8 +1,8 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import Listing, ListingBoost
+from .models import Listing, ListingBoost, Order
 from accounts.models import Customer
-from feedback.models import Notification
+from feedback.models import create_and_send_user_notifications
 import threading
 import logging
 
@@ -13,18 +13,14 @@ def _broadcast_worker(subject, message, cta_link=None, cta_text=None, level='inf
         customers = Customer.objects.select_related('user').all()
         count = 0
         for customer in customers:
-            # Create Notification with channel='push' to ensure it attempts to send push
-            # It will also be visible in the in-app list
-            n = Notification.objects.create(
+            create_and_send_user_notifications(
                 user=customer.user,
                 subject=subject,
                 message=message,
                 level=level,
-                channel='push', 
                 cta_link=cta_link,
-                cta_text=cta_text
+                cta_text=cta_text,
             )
-            n.send()
             count += 1
         logger.info(f"Broadcasted notification '{subject}' to {count} customers.")
     except Exception as e:
@@ -97,3 +93,23 @@ def boost_post_save(sender, instance, created, **kwargs):
         cta_text = "View Listing"
         
         broadcast_notification(subject, message, cta_link, cta_text, level='info')
+
+
+@receiver(post_save, sender=Order)
+def order_post_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    dealer_user = getattr(getattr(getattr(instance.order_item, 'vehicle', None), 'dealer', None), 'user', None)
+    listing_title = getattr(instance.order_item, 'title', 'your listing')
+    order_link = f"/orders/{instance.uuid}"
+
+    if dealer_user:
+        create_and_send_user_notifications(
+            user=dealer_user,
+            subject="New Order Received",
+            message=f"You received a new order for {listing_title}.",
+            level='info',
+            cta_text='View Order',
+            cta_link=order_link,
+        )

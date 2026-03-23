@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 from .models import Wallet, Transaction
 from accounts.models import Mechanic, Dealer, Customer
@@ -15,9 +16,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from decimal import Decimal
-from utils.dispatch import (
-    on_wallet_deposit,
-)
 from .gateway.payment_factory import get_payment_gateway
 from .gateway.payment_adapter import (
     FlutterwaveAdapter,
@@ -167,6 +165,9 @@ class TransactionsView(APIView):
     )
     def get(self, request):
         from datetime import datetime
+        from django.db.models import Sum
+
+        wallet = get_object_or_404(Wallet, user=request.user)
         
         # Get all transactions where the user is either the sender or the recipient, regardless of wallet.
         transactions = Transaction.objects.filter(
@@ -217,7 +218,6 @@ class TransactionsView(APIView):
         transactions = transactions[offset:offset + limit]
         
         # Calculate summary statistics
-        from django.db.models import Sum
         all_user_transactions = wallet.transactions.all()
         
         total_deposits = all_user_transactions.filter(
@@ -332,9 +332,6 @@ class Deposit(APIView):
             transaction.save()
             user_wallet.transactions.add(transaction,)
             user_wallet.save()
-
-            # # send a notification
-            on_wallet_deposit.send(request.user, wallet=user_wallet, amount=amount)
 
             data = {
                 'error': False,
@@ -587,6 +584,4 @@ class UserTransactionSummaryView(APIView):
         }
         
         return Response(data, status=status.HTTP_200_OK)
-
-
 

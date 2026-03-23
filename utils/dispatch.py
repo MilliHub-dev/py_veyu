@@ -1,7 +1,7 @@
 import typing
 from django.dispatch import Signal, receiver
 from accounts.models import (Account, Customer, )
-from feedback.models import Notification
+from feedback.models import create_and_send_user_notifications
 from .sms import send_sms
 from .mail import send_email
 from django.dispatch import Signal, receiver
@@ -28,30 +28,24 @@ def handle_booking_request(sender, **kwargs):
     services_text = ', '.join(service for service in services) if services else 'service'
     
     # Customer notification
-    user_notification = Notification(
+    create_and_send_user_notifications(
         user=customer.user,
         subject="Service Booking Confirmed",
         message=f"Your booking with {mechanic.user.name or 'mechanic'} for {services_text} has been confirmed. They will contact you shortly.",
         level='success',
-        channel='push',
         cta_text='View Booking',
-        cta_link='/bookings'
+        cta_link='/bookings',
     )
-    user_notification.save()
-    user_notification.send()
 
     # Mechanic notification
-    mech_notification = Notification(
+    create_and_send_user_notifications(
         user=mechanic.user,
         subject="New Service Booking",
         message=f"{customer.user.name or 'A customer'} has booked you for {services_text}. Please review the booking details and contact the customer.",
         level='info',
-        channel='push',
         cta_text='View Booking',
-        cta_link='/bookings'
+        cta_link='/bookings',
     )
-    mech_notification.save()
-    mech_notification.send()
 
     from django.conf import settings
     from django.utils import timezone
@@ -113,17 +107,14 @@ def handle_wallet_deposit(sender, **kwargs):
     currency_symbol = '₦' if wallet.currency == 'NGN' else wallet.currency
     formatted_amount = f"{currency_symbol}{amount:,.2f}"
     
-    notification = Notification(
+    create_and_send_user_notifications(
         user=user,
         subject="Wallet Funded Successfully",
         message=f"Your wallet has been credited with {formatted_amount}. Your new balance is {currency_symbol}{wallet.balance:,.2f}.",
         level='success',
-        channel='push',
         cta_text='View Wallet',
-        cta_link='/wallet'
+        cta_link='/wallet',
     )
-    notification.save()
-    notification.send()
 
 
 @receiver(on_booking_completed)
@@ -133,17 +124,14 @@ def handle_booking_completed(sender, **kwargs):
     mechanic = booking.mechanic
     
     # Customer notification
-    user_notification = Notification(
+    create_and_send_user_notifications(
         user=customer.user,
         subject="Service Booking Completed",
         message=f"Your booking with {mechanic.user.name or 'mechanic'} has been marked as completed.",
         level='success',
-        channel='push',
         cta_text='Rate Service',
-        cta_link=f'/bookings/{booking.uuid}/review'
+        cta_link=f'/bookings/{booking.uuid}/review',
     )
-    user_notification.save()
-    user_notification.send()
 
 
 @receiver(on_listing_created)
@@ -176,17 +164,14 @@ def handle_inspection_created(sender, **kwargs):
     except:
         formatted_date = kwargs['date']
     
-    notification = Notification(
+    create_and_send_user_notifications(
         user=customer.user,
         subject="Vehicle Inspection Scheduled",
         message=f"Your vehicle inspection has been scheduled for {formatted_date} at {kwargs['time']}. The inspector will contact you before the appointment.",
         level='info',
-        channel='push',
         cta_text='View Details',
-        cta_link='/inspections'
+        cta_link='/inspections',
     )
-    notification.save()
-    notification.send()
 
 
 @receiver(otp_requested)
@@ -245,17 +230,14 @@ def handle_checkout_success(sender, listing, customer, **kwargs):
             message = f"Your rental booking for {vehicle_name} has been confirmed. Check your email for details."
             cta_text = "View Booking"
         
-        notification = Notification(
+        create_and_send_user_notifications(
             user=customer.user,
             subject=subject,
             message=message,
             level='success',
-            channel='push',
             cta_text=cta_text,
-            cta_link='/orders'
+            cta_link='/orders',
         )
-        notification.save()
-        notification.send()
     send_customer_notification()
 
 @receiver(user_just_registered)
@@ -273,6 +255,3 @@ def handle_phone_number_changed(sender:Account, otp):
         message=f'Hi {sender.first_name}, welcome to veyu, your verification code is {otp.code}',
         recipient=sender.phone_number,
     )
-
-
-

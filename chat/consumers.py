@@ -15,7 +15,7 @@ from rest_framework.authtoken.models import Token
 from .api.serializers import (
     ChatMessageSerializer,
 )
-from feedback.models import Notification
+from feedback.models import create_and_send_user_notifications
 from accounts.utils.email_notifications import send_simple_email
 
 
@@ -146,15 +146,13 @@ class LiveChatConsumer(JsonWebsocketConsumer):
             recipients = self.room.members.exclude(id=user.id)
             for recipient in recipients:
                 try:
-                    notif = Notification.objects.create(
+                    create_and_send_user_notifications(
                         user=recipient,
                         subject="New message",
                         message=f"{user.name or user.email}: {message.text}",
-                        channel="push",
                         level="info",
                         cta_link=f"/chat/{self.room.uuid}",
                     )
-                    notif.send()
 
                     if recipient.user_type == 'dealer':
                         try:
@@ -177,4 +175,3 @@ class LiveChatConsumer(JsonWebsocketConsumer):
     def chat_message(self, event):
         data = event["data"]
         self.send_json(data)
-

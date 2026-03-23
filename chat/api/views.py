@@ -16,7 +16,7 @@ from rest_framework.permissions import (
 	IsAuthenticated,
 )
 from accounts.models import Dealership, Customer, Mechanic, Account
-from feedback.models import Notification
+from feedback.models import create_and_send_user_notifications
 from accounts.utils.email_notifications import send_simple_email, send_security_alert
 
 @api_view(["GET"])
@@ -109,14 +109,13 @@ def send_message_view(request, room_id=None):
 
 	recipients = room.members.exclude(id=request.user.id)
 	for recipient in recipients:
-		notif = Notification.objects.create(
+		create_and_send_user_notifications(
 			user=recipient,
 			subject="New message",
 			message=f"{request.user.name or request.user.email}: {message_text}",
-			channel="push",
 			level="info",
+			cta_link=f"/chat/{room.uuid}",
 		)
-		notif.send()
 
 		if recipient.user_type == 'dealer':
 			try:
@@ -178,15 +177,13 @@ def new_chat_view(request):
 
 	recipients = room.members.exclude(id=sender.id)
 	for recipient in recipients:
-		notif = Notification.objects.create(
+		create_and_send_user_notifications(
 			user=recipient,
 			subject="New message",
 			message=f"{sender.name or sender.email}: {text}",
-			channel="push",
 			level="info",
 			cta_link=f"/chat/{room.uuid}",
 		)
-		notif.send()
 
 		if recipient.user_type == 'dealer':
 			try:
@@ -222,7 +219,6 @@ def chat_room_view(request, room_id):
 		'data': room
 	}
 	return Response(data)
-
 
 
 

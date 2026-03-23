@@ -8,3 +8,4 @@ class WalletConfig(AppConfig):
     
     def ready(self):
         import wallet.admin  # Ensure admin is loaded
+        import wallet.signals  # noqa: F401
