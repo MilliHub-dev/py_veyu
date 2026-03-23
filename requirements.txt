@@ -16,13 +16,13 @@ hyperlink==21.0.0
 incremental==24.7.2
 pyopenssl==24.2.1
 service-identity==24.1.0
-msgpack==1.1.0
+msgpack>=1.1.0
 attrs==24.2.0
 cffi==1.17.1
 
 # Database
 dj-database-url==2.2.0
-psycopg2-binary==2.9.9
+# psycopg2-binary==2.9.9  # Commented out due to build issues on Python 3.14 on macOS without PostgreSQL headers. Not needed for local development using SQLite.
 
 # Authentication & Authorization
 dj-rest-auth==6.0.0
@@ -47,7 +47,7 @@ django-environ==0.11.2
 
 # Filtering & Utilities
 django-filter==24.3
-pillow==10.4.0
+pillow>=10.4.0
 
 # Admin Interface
 django-jazzmin==3.0.1
@@ -89,8 +89,8 @@ tzdata==2024.1
 typing_extensions==4.12.2
 
 # Security & Cryptography
-cryptography==43.0.1
-certifi==2024.8.30
+cryptography>=43.0.1
+certifi>=2024.8.30
 
 # Packaging & Setup
 setuptools==75.8.0
@@ -100,9 +100,9 @@ packaging==24.1
 PyYAML==6.0.2
 
 # Firebase Cloud Messaging
-firebase-admin==6.6.0
-inflection==0.5.1
-uritemplate==4.1.1
+firebase-admin>=6.5.0
+inflection>=0.5.1
+uritemplate>=4.1.1
 
 # Logging
 python-json-logger==2.0.7
@@ -119,6 +119,6 @@ daphne==4.1.2
 
 # Additional Dependencies
 django-rest-framework==0.1.0
-zope.interface==7.0.3
+zope.interface>=7.0.3
 # Redis for caching and sessions (Railway)
 django-redis==5.4.0

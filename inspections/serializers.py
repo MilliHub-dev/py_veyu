@@ -170,6 +170,21 @@ class VehicleInspectionDetailSerializer(serializers.ModelSerializer):
 
 class VehicleInspectionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating vehicle inspections"""
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    inspector = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    dealer = serializers.PrimaryKeyRelatedField(
+        queryset=Dealership.objects.all(),
+        required=False,
+        allow_null=True
+    )
     photos = InspectionPhotoSerializer(many=True, required=False)
     exterior_data = serializers.JSONField(required=False, default=dict)
     interior_data = serializers.JSONField(required=False, default=dict)

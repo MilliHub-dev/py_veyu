@@ -46,7 +46,7 @@ class VehicleInspection(DbModel):
     # Core relationships
     vehicle = models.ForeignKey('listings.Vehicle', on_delete=models.CASCADE, related_name='inspections')
     inspector = models.ForeignKey('accounts.Account', on_delete=models.CASCADE, related_name='conducted_inspections', null=True, blank=True)
-    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='vehicle_inspections')
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='vehicle_inspections', null=True, blank=True)
     dealer = models.ForeignKey('accounts.Dealership', on_delete=models.CASCADE, related_name='dealer_inspections', null=True, blank=True)
     
     # Inspection metadata
