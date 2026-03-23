@@ -445,6 +445,7 @@ class OrderSerializer(ModelSerializer):
     order_item = ListingSerializer()
     customer = SerializerMethodField()
     inspections = OrderInspectionSerializer(many=True, read_only=True)
+    vehicle_inspections = SerializerMethodField()
 
     class Meta:
         model = Order
@@ -461,10 +462,25 @@ class OrderSerializer(ModelSerializer):
             'order_status',
             'applied_coupons',
             'inspections',
+            'vehicle_inspections',
         ]
 
     def get_customer(self, obj):
         return obj.customer.user.name
+
+    def get_vehicle_inspections(self, obj):
+        from inspections.models import VehicleInspection
+        from inspections.serializers import VehicleInspectionListSerializer
+
+        if not obj.order_item_id or not obj.customer_id:
+            return []
+
+        inspections = VehicleInspection.objects.filter(
+            vehicle=obj.order_item.vehicle,
+            customer=obj.customer,
+        ).order_by('-inspection_date', '-date_created')
+
+        return VehicleInspectionListSerializer(inspections, many=True).data
 
 # English or Spanish 😊
 class VehicleUpdateSerializer(ModelSerializer):
