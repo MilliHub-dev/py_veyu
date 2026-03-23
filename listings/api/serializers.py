@@ -448,7 +448,20 @@ class OrderSerializer(ModelSerializer):
 
     class Meta:
         model = Order
-        fields = '__all__'
+        fields = [
+            'id',
+            'uuid',
+            'date_created',
+            'last_updated',
+            'customer',
+            'order_type',
+            'order_item',
+            'payment_option',
+            'paid',
+            'order_status',
+            'applied_coupons',
+            'inspections',
+        ]
 
     def get_customer(self, obj):
         return obj.customer.user.name

@@ -168,12 +168,15 @@ class TransactionsView(APIView):
         from django.db.models import Sum
 
         wallet = get_object_or_404(Wallet, user=request.user)
-        user_transaction_filter = (
-            Q(sender_wallet__user=request.user) |
-            Q(recipient_wallet__user=request.user) |
+        related_non_wallet_filter = (
             Q(related_order__customer__user=request.user) |
             Q(related_booking__customer__user=request.user) |
             Q(related_inspection__customer__user=request.user)
+        ) & Q(recipient_wallet__isnull=True)
+        user_transaction_filter = (
+            Q(sender_wallet__user=request.user) |
+            Q(recipient_wallet__user=request.user) |
+            related_non_wallet_filter
         )
         
         # Get all transactions where the user is either the sender or the recipient, regardless of wallet.
@@ -537,12 +540,15 @@ class UserTransactionSummaryView(APIView):
         from django.db.models import Sum, Count, Q
         
         wallet = Wallet.objects.get(user=request.user)
-        user_transaction_filter = (
-            Q(sender_wallet__user=request.user) |
-            Q(recipient_wallet__user=request.user) |
+        related_non_wallet_filter = (
             Q(related_order__customer__user=request.user) |
             Q(related_booking__customer__user=request.user) |
             Q(related_inspection__customer__user=request.user)
+        ) & Q(recipient_wallet__isnull=True)
+        user_transaction_filter = (
+            Q(sender_wallet__user=request.user) |
+            Q(recipient_wallet__user=request.user) |
+            related_non_wallet_filter
         )
         
         # Get all user transactions

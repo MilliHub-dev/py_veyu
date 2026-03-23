@@ -1250,6 +1250,18 @@ class BookInspectionView(APIView):
             
             # Build inspection slip response
             slip_reference = f"INSP-{inspection.id}"
+            dealer_location = (
+                listing.vehicle.dealer.location.address
+                if (hasattr(listing.vehicle.dealer, 'location') and listing.vehicle.dealer.location)
+                else 'To be determined'
+            )
+            vehicle_vin = getattr(listing.vehicle, 'vin', None) or 'N/A'
+            vehicle_plate_number = (
+                getattr(listing.vehicle, 'plate_number', None)
+                or getattr(listing.vehicle, 'license_plate', None)
+                or getattr(listing.vehicle, 'registration_number', None)
+                or 'N/A'
+            )
             inspection_slip = {
                 'id': inspection.id,
                 'slip_reference': slip_reference,
@@ -1268,6 +1280,8 @@ class BookInspectionView(APIView):
                     'make': listing.vehicle.brand,
                     'model': listing.vehicle.model or 'N/A',
                     'year': getattr(listing.vehicle, 'year', 'N/A'),
+                    'vin_number': vehicle_vin,
+                    'plate_number': vehicle_plate_number,
                 },
                 'listing': {
                     'id': listing.id,
@@ -1277,7 +1291,7 @@ class BookInspectionView(APIView):
                 'dealer': {
                     'id': listing.vehicle.dealer.id,
                     'name': listing.vehicle.dealer.business_name or listing.vehicle.dealer.user.name,
-                    'location': listing.vehicle.dealer.location.address if (hasattr(listing.vehicle.dealer, 'location') and listing.vehicle.dealer.location) else 'To be determined',
+                    'location': dealer_location,
                     'contact_person': listing.vehicle.dealer.contact_name if hasattr(listing.vehicle.dealer, 'contact_name') else 'Dealership Representative',
                     'contact_phone': listing.vehicle.dealer.phone_number if hasattr(listing.vehicle.dealer, 'phone_number') else 'N/A',
                 },

@@ -1007,6 +1007,19 @@ class InspectionSlipRetrievalView(APIView):
                     'error': 'Permission denied',
                     'message': 'You do not have permission to view this inspection slip.'
                 }, status=status.HTTP_403_FORBIDDEN)
+
+            dealer_location = (
+                inspection.dealer.location.address
+                if (hasattr(inspection.dealer, 'location') and inspection.dealer.location)
+                else 'To be determined'
+            )
+            vehicle_vin = getattr(inspection.vehicle, 'vin', None) or 'N/A'
+            vehicle_plate_number = (
+                getattr(inspection.vehicle, 'plate_number', None)
+                or getattr(inspection.vehicle, 'license_plate', None)
+                or getattr(inspection.vehicle, 'registration_number', None)
+                or 'N/A'
+            )
             
             # Return slip details
             return Response({
@@ -1028,6 +1041,8 @@ class InspectionSlipRetrievalView(APIView):
                         'model': inspection.vehicle.model or 'N/A',
                         'condition': inspection.vehicle.get_condition_display(),
                         'color': inspection.vehicle.color,
+                        'vin_number': vehicle_vin,
+                        'plate_number': vehicle_plate_number,
                     },
                     'customer': {
                         'name': inspection.customer.user.name,
@@ -1037,7 +1052,9 @@ class InspectionSlipRetrievalView(APIView):
                     'dealer': {
                         'name': inspection.dealer.business_name,
                         'phone': inspection.dealer.phone_number or 'N/A',
-                    }
+                        'location': dealer_location,
+                    },
+                    'created_at': inspection.date_created.isoformat() if inspection.date_created else None,
                 }
             })
             
