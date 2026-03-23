@@ -22,7 +22,7 @@ cffi==1.17.1
 
 # Database
 dj-database-url==2.2.0
-# psycopg2-binary==2.9.9  # Commented out due to build issues on Python 3.14 on macOS without PostgreSQL headers. Not needed for local development using SQLite.
+psycopg2-binary==2.9.9  # Required for production (PostgreSQL). If this fails locally on Python 3.14 on macOS, ignore it since you are using SQLite.
 
 # Authentication & Authorization
 dj-rest-auth==6.0.0
