@@ -1492,6 +1492,9 @@ class CheckoutDocumentView(APIView):
         ]
 
 
+from inspections.serializers import VehicleInspectionListSerializer
+from inspections.models import VehicleInspection
+
 class UserOrdersView(ListAPIView):
     """
     Get all orders for the authenticated user
@@ -1501,8 +1504,8 @@ class UserOrdersView(ListAPIView):
     pagination_class = OffsetPaginator
     
     @swagger_auto_schema(
-        operation_summary="Get user's orders",
-        operation_description="Retrieve all orders placed by the authenticated user",
+        operation_summary="Get user's orders and inspections",
+        operation_description="Retrieve all orders and inspections for the authenticated user",
         tags=["Orders"],
     )
     def get(self, request):
@@ -1510,8 +1513,11 @@ class UserOrdersView(ListAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return Response({
                 'error': False,
-                'message': 'Orders retrieved successfully',
-                'data': [],
+                'message': 'Data retrieved successfully',
+                'data': {
+                    'orders': [],
+                    'inspections': []
+                },
                 'pagination': {
                     'count': 0,
                     'next': None,
@@ -1525,24 +1531,31 @@ class UserOrdersView(ListAPIView):
             
         user = request.user
         
-        # Get orders for the user based on their role
+        # Get orders for the user
         if hasattr(user, 'customer'):
             orders = Order.objects.filter(customer=user.customer).order_by('-date_created')
+            inspections = VehicleInspection.objects.filter(customer=user.customer).order_by('-date_created')
         else:
             orders = Order.objects.filter(customer__user=user).order_by('-date_created')
+            inspections = VehicleInspection.objects.filter(customer__user=user).order_by('-date_created')
         
         # Paginate results
         paginator = self.pagination_class()
         paginated_orders = paginator.paginate_queryset(orders, request)
+        paginated_inspections = paginator.paginate_queryset(inspections, request)
         
-        serializer = self.serializer_class(paginated_orders, many=True)
+        order_serializer = self.serializer_class(paginated_orders, many=True)
+        inspection_serializer = VehicleInspectionListSerializer(paginated_inspections, many=True)
         
         return Response({
             'error': False,
-            'message': 'Orders retrieved successfully',
-            'data': serializer.data,
+            'message': 'Data retrieved successfully',
+            'data': {
+                'orders': order_serializer.data,
+                'inspections': inspection_serializer.data
+            },
             'pagination': {
-                'count': orders.count(),
+                'count': orders.count() + inspections.count(),
                 'next': paginator.get_next_link(),
                 'previous': paginator.get_previous_link()
             }

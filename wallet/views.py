@@ -168,18 +168,16 @@ class TransactionsView(APIView):
     def get(self, request):
         from datetime import datetime
         
-        wallet = Wallet.objects.get(user=request.user)
-        
-        # Get transaction history for this wallet.
-        # Use the wallet<->transactions M2M so the user only sees transactions
-        # that were applied to their wallet (prevents "transfer_in" showing for the sender).
-        transactions = wallet.transactions.select_related(
+        # Get all transactions where the user is either the sender or the recipient, regardless of wallet.
+        transactions = Transaction.objects.filter(
+            Q(sender_wallet__user=request.user) | Q(recipient_wallet__user=request.user) | Q(related_inspection__customer__user=request.user)
+        ).select_related(
             'sender_wallet__user',
             'recipient_wallet__user',
             'related_order',
             'related_booking',
             'related_inspection'
-        ).order_by('-date_created')
+        ).order_by('-date_created').distinct()
         
         # Apply filters
         transaction_type = request.GET.get('type')
