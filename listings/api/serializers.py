@@ -444,6 +444,7 @@ class OrderItemSerializer(ModelSerializer):
 class OrderSerializer(ModelSerializer):
     order_item = ListingSerializer()
     customer = SerializerMethodField()
+    inspections = OrderInspectionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order

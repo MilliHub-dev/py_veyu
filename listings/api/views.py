@@ -951,6 +951,10 @@ class CheckoutView(APIView):
                             inspection.payment_transaction = transaction
                             inspection.paid_at = transaction.date_created
                             inspection.save()
+
+                        if transaction.related_inspection_id != inspection.id:
+                            transaction.related_inspection = inspection
+                            transaction.save(update_fields=['related_inspection', 'last_updated'])
                         
                     else:
                         return Response({
@@ -1020,6 +1024,9 @@ class CheckoutView(APIView):
                             payment_transaction=recent_payment,
                             paid_at=recent_payment.date_created
                         )
+                        if recent_payment.related_inspection_id != paid_inspection.id:
+                            recent_payment.related_inspection = paid_inspection
+                            recent_payment.save(update_fields=['related_inspection', 'last_updated'])
                         logger.info(f"Created inspection {paid_inspection.id} from recent payment")
                     else:
                         # No recent payment found, require payment
@@ -1626,4 +1633,3 @@ class CancelOrderView(APIView):
                 'error': True,
                 'message': f'Failed to cancel order: {str(e)}'
             }, 500)
-

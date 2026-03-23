@@ -168,10 +168,17 @@ class TransactionsView(APIView):
         from django.db.models import Sum
 
         wallet = get_object_or_404(Wallet, user=request.user)
+        user_transaction_filter = (
+            Q(sender_wallet__user=request.user) |
+            Q(recipient_wallet__user=request.user) |
+            Q(related_order__customer__user=request.user) |
+            Q(related_booking__customer__user=request.user) |
+            Q(related_inspection__customer__user=request.user)
+        )
         
         # Get all transactions where the user is either the sender or the recipient, regardless of wallet.
         transactions = Transaction.objects.filter(
-            Q(sender_wallet__user=request.user) | Q(recipient_wallet__user=request.user) | Q(related_inspection__customer__user=request.user)
+            user_transaction_filter
         ).select_related(
             'sender_wallet__user',
             'recipient_wallet__user',
@@ -218,7 +225,7 @@ class TransactionsView(APIView):
         transactions = transactions[offset:offset + limit]
         
         # Calculate summary statistics
-        all_user_transactions = wallet.transactions.all()
+        all_user_transactions = Transaction.objects.filter(user_transaction_filter).distinct()
         
         total_deposits = all_user_transactions.filter(
             type='deposit', status='completed'
@@ -530,11 +537,16 @@ class UserTransactionSummaryView(APIView):
         from django.db.models import Sum, Count, Q
         
         wallet = Wallet.objects.get(user=request.user)
+        user_transaction_filter = (
+            Q(sender_wallet__user=request.user) |
+            Q(recipient_wallet__user=request.user) |
+            Q(related_order__customer__user=request.user) |
+            Q(related_booking__customer__user=request.user) |
+            Q(related_inspection__customer__user=request.user)
+        )
         
         # Get all user transactions
-        all_transactions = Transaction.objects.filter(
-            Q(sender_wallet=wallet) | Q(recipient_wallet=wallet)
-        )
+        all_transactions = Transaction.objects.filter(user_transaction_filter).distinct()
         
         # Calculate statistics
         total_deposits = all_transactions.filter(
@@ -584,4 +596,3 @@ class UserTransactionSummaryView(APIView):
         }
         
         return Response(data, status=status.HTTP_200_OK)
-

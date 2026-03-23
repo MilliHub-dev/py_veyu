@@ -388,6 +388,11 @@ class MechanicProfileView(APIView):
 
         for service in service_offerings:
             booking.services.add(service)
+
+        if payment_transaction and payment_transaction.related_booking_id != booking.id:
+            payment_transaction.related_booking = booking
+            payment_transaction.save(update_fields=['related_booking', 'last_updated'])
+
         booking.save()
 
         on_booking_requested.send(
@@ -471,5 +476,4 @@ class BookingUpdateView(RetrieveAPIView):
     #     response = self.post(request, *args, **kwargs)
     #     return response
     
-
 
