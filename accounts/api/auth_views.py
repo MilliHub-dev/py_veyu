@@ -428,7 +428,7 @@ class EnhancedLoginView(APIView):
             "**Provider Validation:**\n"
             "- Account provider must match the provided provider\n"
             "- `veyu`: Email/password validation\n"
-            "- Social providers: Token validation (to be implemented)\n\n"
+            "- `google`, `apple`, `facebook`: authenticate with `provider` + `oauth_token` (email optional)\n\n"
             "**Response includes:**\n"
             "- JWT access and refresh tokens\n"
             "- User profile information\n"
@@ -486,20 +486,53 @@ class EnhancedLoginView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             validated_data = serializer.validated_data
-            email = validated_data['email']
-            password = validated_data['password']
             provider = validated_data.get('provider', 'veyu')
+            email = validated_data.get('email')
+            password = validated_data.get('password')
+            provider_data = None
 
-            # Get user account
-            try:
-                user = Account.objects.get(email=email)
-            except Account.DoesNotExist:
-                logger.warning(f"Login attempt with non-existent email: {email}")
-                raise AuthenticationError(
-                    "Account does not exist",
-                    ErrorCodes.AUTHENTICATION_FAILED,
-                    user_message="Invalid email or password"
-                )
+            if provider == "veyu":
+                # Get user account
+                try:
+                    user = Account.objects.get(email=email)
+                except Account.DoesNotExist:
+                    logger.warning(f"Login attempt with non-existent email: {email}")
+                    raise AuthenticationError(
+                        "Account does not exist",
+                        ErrorCodes.AUTHENTICATION_FAILED,
+                        user_message="Invalid email or password"
+                    )
+            else:
+                oauth_token = validated_data.get('oauth_token') or validated_data.get('access_token')
+                is_valid, provider_data = validate_social_auth_token(provider, oauth_token)
+                if not is_valid:
+                    logger.warning(f"Social auth validation failed for {provider}: {provider_data.get('error')}")
+                    raise AuthenticationError(
+                        f"{provider.title()} token validation failed",
+                        ErrorCodes.TOKEN_INVALID,
+                        user_message=f"{provider.title()} authentication failed. Please try again."
+                    )
+
+                provider_email = provider_data.get('email')
+                if not email:
+                    email = provider_email
+
+                if not email:
+                    raise AuthenticationError(
+                        "Provider email missing",
+                        ErrorCodes.AUTHENTICATION_FAILED,
+                        user_message=f"{provider.title()} did not return an email address."
+                    )
+
+                try:
+                    user = Account.objects.get(email=email)
+                except Account.DoesNotExist:
+                    logger.warning(f"Social login attempt with non-existent email: {email}")
+                    raise AuthenticationError(
+                        "Account does not exist",
+                        ErrorCodes.AUTHENTICATION_FAILED,
+                        user_message="No account exists for this social login yet. Please sign up first."
+                    )
 
             # Validate provider match
             if user.provider != provider:
@@ -517,26 +550,8 @@ class EnhancedLoginView(APIView):
                         user_message="Invalid email or password"
                     )
             else:
-                # Validate social auth token
-                oauth_token = request.data.get('oauth_token') or request.data.get('access_token')
-                if not oauth_token:
-                    return Response({
-                        'error': True,
-                        'message': f'OAuth token is required for {provider} login',
-                        'code': ErrorCodes.VALIDATION_ERROR
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                is_valid, provider_data = validate_social_auth_token(provider, oauth_token)
-                if not is_valid:
-                    logger.warning(f"Social auth validation failed for {provider}: {provider_data.get('error')}")
-                    raise AuthenticationError(
-                        f"{provider.title()} token validation failed",
-                        ErrorCodes.TOKEN_INVALID,
-                        user_message=f"{provider.title()} authentication failed. Please try again."
-                    )
-                
                 # Verify the email matches
-                provider_email = provider_data.get('email')
+                provider_email = (provider_data or {}).get('email')
                 if provider_email and provider_email.lower() != email.lower():
                     logger.warning(f"Email mismatch for {provider}: {email} vs {provider_email}")
                     raise AuthenticationError(

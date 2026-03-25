@@ -598,12 +598,12 @@ class LoginSerializer(Serializer):
     """
     
     email = EmailField(
-        required=True,
+        required=False,
         help_text="User's registered email address",
         style={'placeholder': 'user@example.com'}
     )
     password = CharField(
-        required=True,
+        required=False,
         write_only=True,
         help_text="User's password (required for Veyu accounts)",
         style={'input_type': 'password', 'placeholder': '••••••••'}
@@ -613,6 +613,16 @@ class LoginSerializer(Serializer):
         default='veyu',
         allow_blank=True,
         help_text="Authentication provider: veyu, google, apple, facebook"
+    )
+    oauth_token = CharField(
+        required=False,
+        write_only=True,
+        help_text="OAuth identity token/access token for social login providers"
+    )
+    access_token = CharField(
+        required=False,
+        write_only=True,
+        help_text="Alias for oauth_token"
     )
 
     class Meta:
@@ -630,20 +640,29 @@ class LoginSerializer(Serializer):
         email = attrs.get('email')
         password = attrs.get('password')
         provider = attrs.get('provider') or 'veyu'  # Ensure default value
+        oauth_token = attrs.get('oauth_token') or attrs.get('access_token')
         
         # Set provider in attrs if not present
         if 'provider' not in attrs or not attrs['provider']:
             attrs['provider'] = 'veyu'
             provider = 'veyu'
 
-        try:
-            user = Account.objects.get(email=email)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Invalid email or password.")
+        if provider == "veyu":
+            if not email or not password:
+                raise serializers.ValidationError("Email and password are required.")
 
-        # Validate password for Veyu accounts
-        if provider == "veyu" and not user.check_password(raw_password=password):
-            raise serializers.ValidationError("Invalid email or password.")
+            try:
+                user = Account.objects.get(email=email)
+            except Account.DoesNotExist:
+                raise serializers.ValidationError("Invalid email or password.")
+
+            if not user.check_password(raw_password=password):
+                raise serializers.ValidationError("Invalid email or password.")
+        else:
+            if not oauth_token:
+                raise serializers.ValidationError("oauth_token is required for social login.")
+            attrs['user'] = None
+            return attrs
 
         # Check if user is active
         if not user.is_active:
