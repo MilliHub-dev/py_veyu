@@ -12,6 +12,9 @@ from django.shortcuts import render
 import os
 import logging
 
+from accounts.password_reset import validate_password_reset_token, reset_password_with_token
+from utils.exceptions import ValidationError
+
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
@@ -99,6 +102,55 @@ def root_handler(request):
         'health': '/health',
         'version': '1.0.0'
     })
+
+
+@require_http_methods(["GET", "POST"])
+def password_reset_form(request):
+    """Render and handle the password reset form."""
+    token = (request.POST.get('token') or request.GET.get('token') or '').strip()
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'https://veyu.cc').rstrip('/')
+    context = {
+        'token': token,
+        'frontend_url': frontend_url,
+        'token_valid': False,
+        'success': False,
+    }
+    status_code = 200
+
+    if not token:
+        context['error_message'] = "This password reset link is incomplete. Please request a new one."
+        return render(request, 'password_reset_form.html', context, status=400)
+
+    is_valid, user, error_message = validate_password_reset_token(token)
+    if not is_valid:
+        context['error_message'] = error_message or "This password reset link is invalid or has expired."
+        return render(request, 'password_reset_form.html', context, status=401)
+
+    context.update({
+        'token_valid': True,
+        'user_email': user.email,
+    })
+
+    if request.method == "POST":
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        if new_password != confirm_password:
+            context['error_message'] = "Passwords do not match."
+            status_code = 400
+        else:
+            try:
+                result = reset_password_with_token(token, new_password)
+                context.update({
+                    'success': True,
+                    'success_message': result['message'],
+                    'token_valid': False,
+                })
+            except ValidationError as exc:
+                context['error_message'] = exc.user_message
+                status_code = 400
+
+    return render(request, 'password_reset_form.html', context, status=status_code)
 
 # Utility views for URLs
 def index_view(request, template=None):

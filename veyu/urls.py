@@ -17,7 +17,7 @@ from drf_yasg import openapi
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework import permissions
 from utils.admin import veyu_admin
-from utils.views import health_check
+from utils.views import health_check, password_reset_form
 
 api_info = openapi.Info(
     title="Veyu API Documentation",
@@ -75,6 +75,7 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm'
     ),
+    path('reset-password/', password_reset_form, name='password_reset_form'),
     
     # Log Viewer
     path('logs/', include('utils.log_urls', namespace='logs')),
