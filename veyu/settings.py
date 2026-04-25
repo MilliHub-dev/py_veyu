@@ -481,8 +481,18 @@ JWT_BLACKLIST_TIMEOUT = int(timedelta(days=7).total_seconds())  # Keep blacklist
 
 # from corsheaders.conf import
 
-
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "https://dev.veyu.cc",
+    "https://veyu.cc",
+    "https://www.veyu.cc",
+    "https://veyu.up.railway.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 
 # ===============================================
