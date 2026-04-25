@@ -382,14 +382,19 @@ if CLOUDINARY_URL:
         secure=True
     )
 else:
-    raise ImproperlyConfigured("CLOUDINARY_URL environment variable not set")
+    import logging as _logging
+    _logging.getLogger(__name__).warning("CLOUDINARY_URL not set — media uploads will be unavailable")
 
 # STORAGE SETTINGS (Cloudinary for media)
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
 
-# Use Cloudinary for media uploads
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# Use Cloudinary for media uploads only if configured
+DEFAULT_FILE_STORAGE = (
+    'cloudinary_storage.storage.MediaCloudinaryStorage'
+    if CLOUDINARY_URL else
+    'django.core.files.storage.FileSystemStorage'
+)
 
 # Static files configuration
 STATICFILES_DIRS = [
