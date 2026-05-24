@@ -453,7 +453,7 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens
     'UPDATE_LAST_LOGIN': True,  # Update last login on token refresh
 
-    # Algorithm and signing
+    # Algorithm and signings
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': config('DJANGO_SECRET_KEY'),
     'VERIFYING_KEY': None,
