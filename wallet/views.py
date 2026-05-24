@@ -1,3 +1,6 @@
+import logging
+import uuid
+logger = logging.getLogger(__name__)
 from rest_framework.views import APIView
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -21,7 +24,6 @@ from .gateway.payment_adapter import (
     FlutterwaveAdapter,
     PaystackAdapter
 )
-import uuid
 from drf_yasg.utils import swagger_auto_schema
 
 User = get_user_model()
@@ -312,45 +314,48 @@ class Deposit(APIView):
     )
     def post(self, request:Request):
         data = request.data
-        
-        # raise Exception
-        deposit_status = data.get('status')
-        reference = data.get('tx_ref')
         transaction_id = data.get('reference')
-        currency = data.get('currency')
-        amount = data.get('amount')
 
-        # confirm the deposit from flutterwave
+        if not transaction_id:
+            return Response({'error': 'Transaction reference is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify the transaction with Paystack — never trust client-supplied amount/status
         response = self.gateway.verify_transaction(transaction_id)
-        print("Verifying transaction:", transaction_id)
 
-        print("Response:", response)
-        
-        response = {'status': 'success'}        
-        if response['status'] == 'success':
+        paystack_status = (response.get('data') or {}).get('status') if isinstance(response, dict) else None
+
+        if paystack_status == 'success':
+            verified_amount = Decimal(str((response['data'].get('amount', 0)) / 100))  # Paystack returns kobo
+            verified_currency = response['data'].get('currency', 'NGN')
+
             user_wallet = get_object_or_404(Wallet, user=request.user)
-            user_wallet.ledger_balance += Decimal(amount)
+
+            # Prevent duplicate crediting for the same reference
+            if Transaction.objects.filter(tx_ref=transaction_id, status='completed').exists():
+                return Response({'error': 'Transaction already processed'}, status=status.HTTP_400_BAD_REQUEST)
+
             transaction = Transaction(
-                sender=request.user.name,
+                sender=request.user.name or request.user.email,
                 recipient_wallet=user_wallet,
-                type="deposit",
-                narration=f'Deposit of {amount}',
+                type='deposit',
+                narration=f'Deposit of {verified_currency} {verified_amount}',
                 source='bank',
-                amount=Decimal(amount),
-                status='completed'
+                amount=verified_amount,
+                status='completed',
+                tx_ref=transaction_id,
             )
             transaction.save()
-            user_wallet.transactions.add(transaction,)
-            user_wallet.save()
+            user_wallet.apply_transaction(transaction)
 
-            data = {
+            return Response({
                 'error': False,
                 'transaction': TransactionSerializer(transaction).data,
                 'message': 'Deposit successfully received!'
-            }
-            return Response(data, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
         else:
-            return Response('Invalid hash', status=status.HTTP_400_BAD_REQUEST)
+            error_msg = (response.get('data') or {}).get('gateway_response', 'Transaction verification failed') if isinstance(response, dict) else 'Verification failed'
+            logger.warning(f"Deposit verification failed for user {request.user.email}, ref {transaction_id}: {error_msg}")
+            return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
  
 class ResolveAccountNumber(APIView):
@@ -433,6 +438,7 @@ class Withdrawal(APIView):
             
             withdrawal_gateway = PaystackAdapter()
             response = withdrawal_gateway.initiate_withdrawal(amount=amount, account_details=account_details, narration=narration, reference=reference)
+            logger.info(f"Paystack withdrawal response for {user.email}: {response}")
             transaction_status = response["status"]
             if transaction_status == 'success':
                 transaction = Transaction.objects.create(
@@ -449,6 +455,8 @@ class Withdrawal(APIView):
                 user_wallet.transactions.add(transaction)
                 return Response({'success': True, 'data': response.get('data', response), 'transaction_id': transaction.id}, status=status.HTTP_200_OK)
             elif transaction_status == 'error':
+                error_message = response.get('message', 'Withdrawal failed')
+                logger.error(f"Paystack withdrawal failed for {user.email}: {error_message}")
                 transaction = Transaction.objects.create(
                     sender=request.user.name or request.user.email,
                     sender_wallet=user_wallet,
@@ -461,7 +469,7 @@ class Withdrawal(APIView):
                     source='bank',
                 )
                 user_wallet.transactions.add(transaction)
-                return Response({'success': False, 'data': response, 'transaction_id': transaction.id}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'error': error_message, 'transaction_id': transaction.id}, status=status.HTTP_400_BAD_REQUEST)
         else: 
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         

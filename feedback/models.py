@@ -338,7 +338,7 @@ class Notification(DbModel):
                 )
                 
                 try:
-                    response = messaging.send_multicast(message)
+                    response = messaging.send_each_for_multicast(message)
                     if response.failure_count > 0:
                         responses = response.responses
                         failed_tokens = []
