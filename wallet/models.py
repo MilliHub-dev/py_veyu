@@ -37,7 +37,7 @@ class Wallet(DbModel):
             
         if trans.type in ['payment', 'charge', 'transfer_out', 'withdraw']:
             self.ledger_balance -= trans.amount
-        elif trans.type in ['transfer_in', 'deposit']:
+        elif trans.type in ['transfer_in', 'deposit', 'adjustment']:
             self.ledger_balance += trans.amount
         self.transactions.add(trans)
         self.save()
@@ -172,6 +172,7 @@ class Transaction(DbModel):
         'transfer_out': 'Transfer Out', # transfer to another wallet
         'charge': 'Wallet Charge', # for system charges/services e.g premium sub
         'payment': 'Payment', # payment for services/sale
+        'adjustment': 'Admin Adjustment', # manual balance correction by admin
     }
     TRANSACTION_STATUS = {
         'pending': 'Pending',

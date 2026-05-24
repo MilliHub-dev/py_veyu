@@ -163,7 +163,85 @@ def chat_view(request, room_name=None):
 
 @csrf_exempt
 def payment_webhook(request):
-    """Payment webhook handler"""
+    """Paystack webhook handler — updates withdrawal transaction status and notifies user."""
+    import hashlib
+    import hmac
+    import json
+    import os
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    # Verify Paystack signature
+    secret = os.environ.get('PAYSTACK_LIVE_SECRET_KEY', '')
+    signature = request.headers.get('X-Paystack-Signature', '')
+    computed = hmac.new(secret.encode('utf-8'), request.body, hashlib.sha512).hexdigest()
+    if signature and secret and not hmac.compare_digest(computed, signature):
+        logger.warning("Paystack webhook signature mismatch — rejected")
+        return JsonResponse({'status': 'invalid signature'}, status=400)
+
+    try:
+        payload = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'status': 'bad payload'}, status=400)
+
+    event = payload.get('event', '')
+    data = payload.get('data', {})
+    reference = data.get('reference', '')
+
+    if not reference or not event.startswith('transfer.'):
+        return JsonResponse({'status': 'received'})
+
+    try:
+        from wallet.models import Transaction
+        from utils.simple_mail import send_simple_email
+
+        tx = Transaction.objects.filter(tx_ref=reference, type='withdraw').first()
+        if not tx:
+            logger.info(f"Webhook: no withdrawal transaction found for ref {reference}")
+            return JsonResponse({'status': 'received'})
+
+        user = tx.sender_wallet.user if tx.sender_wallet else None
+
+        if event == 'transfer.success':
+            tx.status = 'completed'
+            tx.save(update_fields=['status'])
+            logger.info(f"Withdrawal {reference} marked completed for {user and user.email}")
+            if user:
+                send_simple_email(
+                    subject="Withdrawal Successful – Veyu",
+                    recipients=[user.email],
+                    message=(
+                        f"Hi {user.first_name or 'there'},\n\n"
+                        f"Your withdrawal of {tx.amount} NGN has been successfully processed.\n\n"
+                        f"Reference: {reference}\n\n"
+                        f"The funds should reflect in your bank account within minutes.\n\n"
+                        f"Best regards,\nThe Veyu Team"
+                    ),
+                )
+
+        elif event in ('transfer.failed', 'transfer.reversed'):
+            tx.status = 'failed'
+            tx.save(update_fields=['status'])
+            reason = data.get('reason') or data.get('gateway_response') or 'Unknown reason'
+            logger.warning(f"Withdrawal {reference} failed/reversed for {user and user.email}: {reason}")
+            if user:
+                send_simple_email(
+                    subject="Withdrawal Failed – Veyu",
+                    recipients=[user.email],
+                    message=(
+                        f"Hi {user.first_name or 'there'},\n\n"
+                        f"Your withdrawal of {tx.amount} NGN could not be completed.\n\n"
+                        f"Reason: {reason}\n"
+                        f"Reference: {reference}\n\n"
+                        f"Your wallet balance has not been deducted. Please try again or contact support.\n\n"
+                        f"Best regards,\nThe Veyu Team"
+                    ),
+                )
+
+    except Exception as e:
+        logger.error(f"Error processing payment webhook for ref {reference}: {e}")
+
     return JsonResponse({'status': 'received'})
 
 @csrf_exempt

@@ -347,6 +347,22 @@ class Deposit(APIView):
             transaction.save()
             user_wallet.apply_transaction(transaction)
 
+            # Email user on successful deposit
+            try:
+                from utils.simple_mail import send_simple_email
+                send_simple_email(
+                    subject="Deposit Successful – Veyu",
+                    recipients=[request.user.email],
+                    message=(
+                        f"Hi {request.user.first_name or 'there'},\n\n"
+                        f"Your deposit of {verified_currency} {verified_amount} has been received and credited to your Veyu wallet.\n\n"
+                        f"Reference: {transaction_id}\n\n"
+                        f"Best regards,\nThe Veyu Team"
+                    ),
+                )
+            except Exception as e:
+                logger.error(f"Failed to send deposit email to {request.user.email}: {e}")
+
             return Response({
                 'error': False,
                 'transaction': TransactionSerializer(transaction).data,
@@ -453,6 +469,22 @@ class Withdrawal(APIView):
                     source='bank',
                 )
                 user_wallet.transactions.add(transaction)
+                try:
+                    from utils.simple_mail import send_simple_email
+                    send_simple_email(
+                        subject="Withdrawal Initiated – Veyu",
+                        recipients=[user.email],
+                        message=(
+                            f"Hi {user.first_name or 'there'},\n\n"
+                            f"Your withdrawal request of {amount} NGN has been submitted and is being processed.\n\n"
+                            f"Reference: {reference}\n"
+                            f"Account: {account_number}\n\n"
+                            f"You will receive another email once the transfer completes.\n\n"
+                            f"Best regards,\nThe Veyu Team"
+                        ),
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send withdrawal initiation email to {user.email}: {e}")
                 return Response({'success': True, 'data': response.get('data', response), 'transaction_id': transaction.id}, status=status.HTTP_200_OK)
             elif transaction_status == 'error':
                 error_message = response.get('message', 'Withdrawal failed')

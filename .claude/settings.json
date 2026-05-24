@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Bash(python manage.py makemigrations wallet --name=\"add_adjustment_transaction_type\")"
     ]
   }
 }

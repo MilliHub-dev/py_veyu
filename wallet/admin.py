@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .models import Wallet, Transaction
 from utils.admin import veyu_admin
 
@@ -20,26 +20,86 @@ class WalletAdmin(admin.ModelAdmin):
         'currency',
         'date_created'
     ]
-    
+
     list_filter = (
         'currency',
         'date_created',
     )
-    
+
     search_fields = (
         'user__email',
         'user__first_name',
         'user__last_name',
     )
-    
+
     readonly_fields = (
         'user',
-        'ledger_balance',
         'currency',
         'date_created',
         'last_updated',
-        'transaction_summary'
+        'transaction_summary',
+        'adjustment_note',
     )
+
+    fields = (
+        'user',
+        'ledger_balance',
+        'adjustment_note',
+        'currency',
+        'date_created',
+        'last_updated',
+        'transaction_summary',
+    )
+
+    def adjustment_note(self, obj):
+        return format_html(
+            '<p style="color:#856404;background:#fff3cd;padding:8px;border-radius:4px;margin:0;">'
+            '⚠️ Editing the balance directly creates an <strong>Admin Adjustment</strong> transaction '
+            'for audit purposes. Enter a positive value to set the new balance.'
+            '</p>'
+        )
+    adjustment_note.short_description = ''
+
+    def save_model(self, request, obj, form, change):
+        if change and 'ledger_balance' in form.changed_data:
+            try:
+                original = Wallet.objects.get(pk=obj.pk)
+                old_balance = Decimal(str(original.ledger_balance))
+                new_balance = Decimal(str(obj.ledger_balance))
+                diff = new_balance - old_balance
+
+                if diff != 0:
+                    # Save the new balance first
+                    super().save_model(request, obj, form, change)
+
+                    # Create audit transaction
+                    tx_type = 'adjustment'
+                    narration = (
+                        f"Admin balance adjustment by {request.user.email}: "
+                        f"{'increased' if diff > 0 else 'decreased'} by ₦{abs(diff):,.2f} "
+                        f"(₦{old_balance:,.2f} → ₦{new_balance:,.2f})"
+                    )
+                    transaction = Transaction.objects.create(
+                        sender=request.user.email,
+                        recipient=obj.user.email,
+                        recipient_wallet=obj,
+                        type=tx_type,
+                        amount=abs(diff),
+                        status='completed',
+                        narration=narration,
+                        source='wallet',
+                    )
+                    obj.transactions.add(transaction)
+                    self.message_user(
+                        request,
+                        f"Balance updated from ₦{old_balance:,.2f} to ₦{new_balance:,.2f}. "
+                        f"Adjustment transaction #{transaction.id} created.",
+                    )
+                    return
+            except (InvalidOperation, Wallet.DoesNotExist):
+                pass
+
+        super().save_model(request, obj, form, change)
     
     def user_email(self, obj):
         return obj.user.email
