@@ -21,8 +21,11 @@ else:
             'veyudev.pythonanywhere.com',
             'veyu.vercel.app',
             'veyu.com.ng',
+            'dev.veyu.autos',
+            '.veyu.autos',
             'veyu-backend.onrender.com',
             'veyu-h18m.onrender.com',
+            '.onrender.com',
             'api.veyu.com',
             '*', # remove after dev testing of frontend
             ]

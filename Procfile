@@ -1,3 +1,3 @@
-web: python start.py
-worker: python manage.py runworker
-release: python manage.py migrate
+web: DJANGO_SETTINGS_MODULE=veyu.render_settings python start.py
+worker: DJANGO_SETTINGS_MODULE=veyu.render_settings python manage.py runworker
+release: DJANGO_SETTINGS_MODULE=veyu.render_settings python manage.py migrate
