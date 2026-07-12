@@ -18,6 +18,9 @@ from rest_framework.authentication import BasicAuthentication, SessionAuthentica
 from rest_framework import permissions
 from utils.admin import veyu_admin
 from utils.views import health_check, password_reset_form
+import logging
+
+logger = logging.getLogger(__name__)
 
 api_info = openapi.Info(
     title="Veyu API Documentation",
@@ -32,12 +35,18 @@ api_info = openapi.Info(
     license=openapi.License(name="MIT License"),
 )
 
-schema_view = get_schema_view(
-    api_info,
-    public=True,
-    authentication_classes=(),
-    permission_classes=(permissions.AllowAny,),
-)
+try:
+    schema_view = get_schema_view(
+        api_info,
+        public=True,
+        authentication_classes=(),
+        permission_classes=(permissions.AllowAny,),
+    )
+    logger.info("drf-yasg schema view initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize drf-yasg schema view: {e}")
+    # Create a fallback schema view that won't crash
+    schema_view = None
 
 
 urlpatterns = [
@@ -49,8 +58,9 @@ urlpatterns = [
     # path('old-admin/', include(admin.site.urls)),  # Keep the old admin for reference, remove later if not needed
 
     # Api Documetation
-    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # Redoc UI
+    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0) if schema_view else health_check, name='schema-swagger-ui'),  # Swagger UI
+    path('api/docs/swagger.json', schema_view.without_ui(cache_timeout=0) if schema_view else health_check, name='schema-json'),  # JSON schema
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0) if schema_view else health_check, name='schema-redoc'),  # Redoc UI
 
     # API Endpoints
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
