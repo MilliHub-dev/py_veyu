@@ -80,15 +80,7 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
 
 # CORS settings for Render deployment
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "https://veyu-backend.onrender.com",
-    "https://veyu-h18m.onrender.com",
-    "https://dev.veyu.autos",
-    "https://veyu.autos",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True  # Temporarily allow all origins for development
 
 if CUSTOM_DOMAIN:
     CORS_ALLOWED_ORIGINS += [
