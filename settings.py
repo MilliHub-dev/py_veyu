@@ -299,7 +299,15 @@ SIMPLE_JWT = {
 
 
 # Override environment variables for CORS to ensure it works
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "https://www.veyu.autos",
+    "https://veyu.autos",
+    "https://dev.veyu.autos",
+]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
