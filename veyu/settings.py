@@ -525,6 +525,10 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
+# Mobile apps don't need CORS but we allow all origins for mobile compatibility
+# Mobile apps make direct HTTP requests without browser CORS restrictions
+# If you encounter mobile app issues, you can temporarily set CORS_ALLOW_ALL_ORIGINS = True
+
 # Force override environment variables for CSRF
 if 'CSRF_TRUSTED_ORIGINS' in os.environ:
     del os.environ['CSRF_TRUSTED_ORIGINS']
