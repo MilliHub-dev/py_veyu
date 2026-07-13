@@ -79,7 +79,13 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# CORS settings for Render deployment - Override environment variables
+# CORS settings for Render deployment - Force override environment variables
+# Remove any environment variable overrides
+if 'CORS_ALLOWED_ORIGINS' in os.environ:
+    del os.environ['CORS_ALLOWED_ORIGINS']
+if 'CORS_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CORS_TRUSTED_ORIGINS']
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -110,7 +116,10 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# CSRF trusted origins for Render deployment - Override environment variables
+# CSRF trusted origins for Render deployment - Force override environment variables
+if 'CSRF_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CSRF_TRUSTED_ORIGINS']
+
 CSRF_TRUSTED_ORIGINS = [
     'https://dev.veyu.autos',
     'https://veyu.autos',

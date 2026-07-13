@@ -298,7 +298,12 @@ SIMPLE_JWT = {
 # from corsheaders.conf import
 
 
-# Override environment variables for CORS to ensure it works
+# Force override environment variables for CORS to ensure it works
+if 'CORS_ALLOWED_ORIGINS' in os.environ:
+    del os.environ['CORS_ALLOWED_ORIGINS']
+if 'CORS_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CORS_TRUSTED_ORIGINS']
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -329,7 +334,10 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Override environment variables for CSRF
+# Force override environment variables for CSRF
+if 'CSRF_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CSRF_TRUSTED_ORIGINS']
+
 CSRF_TRUSTED_ORIGINS = [
     'https://dev.veyu.autos',
     'https://veyu.autos',
