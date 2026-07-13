@@ -57,10 +57,10 @@ urlpatterns = [
     path('admin/', veyu_admin.urls, name='admin'),
     # path('old-admin/', include(admin.site.urls)),  # Keep the old admin for reference, remove later if not needed
 
-    # Api Documetation - Temporarily disabled for debugging
-    # path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0) if schema_view else health_check, name='schema-swagger-ui'),  # Swagger UI
-    # path('api/docs/swagger.json', schema_view.without_ui(cache_timeout=0) if schema_view else health_check, name='schema-json'),  # JSON schema
-    # path('redoc/', schema_view.with_ui('redoc', cache_timeout=0) if schema_view else health_check, name='schema-redoc'),  # Redoc UI
+    # Api Documetation
+    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0) if schema_view else health_check, name='schema-swagger-ui'),  # Swagger UI
+    path('api/docs/swagger.json', schema_view.without_ui(cache_timeout=0) if schema_view else health_check, name='schema-json'),  # JSON schema
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0) if schema_view else health_check, name='schema-redoc'),  # Redoc UI
 
     # API Endpoints
     path('api/v1/accounts/', include('accounts.api.urls', namespace='accounts_api')),
