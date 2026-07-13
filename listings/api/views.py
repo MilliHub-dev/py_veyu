@@ -707,6 +707,10 @@ class MyListingsView(ListAPIView):
     ).distinct()
 
     def get_queryset(self):
+        # Handle swagger schema generation with fake view
+        if getattr(self, 'swagger_fake_view', False):
+            return Listing.objects.none()
+        
         # Only show listings belonging to the current user's dealership
         if hasattr(self.request.user, 'dealership_profile'):
             return Listing.objects.filter(vehicle__dealer=self.request.user.dealership_profile)
@@ -732,11 +736,15 @@ class MyListingsView(ListAPIView):
         }
 
         if 'recents' in scope:
-            # Optimize: Slice the queryset first to limit DB fetch, then serialize
-            recent_qs = qs.filter(viewers__in=[self.request.user,]).distinct().order_by('-id')[:6]
-            recents = self.serializer_class(
-                recent_qs,
-                many=True, context={'request': request}
+            # Handle swagger schema generation with fake view
+            if getattr(self, 'swagger_fake_view', False):
+                recents = []
+            else:
+                # Optimize: Slice the queryset first to limit DB fetch, then serialize
+                recent_qs = qs.filter(viewers__in=[self.request.user,]).distinct().order_by('-id')[:6]
+                recents = self.serializer_class(
+                    recent_qs,
+                    many=True, context={'request': request}
             ).data
             data['recents'] = recents
         if 'favorites' in scope:

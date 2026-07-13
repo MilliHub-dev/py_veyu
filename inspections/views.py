@@ -96,15 +96,17 @@ class VehicleInspectionListCreateView(generics.ListCreateAPIView):
             'status': 'pending_payment'
         }
         
-        user = self.request.user
-        
-        # Auto-assign roles based on user type
-        if getattr(user, 'user_type', None) == 'mechanic':
-            save_kwargs['inspector'] = user
-        elif hasattr(user, 'customer_profile'):
-            save_kwargs['customer'] = user.customer_profile
-        elif hasattr(user, 'dealership_profile'):
-            save_kwargs['dealer'] = user.dealership_profile
+        # Handle swagger schema generation with fake view
+        if not getattr(self, 'swagger_fake_view', False):
+            user = self.request.user
+            
+            # Auto-assign roles based on user type
+            if getattr(user, 'user_type', None) == 'mechanic':
+                save_kwargs['inspector'] = user
+            elif hasattr(user, 'customer_profile'):
+                save_kwargs['customer'] = user.customer_profile
+            elif hasattr(user, 'dealership_profile'):
+                save_kwargs['dealer'] = user.dealership_profile
             
         serializer.save(**save_kwargs)
 

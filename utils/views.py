@@ -289,6 +289,9 @@ def system_health_check(request):
 class StaffRequiredMixin(UserPassesTestMixin):
     """Mixin to require staff access"""
     def test_func(self):
+        # Handle swagger schema generation with fake view
+        if getattr(self, 'swagger_fake_view', False):
+            return True
         return self.request.user.is_staff
 
 class LogListView(LoginRequiredMixin, StaffRequiredMixin, ListView):

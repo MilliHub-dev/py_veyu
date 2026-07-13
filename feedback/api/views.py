@@ -337,6 +337,10 @@ class ReviewViewSet(ModelViewSet):
         if object_type:
             queryset = queryset.filter(object_type=object_type)
             
+        # Handle swagger schema generation with fake view
+        if getattr(self, 'swagger_fake_view', False):
+            return queryset.none()
+        
         # If no specific filter is provided, return only the user's reviews
         if not related_object and not object_type:
              return queryset.filter(reviewer=self.request.user)
