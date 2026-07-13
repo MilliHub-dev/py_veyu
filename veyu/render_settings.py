@@ -81,14 +81,23 @@ if not DEBUG:
 
 # CORS settings for Render deployment
 CORS_ALLOW_ALL_ORIGINS = True  # Temporarily allow all origins for development
+CORS_ALLOW_CREDENTIALS = True
+
+# CSRF trusted origins for Render deployment
+CSRF_TRUSTED_ORIGINS = [
+    'https://dev.veyu.autos',
+    'https://veyu.autos',
+    'https://www.veyu.autos',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8000',
+]
 
 if CUSTOM_DOMAIN:
-    CORS_ALLOWED_ORIGINS += [
+    CSRF_TRUSTED_ORIGINS += [
         f"https://{CUSTOM_DOMAIN}",
         f"https://www.{CUSTOM_DOMAIN}",
     ]
-
-CORS_ALLOW_CREDENTIALS = True
 
 # Logging configuration optimized for Render
 LOGGING = {

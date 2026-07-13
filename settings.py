@@ -299,6 +299,16 @@ SIMPLE_JWT = {
 
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://dev.veyu.autos',
+    'https://veyu.autos',
+    'https://www.veyu.autos',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8000',
+]
 
 
 # EMAIL
