@@ -45,6 +45,7 @@ class SimpleLocationSerializer(ModelSerializer):
         from accounts.models import Location
         model = Location
         fields = ['country', 'state', 'city', 'address', 'zip_code', 'lat', 'lng', 'full_address']
+        ref_name = 'ListingsSimpleLocation'
 
 
 class DealerSerializer(ModelSerializer):

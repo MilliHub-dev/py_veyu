@@ -260,6 +260,7 @@ class SimpleLocationSerializer(ModelSerializer):
     class Meta:
         model = Location
         fields = ['country', 'state', 'city', 'address', 'zip_code', 'lat', 'lng', 'full_address']
+        ref_name = 'AccountsSimpleLocation'
 
 
 class MechanicSerializer(ModelSerializer):
