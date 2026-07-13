@@ -486,18 +486,60 @@ JWT_BLACKLIST_TIMEOUT = int(timedelta(days=7).total_seconds())  # Keep blacklist
 
 # from corsheaders.conf import
 
+# Force override environment variables for CORS to ensure it works
+if 'CORS_ALLOWED_ORIGINS' in os.environ:
+    del os.environ['CORS_ALLOWED_ORIGINS']
+if 'CORS_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CORS_TRUSTED_ORIGINS']
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    "https://dev.veyu.cc",
-    "https://veyu.cc",
-    "https://www.veyu.cc",
-    "https://veyu.up.railway.app",
     "http://localhost:5173",
     "http://localhost:3000",
+    "http://localhost:8000",
+    "https://www.veyu.autos",
+    "https://veyu.autos",
+    "https://dev.veyu.autos",
+    "https://veyu.up.railway.app",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Force override environment variables for CSRF
+if 'CSRF_TRUSTED_ORIGINS' in os.environ:
+    del os.environ['CSRF_TRUSTED_ORIGINS']
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://dev.veyu.autos',
+    'https://veyu.autos',
+    'https://www.veyu.autos',
+    'https://dev.veyu.cc',
+    'https://veyu.cc',
+    'https://www.veyu.cc',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8000',
+]
 
 
 # ===============================================
