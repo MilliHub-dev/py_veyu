@@ -298,6 +298,7 @@ SIMPLE_JWT = {
 # from corsheaders.conf import
 
 
+# Override environment variables for CORS to ensure it works
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -320,6 +321,7 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
+# Override environment variables for CSRF
 CSRF_TRUSTED_ORIGINS = [
     'https://dev.veyu.autos',
     'https://veyu.autos',

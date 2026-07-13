@@ -79,11 +79,30 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# CORS settings for Render deployment
+# CORS settings for Render deployment - Override environment variables
 CORS_ALLOW_ALL_ORIGINS = True  # Temporarily allow all origins for development
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
-# CSRF trusted origins for Render deployment
+# CSRF trusted origins for Render deployment - Override environment variables
 CSRF_TRUSTED_ORIGINS = [
     'https://dev.veyu.autos',
     'https://veyu.autos',
