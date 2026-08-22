@@ -248,12 +248,28 @@ def get_optimized_listing_response(view, request, queryset):
     Helper to optimize listing responses with annotations, 
     select_related, and batch review fetching.
     """
+    from django.db.models import Prefetch
+    from feedback.models import Review
+
+    # ReviewSerializer renders each reviewer's name and profile image, so pull
+    # the reviewer and the three possible profile types along with the reviews.
+    review_qs = Review.objects.select_related(
+        'reviewer',
+        'reviewer__customer_profile',
+        'reviewer__dealership_profile',
+        'reviewer__mechanic_profile',
+    ).prefetch_related('rating_items')
+
     # 1. Annotate and select related objects for all items in queryset
     queryset = queryset.annotate(
         total_views_count=Count('viewers')
     ).select_related(
         'vehicle__dealer__user',
         'vehicle__dealer__location'
+    ).prefetch_related(
+        # DealerSerializer serialises the dealer's reviews inline; without this
+        # each listing re-queried them (plus their ratings) individually.
+        Prefetch('vehicle__dealer__reviews', queryset=review_qs),
     )
     
     # 2. Paginate the optimized queryset
@@ -263,11 +279,10 @@ def get_optimized_listing_response(view, request, queryset):
     
     # 3. Batch fetch reviews for the current page (N+1 fix)
     vehicle_uuids = [listing.uuid for listing in paginated_qs]
-    from feedback.models import Review
-    reviews = Review.objects.filter(
+    reviews = review_qs.filter(
         object_type='vehicle',
         related_object__in=vehicle_uuids
-    ).prefetch_related('rating_items')
+    )
     
     reviews_by_vehicle = {}
     for review in reviews:
@@ -275,9 +290,55 @@ def get_optimized_listing_response(view, request, queryset):
         if v_uuid not in reviews_by_vehicle:
             reviews_by_vehicle[v_uuid] = []
         reviews_by_vehicle[v_uuid].append(review)
-        
+
+    # 3b. Batch the dealer rating for the page in one query.
+    # Dealership.rating() otherwise runs its own queries per listing, and the
+    # same dealer repeats across listings.
+    dealer_uuids = []
+    for listing in paginated_qs:
+        dealer = getattr(getattr(listing, 'vehicle', None), 'dealer', None)
+        if dealer is not None:
+            dealer_uuids.append(dealer.uuid)
+
+    dealer_scores = {}
+    if dealer_uuids:
+        dealer_reviews = Review.objects.filter(
+            object_type='dealer',
+            related_object__in=dealer_uuids,
+        ).prefetch_related('rating_items')
+        for review in dealer_reviews:
+            dealer_scores.setdefault(str(review.related_object), []).append(
+                review.avg_rating
+            )
+
+    # Every dealer on this page is covered, so a missing key means "no reviews".
+    dealer_ratings = {
+        d_uuid: round(sum(scores) / len(scores), 1) if scores else 0.0
+        for d_uuid, scores in dealer_scores.items()
+    }
+
+    # 3c. Batch the rental trip counts. VehicleSerializer.trips otherwise calls
+    # obj.rentals.count() once per listing. Counting here rather than annotating
+    # the listing queryset keeps it away from the Count('viewers') annotation,
+    # which would inflate both counts by joining two multi-valued relations.
+    vehicle_ids = [
+        listing.vehicle_id for listing in paginated_qs if listing.vehicle_id
+    ]
+    vehicle_trips = {}
+    if vehicle_ids:
+        vehicle_trips = dict(
+            Vehicle.objects.filter(id__in=vehicle_ids)
+            .annotate(trips_count=Count('rentals'))
+            .values_list('id', 'trips_count')
+        )
+
     # 4. Serialize with context
-    context = {'request': request, 'vehicle_reviews': reviews_by_vehicle}
+    context = {
+        'request': request,
+        'vehicle_reviews': reviews_by_vehicle,
+        'dealer_ratings': dealer_ratings,
+        'vehicle_trips': vehicle_trips,
+    }
     serializer = view.serializer_class(paginated_qs, many=True, context=context)
 
     # 5. Return standardized response

@@ -53,6 +53,7 @@ class DealerSerializer(ModelSerializer):
     logo = SerializerMethodField()
     reviews = ReviewSerializer(many=True)
     owner = SerializerMethodField()
+    rating = SerializerMethodField()
     services = serializers.ListField(read_only=True)  # Read-only property from model
     extended_services = serializers.JSONField(read_only=True)
 
@@ -97,6 +98,17 @@ class DealerSerializer(ModelSerializer):
             'name': user.name,
             'phone_number': obj.phone_number,
         }
+
+    def get_rating(self, obj):
+        """
+        Prefers the rating batched by the listing view. That batch covers every
+        dealer on the page, so a missing entry means the dealer has no reviews.
+        Falls back to the model for callers that don't supply the context.
+        """
+        dealer_ratings = self.context.get('dealer_ratings')
+        if dealer_ratings is not None:
+            return dealer_ratings.get(str(obj.uuid), 0.0)
+        return obj.rating()
 
 
 
@@ -173,6 +185,13 @@ class VehicleSerializer(serializers.ModelSerializer):
         return obj.get_condition_display()
 
     def get_trips(self, obj):
+        """
+        Prefers the per-page trip counts batched by the listing view; falls back
+        to the model for callers that don't supply the context.
+        """
+        vehicle_trips = self.context.get('vehicle_trips')
+        if vehicle_trips is not None:
+            return vehicle_trips.get(obj.id, 0)
         return obj.trips()
 
     def get_transmission(self, obj):

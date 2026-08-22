@@ -716,13 +716,26 @@ class Mechanic(UserProfile):
     
     @property
     def average_rating(self):
-        """Returns the average rating from reviews"""
+        """
+        Returns the average rating from reviews.
+
+        Loads reviews and their ratings in two queries (was 2 + 5 per review)
+        and memoises the result for the life of the instance.
+        """
+        cached = getattr(self, '_average_rating_cache', None)
+        if cached is not None:
+            return cached
+
         from feedback.models import Review
-        reviews = Review.objects.filter(object_type='mechanic', related_object=self.uuid)
-        if not reviews.exists():
-            return 0.0
-        total_rating = sum(review.avg_rating for review in reviews)
-        return round(total_rating / reviews.count(), 1)
+        reviews = Review.objects.filter(
+            object_type='mechanic', related_object=self.uuid
+        ).prefetch_related('rating_items')
+
+        # Unrated reviews still count toward the denominator, as before.
+        scores = [review.avg_rating for review in reviews]
+        value = round(sum(scores) / len(scores), 1) if scores else 0.0
+        self._average_rating_cache = value
+        return value
     
     @property
     def availability_status(self):
@@ -991,13 +1004,27 @@ class Dealership(UserProfile):
         ordering = ['-date_created']
 
     def rating(self):
+        """
+        Average of this dealership's review scores.
+
+        Loads reviews and their ratings in two queries (was 2 + 5 per review)
+        and memoises the result. Listing endpoints bypass this entirely by
+        injecting a batched value through the serializer context.
+        """
+        cached = getattr(self, '_rating_cache', None)
+        if cached is not None:
+            return cached
+
         from feedback.models import Review
-        reviews = Review.objects.filter(object_type='dealer', related_object=self.uuid)
-        if not reviews.exists():
-            return 0.0
-        
-        avg = sum(review.avg_rating for review in reviews)
-        return round(avg / reviews.count(), 1)
+        reviews = Review.objects.filter(
+            object_type='dealer', related_object=self.uuid
+        ).prefetch_related('rating_items')
+
+        # Unrated reviews still count toward the denominator, as before.
+        scores = [review.avg_rating for review in reviews]
+        value = round(sum(scores) / len(scores), 1) if scores else 0.0
+        self._rating_cache = value
+        return value
     
     @property
     def business_verification_status(self):

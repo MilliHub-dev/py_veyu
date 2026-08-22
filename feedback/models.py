@@ -55,6 +55,14 @@ class Review(DbModel):
     related_object = models.UUIDField(blank=True, null=True) # e.g related dealership
     related_order = models.UUIDField(blank=True, null=True) # for order/booking
 
+    RATING_AREAS = (
+        'communication',
+        'support',
+        'service-delivery',
+        'car-quality',
+        'car-cleanliness',
+    )
+
     @property
     def avg_rating(self):
         ratings = self.get_ratings()
@@ -66,18 +74,34 @@ class Review(DbModel):
 
 
     def get_ratings(self):
-        keys = [
-            'communication',
-            'support',
-            'service-delivery',
-            'car-quality',
-            'car-cleanliness',
-        ]
+        """
+        Returns {area: stars} for the known rating areas.
+
+        Reads rating_items in a single pass so this costs one query -- or zero
+        when the caller has prefetched 'rating_items'. Previously this issued
+        one query per area (5 per review), and avg_rating/serializers call it
+        repeatedly, so the result is memoised on the instance for the life of
+        the request.
+        """
+        cached = getattr(self, '_ratings_cache', None)
+        if cached:
+            return cached
+
+        allowed = set(self.RATING_AREAS)
         categories = {}
-        for key in keys:
-            rating = self.rating_items.filter(area=key).first()
-            if rating:
-                categories[key] = rating.stars
+        # .all() hits the prefetch cache when one exists; unique_together on
+        # (reviewId, area) guarantees at most one Rating per area.
+        for rating in self.rating_items.all():
+            if rating.area in allowed:
+                categories[rating.area] = rating.stars
+
+        # Deliberately only cache a non-empty result. __str__ reads avg_rating,
+        # so a review that gets logged between Review.objects.create() and its
+        # Rating rows being written would otherwise cache {} and report no
+        # ratings for the rest of the request. Re-reading an unrated review
+        # costs one query, which is what it cost before any caching.
+        if categories:
+            self._ratings_cache = categories
         return categories
     
     def __str__(self):
