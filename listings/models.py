@@ -6,6 +6,28 @@ from django.utils.timezone import now
 from django.db.models import Q
 from cloudinary.models import CloudinaryField
 
+
+def video_storage():
+    """
+    Storage backend for vehicle videos.
+
+    The project's DEFAULT_FILE_STORAGE is MediaCloudinaryStorage, which uploads
+    every file with resource_type='image'. Cloudinary rejects an mp4 sent as an
+    image, so saving a Vehicle with a video raised and the dealer saw a generic
+    error. Videos must go through VideoMediaCloudinaryStorage instead.
+
+    Falls back to the default storage when Cloudinary is not configured (local
+    development), matching how DEFAULT_FILE_STORAGE degrades.
+    """
+    from django.conf import settings
+
+    if getattr(settings, 'CLOUDINARY_URL', None):
+        from cloudinary_storage.storage import VideoMediaCloudinaryStorage
+        return VideoMediaCloudinaryStorage()
+
+    from django.core.files.storage import default_storage
+    return default_storage
+
 PAYMENT_CYCLES = [
     ('single', 'One Time / Single Payment'),
     ('day', 'Daily Payments'),
@@ -90,7 +112,7 @@ class Vehicle(DbModel):
     available = models.BooleanField(default=True)
 
     images = models.ManyToManyField(VehicleImage, blank=True, related_name='vehicle_gallery')
-    video = models.FileField(upload_to='vehicles/videos/', blank=True, null=True)
+    video = models.FileField(upload_to='vehicles/videos/', storage=video_storage, blank=True, null=True)
     tags = ArrayField(blank=True, null=True, data_type=str, default=list)
     features = ArrayField(blank=True, null=True, data_type=str, default=list)
     custom_duty = models.BooleanField(default=False)

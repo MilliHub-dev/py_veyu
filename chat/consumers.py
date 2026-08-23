@@ -79,7 +79,7 @@ class SupportLiveChatConsumer(WebsocketConsumer):
 
 class LiveChatConsumer(JsonWebsocketConsumer):
     def connect(self):
-        print(f"connecting {self.scope['user']}")
+        self.room = None
         self.room_name = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chat_{self.room_name}"
 
@@ -98,21 +98,16 @@ class LiveChatConsumer(JsonWebsocketConsumer):
         self.get_chat_room()
 
     def get_chat_room(self):
-        created = False
         user = self.scope['user']
-        query_string = self.scope.get("query_string", b"").decode()
-        query_params = parse_qs(query_string)
-
-        # Extract the value of arg_1 (it will be a list, so you may need to access the first item)
-        arg_1 = query_params.get("arg_1", [None])[0]
 
         try:
             room = ChatRoom.objects.get(uuid=self.room_name)
             self.room = room
             self.scope['chat_room'] = self.room
-            print("Got Rooms", room)
         except ChatRoom.DoesNotExist:
-            pass
+            # Leave self.room as None so receive_json can reject cleanly instead
+            # of raising AttributeError and killing the connection.
+            self.room = None
 
     def disconnect(self, close_code):
         # Leave room group
@@ -123,53 +118,71 @@ class LiveChatConsumer(JsonWebsocketConsumer):
     # Receive message from WebSocket
     def receive_json(self, content):
         user = self.scope['user']
-        print("Request User:", self.scope['user'])
 
-        if user in self.room.members.all():
-            message = ChatMessage(
-                message_type='user',
-                text=content['message'],
-                room=self.room,
-                sender=self.scope['user']
-            )
-            message.save()
-            self.room.messages.add(message,)
-            self.room.save()
+        if self.room is None:
+            self.send_json({"error": "Chat room not found."})
+            return
 
-            data = ChatMessageSerializer(message).data
-            async_to_sync(self.channel_layer.group_send)(
-                self.room_group_name,
-                {"type": "chat.message", "data": data}
-            )
+        text = (content or {}).get('message')
+        if not text:
+            self.send_json({"error": "A 'message' field is required."})
+            return
 
-            # Send Push Notification to offline members
-            recipients = self.room.members.exclude(id=user.id)
-            for recipient in recipients:
-                try:
-                    create_and_send_user_notifications(
-                        user=recipient,
-                        subject="New message",
-                        message=f"{user.name or user.email}: {message.text}",
-                        level="info",
-                        cta_link=f"/chat/{self.room.uuid}",
-                    )
+        if not user or not user.is_authenticated:
+            # ApiTokenAuthMiddleware attaches AnonymousUser when the token is
+            # missing or not an Account.api_token. Say so rather than dropping
+            # the message on the floor.
+            self.send_json({"error": "Authentication required."})
+            return
 
-                    if recipient.user_type == 'dealer':
-                        try:
-                            send_simple_email(
-                                subject="New chat message on Veyu",
-                                recipients=[recipient.email],
-                                template_name="chat_new_message.html",
-                                context={
-                                    "user_name": recipient.first_name or recipient.email,
-                                    "sender_name": user.name or user.email,
-                                    "message_preview": message.text[:200],
-                                },
-                            )
-                        except Exception as e:
-                            print(f"Error sending email to dealer: {e}")
-                except Exception as e:
-                    print(f"Error sending push notification: {e}")
+        if user not in self.room.members.all():
+            self.send_json({"error": "You are not a member of this chat room."})
+            return
+
+        message = ChatMessage(
+            message_type='user',
+            text=text,
+            room=self.room,
+            sender=self.scope['user']
+        )
+        message.save()
+        self.room.messages.add(message,)
+        self.room.save()
+
+        data = ChatMessageSerializer(message).data
+        async_to_sync(self.channel_layer.group_send)(
+            self.room_group_name,
+            {"type": "chat.message", "data": data}
+        )
+
+        # Send Push Notification to offline members
+        recipients = self.room.members.exclude(id=user.id)
+        for recipient in recipients:
+            try:
+                create_and_send_user_notifications(
+                    user=recipient,
+                    subject="New message",
+                    message=f"{user.name or user.email}: {message.text}",
+                    level="info",
+                    cta_link=f"/chat/{self.room.uuid}",
+                )
+
+                if recipient.user_type == 'dealer':
+                    try:
+                        send_simple_email(
+                            subject="New chat message on Veyu",
+                            recipients=[recipient.email],
+                            template_name="chat_new_message.html",
+                            context={
+                                "user_name": recipient.first_name or recipient.email,
+                                "sender_name": user.name or user.email,
+                                "message_preview": message.text[:200],
+                            },
+                        )
+                    except Exception as e:
+                        print(f"Error sending email to dealer: {e}")
+            except Exception as e:
+                print(f"Error sending push notification: {e}")
 
     # Receive message from room group
     def chat_message(self, event):

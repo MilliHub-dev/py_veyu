@@ -22,7 +22,7 @@ cffi==1.17.1
 
 # Database
 dj-database-url==2.2.0
-psycopg2-binary==2.9.9  # Required for production (PostgreSQL). If this fails locally on Python 3.14 on macOS, ignore it since you are using SQLite.
+psycopg2-binary==2.9.12  # PostgreSQL driver. 2.9.9 had no Python 3.14 wheel, so pip fell back to a source build and failed on 'pg_config not found'. 2.9.12 ships cp314 wheels.
 
 # Authentication & Authorization
 dj-rest-auth==6.0.0

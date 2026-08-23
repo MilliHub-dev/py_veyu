@@ -2,6 +2,7 @@ from django.shortcuts import redirect, resolve_url
 from rest_framework.response import Response
 from django.db.models import Q
 import logging
+import os
 from utils import (
     OffsetPaginator,
     IsAgentOrStaff,
@@ -93,6 +94,11 @@ from utils import (
 from utils.dispatch import (on_listing_created, )
 
 logger = logging.getLogger(__name__)
+
+# Matches the 50MB limit advertised in the dealer upload form on the web.
+MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024
+ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.m4v', '.webm', '.avi', '.mkv'}
+
 User = get_user_model()
 # Dealership Views
 
@@ -937,9 +943,38 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
                 video_file = request.FILES.get('video')
                 if not video_file:
                     return Response({'error': True, 'message': 'No video file provided'}, status=400)
-                
-                vehicle.video = video_file
-                vehicle.save()
+
+                content_type = (getattr(video_file, 'content_type', '') or '').lower()
+                extension = os.path.splitext(video_file.name)[1].lower()
+                if not content_type.startswith('video/') and extension not in ALLOWED_VIDEO_EXTENSIONS:
+                    return Response({
+                        'error': True,
+                        'message': (
+                            f"'{video_file.name}' is not a supported video. "
+                            f"Allowed formats: {', '.join(sorted(ALLOWED_VIDEO_EXTENSIONS))}."
+                        ),
+                    }, status=400)
+
+                if video_file.size > MAX_VIDEO_UPLOAD_BYTES:
+                    limit_mb = MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024)
+                    return Response({
+                        'error': True,
+                        'message': (
+                            f"Video is {video_file.size / (1024 * 1024):.1f}MB. "
+                            f"The maximum is {limit_mb}MB."
+                        ),
+                    }, status=400)
+
+                try:
+                    vehicle.video = video_file
+                    vehicle.save()
+                except Exception as upload_error:
+                    logger.exception("Video upload failed for vehicle %s", vehicle.pk)
+                    return Response({
+                        'error': True,
+                        'message': f"Could not store the video: {upload_error}",
+                    }, status=502)
+
                 message = "Video uploaded successfully"
             elif action == 'remove-image':
                 image = vehicle.images.get(uuid=data['image_id'])
@@ -956,8 +991,8 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
             }
             return Response(data, 200)
         except Exception as error:
-            raise error
-            return Response({'error': True, 'message': str(error)}, 500)
+            logger.exception("Listing action '%s' failed", locals().get('action', 'unknown'))
+            return Response({'error': True, 'message': str(error)}, status=500)
 
     # for delete
     @swagger_auto_schema(

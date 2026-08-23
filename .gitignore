@@ -40,12 +40,9 @@ olddb.sqlite3
 /uploads/
 
 # Environment Variables
-.env
-.env.local
 .env.*.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -96,3 +93,5 @@ vercel_app.py
 
 # Artifacts
 artifacts/
+config.bat
+node_modules
